@@ -182,6 +182,26 @@ func (t Seq[T]) Join(seqs ...Seq[T]) Seq[T] {
     }
 }
 
+// Add 添加单个元素
+func (t Seq[T]) Add(ts ...T) Seq[T] {
+    return func(c func(T)) {
+        t(func(t T) { c(t) })
+        for _, e := range ts {
+            c(e)
+        }
+    }
+}
+
+// AddF 添加单个元素
+func (t Seq[T]) AddF(cast func(any) T, ts ...any) Seq[T] {
+    return func(c func(T)) {
+        t(func(t T) { c(t) })
+        for _, e := range ts {
+            c(cast(e))
+        }
+    }
+}
+
 // JoinF 合并Seq
 func (t Seq[T]) JoinF(seq Seq[any], cast func(any) T) Seq[T] {
     return func(c func(T)) {

@@ -166,6 +166,25 @@ func (t BiSeq[K, V]) JoinF(seq BiSeq[any, any], cast func(any, any) (K, V)) BiSe
     }
 }
 
+// Add 添加元素
+func (t BiSeq[K, V]) Add(k K, v V) BiSeq[K, V] {
+    return func(c func(K, V)) {
+        t(func(k K, v V) { c(k, v) })
+        c(k, v)
+    }
+}
+
+// AddF 添加元素
+func (t BiSeq[K, V]) AddF(cast func(any, any) (K, V), es ...any) BiSeq[K, V] {
+    if len(es)%2 != 0 {
+        panic("添加的元素个数必须为偶数")
+    }
+    return func(c func(K, V)) {
+        t(func(k K, v V) { c(k, v) })
+        FromIntSeq(0, len(es), 2).ForEach(func(i int) { c(cast(es[i], es[i+1])) })
+    }
+}
+
 //======HOOK========
 
 // OnEach 每个元素执行f
