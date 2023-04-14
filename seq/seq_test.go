@@ -1,6 +1,9 @@
 package seq
 
 import (
+    "fmt"
+    "math/rand"
+    "strconv"
     "testing"
     "time"
 )
@@ -113,6 +116,10 @@ func TestCache(t *testing.T) {
     seq := From(func(f func(i int)) {
         d++
         for i := 0; i < 1000; i++ {
+            //懒加载,可中断,所以不会执行到100以上
+            if i > 100 {
+                t.Fail()
+            }
             f(i)
         }
     })
@@ -170,6 +177,28 @@ func TestCache(t *testing.T) {
         }
     }
     if d != 3 {
+        t.Fail()
+    }
+}
+
+func TestRand(t *testing.T) {
+    slice := From(func(f func(i int)) {
+        for {
+            f(rand.Int())
+        }
+    }).OnEach(func(i int) {
+        fmt.Println("", i)
+    }).Filter(func(i int) bool {
+        return i%2 == 0
+    }).Drop(10).Take(5).ToSlice()
+    if len(slice) != 5 {
+        t.Fail()
+    }
+    fmt.Println(slice)
+    //结果 "10,9,8 ... 3,2,1"
+    if "10,9,8,7,6,5,4,3,2,1" != FromSlice([]int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}).Sort(func(i, j int) bool {
+        return i > j
+    }).JoinString(strconv.Itoa, ",") {
         t.Fail()
     }
 }

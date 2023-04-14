@@ -89,14 +89,39 @@ func UnitRepeat[T any](e T, limit ...int) Seq[T] {
     }
 }
 
-// MapAny 从any类型的Seq转换为T类型的Seq,强制转换
-func MapAny[T any](seq Seq[any]) Seq[T] {
+// CastAny 从any类型的Seq转换为T类型的Seq,强制转换
+func CastAny[T any](seq Seq[any]) Seq[T] {
     return func(c func(T)) { seq(func(t any) { c((t).(T)) }) }
 }
 
 // Map 每个元素自定义转换
 func Map[T, E any](seq Seq[T], cast func(T) E) Seq[E] {
     return func(c func(E)) { seq(func(t T) { c(cast(t)) }) }
+}
+
+// Join 合并多个Seq
+func Join[T any](seqs ...Seq[T]) Seq[T] {
+    return func(c func(T)) {
+        for _, seq := range seqs {
+            seq(func(t T) { c(t) })
+        }
+    }
+}
+
+// JoinL 合并2个不同Seq,右边转换为左边的类型
+func JoinL[T, E any](seq1 Seq[T], seq2 Seq[E], cast func(E) T) Seq[T] {
+    return func(c func(T)) {
+        seq1(func(t T) { c(t) })
+        seq2(func(t E) { c(cast(t)) })
+    }
+}
+
+// JoinF 合并2个不同Seq,统一转换为新类型
+func JoinF[T, E, R any](seq1 Seq[T], cast1 func(T) R, seq2 Seq[E], cast2 func(E) R) Seq[R] {
+    return func(c func(R)) {
+        seq1(func(t T) { c(cast1(t)) })
+        seq2(func(t E) { c(cast2(t)) })
+    }
 }
 
 //======转换========
@@ -121,9 +146,47 @@ func (t Seq[T]) MapString(f func(T) string) Seq[string] {
     return func(c func(string)) { t(func(t T) { c(f(t)) }) }
 }
 
+// MapBiInt 每个元素获取一个int,并转换为BiSeq
+func (t Seq[T]) MapBiInt(f func(T) int) BiSeq[int, T] {
+    return BiFrom(func(f1 func(int, T)) { t(func(t T) { f1(f(t), t) }) })
+}
+
+// MapBiString 每个元素获取一个String,并转换为BiSeq
+func (t Seq[T]) MapBiString(f func(T) string) BiSeq[string, T] {
+    return BiFrom(func(f1 func(string, T)) { t(func(t T) { f1(f(t), t) }) })
+}
+
 // MapInt 每个元素转换为int
 func (t Seq[T]) MapInt(f func(T) int) Seq[int] {
     return func(c func(int)) { t(func(t T) { c(f(t)) }) }
+}
+
+// MapFloat32 每个元素转换为float32
+func (t Seq[T]) MapFloat32(f func(T) float32) Seq[float32] {
+    return func(c func(float32)) { t(func(t T) { c(f(t)) }) }
+}
+
+// MapFloat64 每个元素转换为float64
+func (t Seq[T]) MapFloat64(f func(T) float64) Seq[float64] {
+    return func(c func(float64)) { t(func(t T) { c(f(t)) }) }
+}
+
+// Join 合并多个Seq
+func (t Seq[T]) Join(seqs ...Seq[T]) Seq[T] {
+    return func(c func(T)) {
+        t(func(t T) { c(t) })
+        for _, seq := range seqs {
+            seq(func(t T) { c(t) })
+        }
+    }
+}
+
+// JoinF 合并Seq
+func (t Seq[T]) JoinF(seq Seq[any], cast func(any) T) Seq[T] {
+    return func(c func(T)) {
+        t(func(t T) { c(t) })
+        seq(func(t any) { c(cast(t)) })
+    }
 }
 
 //======HOOK========
@@ -156,6 +219,35 @@ func (t Seq[T]) Parallel() Seq[T] {
         })
 
     }
+}
+
+// Sort 排序
+func (t Seq[T]) Sort(less func(T, T) bool) Seq[T] {
+    var r []T
+    t(func(t T) { r = append(r, t) })
+    sort.Slice(r, func(i, j int) bool { return less(r[i], r[j]) })
+    return FromSlice(r)
+}
+
+// Distinct 去重
+func (t Seq[T]) Distinct(eq func(T, T) bool) Seq[T] {
+    var r []T
+    t(func(t T) {
+        for _, v := range r {
+            if eq(t, v) {
+                return
+            }
+        }
+        r = append(r, t)
+    })
+    return FromSlice(r)
+}
+
+// Cache 缓存Seq,使该Seq可以多次重复消费,并保证前面内容不会重复执行
+func (t Seq[T]) Cache() Seq[T] {
+    var r []T
+    t(func(t T) { r = append(r, t) })
+    return FromSlice(r)
 }
 
 //======消费========
@@ -247,40 +339,11 @@ func (t Seq[T]) Reduce(f func(T, any) any, init any) any {
     return init
 }
 
-// Sort 排序
-func (t Seq[T]) Sort(less func(T, T) bool) Seq[T] {
-    var r []T
-    t(func(t T) { r = append(r, t) })
-    sort.Slice(r, func(i, j int) bool { return less(r[i], r[j]) })
-    return FromSlice(r)
-}
-
-// Distinct 去重
-func (t Seq[T]) Distinct(eq func(T, T) bool) any {
-    var r []T
-    t(func(t T) {
-        for _, v := range r {
-            if eq(t, v) {
-                return
-            }
-        }
-        r = append(r, t)
-    })
-    return FromSlice(r)
-}
-
 // ToSlice 转换为切片
 func (t Seq[T]) ToSlice() []T {
     var r []T
     t(func(t T) { r = append(r, t) })
     return r
-}
-
-// Cache 缓存Seq,使该Seq可以多次重复消费,并保证前面内容不会重复执行
-func (t Seq[T]) Cache() Seq[T] {
-    var r []T
-    t(func(t T) { r = append(r, t) })
-    return FromSlice(r)
 }
 
 // Complete 消费所有元素

@@ -1,6 +1,7 @@
 package seq
 
 import (
+    "sort"
     "strings"
     "sync"
 )
@@ -50,8 +51,8 @@ func BiUnitRepeat[K, V any](k K, v V, limit ...int) BiSeq[K, V] {
     }
 }
 
-// BiMapAny 从BiSeq[any,any]强制转换为BiSeq[K,V]
-func BiMapAny[K, V any](seq BiSeq[any, any]) BiSeq[K, V] {
+// BiCastAny 从BiSeq[any,any]强制转换为BiSeq[K,V]
+func BiCastAny[K, V any](seq BiSeq[any, any]) BiSeq[K, V] {
     return func(c func(K, V)) { seq(func(t, x any) { c(t.(K), x.(V)) }) }
 }
 
@@ -60,19 +61,44 @@ func BiMap[K, V, RK, RV any](seq BiSeq[K, V], cast func(K, V) (RK, RV)) BiSeq[RK
     return func(c func(RK, RV)) { seq(func(k K, v V) { c(cast(k, v)) }) }
 }
 
+// BiJoin 合并多个Seq
+func BiJoin[K, V any](seqs ...BiSeq[K, V]) BiSeq[K, V] {
+    return func(c func(K, V)) {
+        for _, seq := range seqs {
+            seq(func(k K, v V) { c(k, v) })
+        }
+    }
+}
+
+// BiJoinL 合并2个不同Seq,右边转换为左边的类型
+func BiJoinL[K, V, K1, V1 any](seq1 BiSeq[K, V], seq2 BiSeq[K1, V1], cast func(K1, V1) (K, V)) BiSeq[K, V] {
+    return func(c func(K, V)) {
+        seq1(func(k K, v V) { c(k, v) })
+        seq2(func(k K1, v V1) { c(cast(k, v)) })
+    }
+}
+
+// BiJoinF 合并2个不同Seq,统一转换为新类型
+func BiJoinF[K1, V1, K2, V2, K, V any](seq1 BiSeq[K1, V1], cast1 func(K1, V1) (K, V), seq2 BiSeq[K2, V2], cast2 func(K2, V2) (K, V), ) BiSeq[K, V] {
+    return func(c func(K, V)) {
+        seq1(func(k K1, v V1) { c(cast1(k, v)) })
+        seq2(func(k K2, v V2) { c(cast2(k, v)) })
+    }
+}
+
 //======转换========
 
-// Map 每个元素自定义转换为any,用于连续转换操作,使用 BiMapAny 进行恢复泛型
+// Map 每个元素自定义转换为any,用于连续转换操作,使用 BiCastAny 进行恢复泛型
 func (t BiSeq[K, V]) Map(f func(K, V) (any, any)) BiSeq[any, any] {
     return func(c func(any, any)) { t(func(k K, v V) { c(f(k, v)) }) }
 }
 
-// KMap 每个元素自定义转换K为any,用于连续转换操作,使用 BiMapAny 进行恢复泛型
+// KMap 每个元素自定义转换K为any,用于连续转换操作,使用 BiCastAny 进行恢复泛型
 func (t BiSeq[K, V]) KMap(f func(K, V) any) BiSeq[any, V] {
     return func(c func(any, V)) { t(func(k K, v V) { c(f(k, v), v) }) }
 }
 
-// VMap 每个元素自定义转换V为any,用于连续转换操作,使用 BiMapAny 进行恢复泛型
+// VMap 每个元素自定义转换V为any,用于连续转换操作,使用 BiCastAny 进行恢复泛型
 func (t BiSeq[K, V]) VMap(f func(K, V) any) BiSeq[K, any] {
     return func(c func(K, any)) { t(func(k K, v V) { c(k, f(k, v)) }) }
 }
@@ -115,6 +141,24 @@ func (t BiSeq[K, V]) FlatMap(f func(K, V) BiSeq[any, any]) BiSeq[any, any] {
 // StringMap 转换为Seq[string]
 func (t BiSeq[K, V]) StringMap(f func(K, V) string) Seq[string] {
     return func(c func(string)) { t(func(k K, v V) { c(f(k, v)) }) }
+}
+
+// Join 合并多个Seq
+func (t BiSeq[K, V]) Join(seqs ...BiSeq[K, V]) BiSeq[K, V] {
+    return func(c func(K, V)) {
+        t(func(k K, v V) { c(k, v) })
+        for _, seq := range seqs {
+            seq(func(k K, v V) { c(k, v) })
+        }
+    }
+}
+
+// JoinF 合并Seq
+func (t BiSeq[K, V]) JoinF(seq BiSeq[any, any], cast func(any, any) (K, V)) BiSeq[K, V] {
+    return func(c func(K, V)) {
+        t(func(k K, v V) { c(k, v) })
+        seq(func(k any, v any) { c(cast(k, v)) })
+    }
 }
 
 //======HOOK========
@@ -200,6 +244,20 @@ func (t BiSeq[K, V]) FirstOrF(f func() (K, V)) (K, V) {
     return f()
 }
 
+// AnyMatch 任意匹配
+func (t BiSeq[K, V]) AnyMatch(f func(K, V) bool) bool {
+    r := false
+    t.Filter(f).Take(1)(func(K, V) { r = true })
+    return r
+}
+
+// AllMatch 全部匹配
+func (t BiSeq[K, V]) AllMatch(f func(K, V) bool) bool {
+    r := true
+    t.Filter(func(k K, v V) bool { return !f(k, v) }).Take(1)(func(K, V) { r = false })
+    return r
+}
+
 // Keys 获取所有K
 func (t BiSeq[K, V]) Keys() []K {
     var r []K
@@ -242,6 +300,102 @@ func (t BiSeq[K, V]) JoinString(f func(K, V) string, delimiter ...string) string
         sb.WriteString(s)
     })
     return sb.String()
+}
+
+// Reduce 求值
+func (t BiSeq[K, V]) Reduce(f func(K, V, any) any, init any) any {
+    t.DoEach(func(k K, v V) { init = f(k, v, init) })
+    return init
+}
+
+// Sort 排序
+func (t BiSeq[K, V]) Sort(less func(K, V, K, V) bool) BiSeq[K, V] {
+    var r []biTuple[K, V]
+    t(func(k K, v V) { r = append(r, biTuple[K, V]{k, v}) })
+    sort.Slice(r, func(i, j int) bool { return less(r[i].k, r[i].v, r[j].k, r[j].v) })
+    return BiFrom(func(k func(K, V)) {
+        for _, v := range r {
+            k(v.k, v.v)
+        }
+    })
+}
+
+// SortK 根据K排序
+func (t BiSeq[K, V]) SortK(less func(K, K) bool) BiSeq[K, V] {
+    var r []biTuple[K, V]
+    t(func(k K, v V) { r = append(r, biTuple[K, V]{k, v}) })
+    sort.Slice(r, func(i, j int) bool { return less(r[i].k, r[j].k) })
+    return BiFrom(func(k func(K, V)) {
+        for _, v := range r {
+            k(v.k, v.v)
+        }
+    })
+}
+
+// SortV 根据V排序
+func (t BiSeq[K, V]) SortV(less func(V, V) bool) BiSeq[K, V] {
+    var r []biTuple[K, V]
+    t(func(k K, v V) { r = append(r, biTuple[K, V]{k, v}) })
+    sort.Slice(r, func(i, j int) bool { return less(r[i].v, r[j].v) })
+    return BiFrom(func(k func(K, V)) {
+        for _, v := range r {
+            k(v.k, v.v)
+        }
+    })
+}
+
+// Distinct 去重
+func (t BiSeq[K, V]) Distinct(eq func(K, V, K, V) bool) BiSeq[K, V] {
+    var r []biTuple[K, V]
+    t(func(k K, v V) {
+        for _, x := range r {
+            if eq(k, v, x.k, x.v) {
+                return
+            }
+        }
+        r = append(r, biTuple[K, V]{k, v})
+    })
+    return BiFrom(func(k func(K, V)) {
+        for _, v := range r {
+            k(v.k, v.v)
+        }
+    })
+}
+
+// DistinctK 使用K去重
+func (t BiSeq[K, V]) DistinctK(eq func(K, K) bool) BiSeq[K, V] {
+    var r []biTuple[K, V]
+    t(func(k K, v V) {
+        for _, x := range r {
+            if eq(k, x.k) {
+                return
+            }
+        }
+        r = append(r, biTuple[K, V]{k, v})
+    })
+    return BiFrom(func(k func(K, V)) {
+        for _, v := range r {
+            k(v.k, v.v)
+        }
+    })
+}
+
+// DistinctV 使用V去重
+func (t BiSeq[K, V]) DistinctV(eq func(V, V) bool) BiSeq[K, V] {
+    var r []biTuple[K, V]
+    t(func(k K, v V) {
+        for _, x := range r {
+            if eq(v, x.v) {
+                return
+            }
+        }
+        r = append(r, biTuple[K, V]{k, v})
+    })
+    return BiFrom(func(k func(K, V)) {
+        for _, v := range r {
+            k(v.k, v.v)
+        }
+    })
 }
 
 //======控制========
