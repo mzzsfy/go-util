@@ -1,6 +1,8 @@
 package seq
 
 import (
+    "context"
+    "golang.org/x/sync/semaphore"
     "sort"
     "strings"
     "sync"
@@ -226,18 +228,51 @@ func (t BiSeq[K, V]) OnAfter(i int, f func(K, V)) BiSeq[K, V] {
     }
 }
 
-// Parallel 对后续操作启用并行执行
-func (t BiSeq[K, V]) Parallel() BiSeq[K, V] {
+// Sync 串行执行
+func (t BiSeq[K, V]) Sync() BiSeq[K, V] {
     return func(c func(K, V)) {
-        t.Map(func(k K, v V) (any, any) {
-            lock := sync.Mutex{}
+        lock := sync.Mutex{}
+        t(func(k K, v V) {
             lock.Lock()
-            go func() {
-                defer lock.Unlock()
-                c(k, v)
-            }()
-            return &lock, nil
-        }).Cache()(func(t, _ any) {
+            defer lock.Unlock()
+            c(k, v)
+        })
+    }
+}
+
+// Parallel 对后续操作启用并行执行
+func (t BiSeq[K, V]) Parallel(concurrency ...int) BiSeq[K, V] {
+    sl := 0
+    if len(concurrency) > 0 {
+        sl = concurrency[0]
+    }
+    return func(c func(K, V)) {
+        var b BiSeq[any, any]
+        if sl > 0 {
+            s := semaphore.NewWeighted(int64(sl))
+            b = t.Map(func(k K, v V) (any, any) {
+                lock := sync.Mutex{}
+                lock.Lock()
+                go func() {
+                    defer lock.Unlock()
+                    s.Acquire(context.Background(), 1)
+                    defer s.Release(1)
+                    c(k, v)
+                }()
+                return &lock, nil
+            })
+        } else {
+            t.Map(func(k K, v V) (any, any) {
+                lock := sync.Mutex{}
+                lock.Lock()
+                go func() {
+                    defer lock.Unlock()
+                    c(k, v)
+                }()
+                return &lock, nil
+            })
+        }
+        b.Cache()(func(t, _ any) {
             lock := t.(sync.Locker)
             lock.Lock()
         })

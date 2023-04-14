@@ -283,6 +283,18 @@ func (t Seq[T]) OnAfter(i int, f func(T)) Seq[T] {
     }
 }
 
+// Sync 串行执行
+func (t Seq[T]) Sync() Seq[T] {
+    return func(c func(T)) {
+        lock := sync.Mutex{}
+        t(func(t T) {
+            lock.Lock()
+            defer lock.Unlock()
+            c(t)
+        })
+    }
+}
+
 // Parallel 对后续操作启用并行执行
 func (t Seq[T]) Parallel(concurrency ...int) Seq[T] {
     sl := 0
@@ -290,9 +302,10 @@ func (t Seq[T]) Parallel(concurrency ...int) Seq[T] {
         sl = concurrency[0]
     }
     return func(c func(T)) {
+        var b Seq[any]
         if sl > 0 {
             s := semaphore.NewWeighted(int64(sl))
-            t.Map(func(t T) any {
+            b = t.Map(func(t T) any {
                 lock := sync.Mutex{}
                 lock.Lock()
                 go func() {
@@ -302,12 +315,9 @@ func (t Seq[T]) Parallel(concurrency ...int) Seq[T] {
                     c(t)
                 }()
                 return &lock
-            }).Cache()(func(t any) {
-                lock := t.(sync.Locker)
-                lock.Lock()
             })
         } else {
-            t.Map(func(t T) any {
+            b = t.Map(func(t T) any {
                 lock := sync.Mutex{}
                 lock.Lock()
                 go func() {
@@ -315,11 +325,12 @@ func (t Seq[T]) Parallel(concurrency ...int) Seq[T] {
                     c(t)
                 }()
                 return &lock
-            }).Cache()(func(t any) {
-                lock := t.(sync.Locker)
-                lock.Lock()
             })
         }
+        b.Cache()(func(t any) {
+            lock := t.(sync.Locker)
+            lock.Lock()
+        })
     }
 }
 
