@@ -95,6 +95,11 @@ func CastAny[T any](seq Seq[any]) Seq[T] {
     return func(c func(T)) { seq(func(t any) { c((t).(T)) }) }
 }
 
+// CastAnyT 从any类型的Seq转换为T类型的Seq,强制转换,简便写法
+func CastAnyT[T any](seq Seq[any], _ T) Seq[T] {
+    return func(c func(T)) { seq(func(t any) { c((t).(T)) }) }
+}
+
 // Map 每个元素自定义转换
 func Map[T, E any](seq Seq[T], cast func(T) E) Seq[E] {
     return func(c func(E)) { seq(func(t T) { c(cast(t)) }) }
@@ -134,12 +139,7 @@ func (t Seq[T]) Map(f func(T) any) Seq[any] {
 
 // FlatMap 每个元素转换为Seq,并扁平化
 func (t Seq[T]) FlatMap(f func(T) Seq[any]) Seq[any] {
-    return func(c func(any)) {
-        t(func(t T) {
-            s := f(t)
-            s.DoEach(c)
-        })
-    }
+    return func(c func(any)) { t(func(t T) { f(t).ForEach(c) }) }
 }
 
 // MapString 每个元素转换为字符串
@@ -199,7 +199,6 @@ func (t Seq[T]) OnEach(f func(T)) Seq[T] {
             f(t)
             c(t)
         })
-
     }
 }
 
@@ -253,11 +252,14 @@ func (t Seq[T]) Cache() Seq[T] {
 
 //======消费========
 
-// DoEach 每个元素执行f
-func (t Seq[T]) DoEach(f func(T)) { t(f) }
+// Complete 消费所有元素
+func (t Seq[T]) Complete() { t(func(_ T) {}) }
+
+// ForEach 每个元素执行f
+func (t Seq[T]) ForEach(f func(T)) { t(f) }
 
 // AsyncEach 每个元素执行f,并行执行
-func (t Seq[T]) AsyncEach(f func(T)) { t.Parallel().DoEach(f) }
+func (t Seq[T]) AsyncEach(f func(T)) { t.Parallel().ForEach(f) }
 
 // First 有则返回第一个元素,无则返回nil
 func (t Seq[T]) First() *T {
@@ -305,7 +307,7 @@ func (t Seq[T]) AllMatch(f func(T) bool) bool {
 // GroupBy 元素分组,每个组保留所有元素
 func (t Seq[T]) GroupBy(f func(T) any) map[any][]T {
     r := make(map[any][]T)
-    t.DoEach(func(t T) {
+    t.ForEach(func(t T) {
         k := f(t)
         r[k] = append(r[k], t)
     })
@@ -315,7 +317,7 @@ func (t Seq[T]) GroupBy(f func(T) any) map[any][]T {
 // GroupByFirst 元素分组,每个组只保留第一个元素
 func (t Seq[T]) GroupByFirst(f func(T) any) map[any]T {
     r := make(map[any]T)
-    t.DoEach(func(t T) {
+    t.ForEach(func(t T) {
         k := f(t)
         if _, ok := r[k]; !ok {
             r[k] = t
@@ -327,7 +329,7 @@ func (t Seq[T]) GroupByFirst(f func(T) any) map[any]T {
 // GroupByLast 元素分组,每个组只保留最后一个元素
 func (t Seq[T]) GroupByLast(f func(T) any) map[any]T {
     r := make(map[any]T)
-    t.DoEach(func(t T) {
+    t.ForEach(func(t T) {
         k := f(t)
         r[k] = t
     })
@@ -336,7 +338,7 @@ func (t Seq[T]) GroupByLast(f func(T) any) map[any]T {
 
 // Reduce 求值
 func (t Seq[T]) Reduce(f func(T, any) any, init any) any {
-    t.DoEach(func(t T) { init = f(t, init) })
+    t.ForEach(func(t T) { init = f(t, init) })
     return init
 }
 
@@ -347,9 +349,6 @@ func (t Seq[T]) ToSlice() []T {
     return r
 }
 
-// Complete 消费所有元素
-func (t Seq[T]) Complete() { t(func(_ T) {}) }
-
 // JoinStringF 拼接为字符串,自定义转换函数
 func (t Seq[T]) JoinStringF(f func(T) string, delimiter ...string) string {
     sb := strings.Builder{}
@@ -357,7 +356,7 @@ func (t Seq[T]) JoinStringF(f func(T) string, delimiter ...string) string {
     if len(delimiter) > 0 {
         d = delimiter[0]
     }
-    t.MapString(f).DoEach(func(s string) {
+    t.MapString(f).ForEach(func(s string) {
         if d != "" && sb.Len() > 0 {
             sb.WriteString(d)
         }

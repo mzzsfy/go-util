@@ -56,6 +56,11 @@ func BiCastAny[K, V any](seq BiSeq[any, any]) BiSeq[K, V] {
     return func(c func(K, V)) { seq(func(t, x any) { c(t.(K), x.(V)) }) }
 }
 
+// BiCastAnyT 从BiSeq[any,any]强制转换为BiSeq[K,V],简便写法
+func BiCastAnyT[K, V any](seq BiSeq[any, any], _ K, _ V) BiSeq[K, V] {
+    return func(c func(K, V)) { seq(func(t, x any) { c(t.(K), x.(V)) }) }
+}
+
 // BiMap 从BiSeq[K,V]自定义转换为BiSeq[RK,RV]
 func BiMap[K, V, RK, RV any](seq BiSeq[K, V], cast func(K, V) (RK, RV)) BiSeq[RK, RV] {
     return func(c func(RK, RV)) { seq(func(k K, v V) { c(cast(k, v)) }) }
@@ -93,33 +98,33 @@ func (t BiSeq[K, V]) Map(f func(K, V) (any, any)) BiSeq[any, any] {
     return func(c func(any, any)) { t(func(k K, v V) { c(f(k, v)) }) }
 }
 
-// KMap 每个元素自定义转换K为any,用于连续转换操作,使用 BiCastAny 进行恢复泛型
-func (t BiSeq[K, V]) KMap(f func(K, V) any) BiSeq[any, V] {
+// MapK 每个元素自定义转换K为any,用于连续转换操作,使用 BiCastAny 进行恢复泛型
+func (t BiSeq[K, V]) MapK(f func(K, V) any) BiSeq[any, V] {
     return func(c func(any, V)) { t(func(k K, v V) { c(f(k, v), v) }) }
 }
 
-// VMap 每个元素自定义转换V为any,用于连续转换操作,使用 BiCastAny 进行恢复泛型
-func (t BiSeq[K, V]) VMap(f func(K, V) any) BiSeq[K, any] {
+// MapV 每个元素自定义转换V为any,用于连续转换操作,使用 BiCastAny 进行恢复泛型
+func (t BiSeq[K, V]) MapV(f func(K, V) any) BiSeq[K, any] {
     return func(c func(K, any)) { t(func(k K, v V) { c(k, f(k, v)) }) }
 }
 
-// KSeq 转换为只保留K的Seq
-func (t BiSeq[K, V]) KSeq() Seq[K] {
+// SeqK 转换为只保留K的Seq
+func (t BiSeq[K, V]) SeqK() Seq[K] {
     return func(c func(K)) { t(func(k K, v V) { c(k) }) }
 }
 
-// VSeq 转换为只保留V的Seq
-func (t BiSeq[K, V]) VSeq() Seq[V] {
-    return func(c func(V)) { t(func(k K, v V) { c(v) }) }
-}
-
-// KSeqF 转换为只保留K的Seq,并自定义转换
-func (t BiSeq[K, V]) KSeqF(f func(K, V) K) Seq[K] {
+// SeqKF 转换为只保留K的Seq,并自定义转换
+func (t BiSeq[K, V]) SeqKF(f func(K, V) K) Seq[K] {
     return func(c func(K)) { t(func(k K, v V) { c(f(k, v)) }) }
 }
 
-// VSeqF 转换为只保留V的Seq,并自定义转换
-func (t BiSeq[K, V]) VSeqF(f func(K, V) V) Seq[V] {
+// SeqV 转换为只保留V的Seq
+func (t BiSeq[K, V]) SeqV() Seq[V] {
+    return func(c func(V)) { t(func(k K, v V) { c(v) }) }
+}
+
+// SeqVF 转换为只保留V的Seq,并自定义转换
+func (t BiSeq[K, V]) SeqVF(f func(K, V) V) Seq[V] {
     return func(c func(V)) { t(func(k K, v V) { c(f(k, v)) }) }
 }
 
@@ -133,7 +138,7 @@ func (t BiSeq[K, V]) FlatMap(f func(K, V) BiSeq[any, any]) BiSeq[any, any] {
     return func(c func(any, any)) {
         t(func(k K, v V) {
             s := f(k, v)
-            s.DoEach(c)
+            s.ForEach(c)
         })
     }
 }
@@ -283,13 +288,14 @@ func (t BiSeq[K, V]) DistinctV(eq func(V, V) bool) BiSeq[K, V] {
 
 //======消费========
 
-// DoEach 每个元素执行f
-func (t BiSeq[K, V]) DoEach(f func(K, V)) {
-    t(f)
-}
+// Complete 消费所有元素
+func (t BiSeq[K, V]) Complete() { t(func(_ K, _ V) {}) }
+
+// ForEach 每个元素执行f
+func (t BiSeq[K, V]) ForEach(f func(K, V)) { t(f) }
 
 // AsyncEach 每个元素执行f,并行执行
-func (t BiSeq[K, V]) AsyncEach(f func(K, V)) { t.Parallel().DoEach(f) }
+func (t BiSeq[K, V]) AsyncEach(f func(K, V)) { t.Parallel().ForEach(f) }
 
 // First 获取第一个元素,无则返回nil
 func (t BiSeq[K, V]) First() (*K, *V) {
@@ -373,9 +379,6 @@ func (t BiSeq[K, V]) Cache() BiSeq[K, V] {
     }
 }
 
-// Complete 消费所有元素
-func (t BiSeq[K, V]) Complete() { t(func(_ K, _ V) {}) }
-
 // JoinStringF 拼接为字符串
 func (t BiSeq[K, V]) JoinStringF(f func(K, V) string, delimiter ...string) string {
     sb := strings.Builder{}
@@ -383,7 +386,7 @@ func (t BiSeq[K, V]) JoinStringF(f func(K, V) string, delimiter ...string) strin
     if len(delimiter) > 0 {
         d = delimiter[0]
     }
-    t.StringMap(f).DoEach(func(s string) {
+    t.StringMap(f).ForEach(func(s string) {
         if d != "" && sb.Len() > 0 {
             sb.WriteString(d)
         }
@@ -394,7 +397,7 @@ func (t BiSeq[K, V]) JoinStringF(f func(K, V) string, delimiter ...string) strin
 
 // Reduce 求值
 func (t BiSeq[K, V]) Reduce(f func(K, V, any) any, init any) any {
-    t.DoEach(func(k K, v V) { init = f(k, v, init) })
+    t.ForEach(func(k K, v V) { init = f(k, v, init) })
     return init
 }
 

@@ -43,5 +43,6 @@ BiFromMap(map[string]int{"a": 1, "b": 2, "c": 3}).OnEach(func(k string, v int) {
 - 双方可终止任务,不会造成资源浪费
 - 双方都认为自己为消费者,开发难度极低
 
->  参考了: https://mp.weixin.qq.com/s/v-HMKBWxtz1iakxFL09PDw
-  
+> 额外说明: 需要使用消费方法才能触发执行,如ForEach,ToSlice,JoinString等
+
+> 参考了: https://mp.weixin.qq.com/s/v-HMKBWxtz1iakxFL09PDw

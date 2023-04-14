@@ -6,7 +6,7 @@ import (
 )
 
 func TestBi1(t *testing.T) {
-    seq := BiFrom(func(k func(int, int)) { FromIntSeq(1, 10).DoEach(func(i int) { k(i, i+1) }) })
+    seq := BiFrom(func(k func(int, int)) { FromIntSeq(1, 10).ForEach(func(i int) { k(i, i+1) }) })
     ok1 := 0
     ok2 := 0
     ok3 := 0
@@ -21,7 +21,7 @@ func TestBi1(t *testing.T) {
             f(i, j)
             f(i+1, j+1)
         }
-    }).DoEach(func(i any, j any) {
+    }).ForEach(func(i any, j any) {
         t.Log(i.(int), j.(int))
         ok3++
     })
@@ -32,7 +32,7 @@ func TestBi1(t *testing.T) {
 func TestBiAsync(t *testing.T) {
     duration := time.Millisecond * 100
     go func() {
-        seq := BiFrom(func(k func(int, int)) { FromIntSeq(1, 10).DoEach(func(i int) { k(i, i+1) }) })
+        seq := BiFrom(func(k func(int, int)) { FromIntSeq(1, 10).ForEach(func(i int) { k(i, i+1) }) })
         now := time.Now()
         seq.AsyncEach(func(i int, j int) {
             time.Sleep(duration)
@@ -42,7 +42,7 @@ func TestBiAsync(t *testing.T) {
             t.Fail()
         }
     }()
-    seq := BiFrom(func(k func(int, int)) { FromIntSeq(1, 10).DoEach(func(i int) { k(i, i+1) }) })
+    seq := BiFrom(func(k func(int, int)) { FromIntSeq(1, 10).ForEach(func(i int) { k(i, i+1) }) })
     now := time.Now()
     seq.Parallel().Map(func(i int, j int) (any, any) {
         time.Sleep(duration)
@@ -55,10 +55,10 @@ func TestBiAsync(t *testing.T) {
 }
 
 func TestBiTake(t *testing.T) {
-    seq := BiFrom(func(k func(int, int)) { FromIntSeq().DoEach(func(i int) { k(i, i+1) }) })
+    seq := BiFrom(func(k func(int, int)) { FromIntSeq().ForEach(func(i int) { k(i, i+1) }) })
 
     var r []int
-    seq.Take(5).DoEach(func(i int, j int) {
+    seq.Take(5).ForEach(func(i int, j int) {
         r = append(r, i)
     })
     if len(r) != 5 {
@@ -72,10 +72,10 @@ func TestBiTake(t *testing.T) {
 }
 
 func TestBiDrop(t *testing.T) {
-    seq := BiFrom(func(k func(int, int)) { FromIntSeq(0, 9).DoEach(func(i int) { k(i, i+1) }) })
+    seq := BiFrom(func(k func(int, int)) { FromIntSeq(0, 9).ForEach(func(i int) { k(i, i+1) }) })
 
     var r []int
-    seq.Drop(5).DoEach(func(i int, j int) { r = append(r, i) })
+    seq.Drop(5).ForEach(func(i int, j int) { r = append(r, i) })
     if len(r) != 5 {
         t.Fail()
     }
@@ -87,10 +87,10 @@ func TestBiDrop(t *testing.T) {
 }
 
 func TestBiDropTake(t *testing.T) {
-    seq := BiFrom(func(k func(int, int)) { FromIntSeq().DoEach(func(i int) { k(i, i+1) }) })
+    seq := BiFrom(func(k func(int, int)) { FromIntSeq().ForEach(func(i int) { k(i, i+1) }) })
 
     var r []int
-    seq.Drop(5).Take(5).DoEach(func(i int, j int) {
+    seq.Drop(5).Take(5).ForEach(func(i int, j int) {
         r = append(r, i)
     })
     if len(r) != 5 {
