@@ -254,6 +254,35 @@ func (t Seq[T]) OnEach(f func(T)) Seq[T] {
     }
 }
 
+// OnBefore 指定位置前(包含),每个元素额外执行
+func (t Seq[T]) OnBefore(i int, f func(T)) Seq[T] {
+    return func(c func(T)) {
+        x := 0
+        t(func(t T) {
+            if x < i {
+                x++
+                f(t)
+            }
+            c(t)
+        })
+    }
+}
+
+// OnAfter 指定位置后(包含),每个元素额外执行
+func (t Seq[T]) OnAfter(i int, f func(T)) Seq[T] {
+    return func(c func(T)) {
+        x := 0
+        t(func(t T) {
+            if x >= i {
+                f(t)
+            } else {
+                x++
+            }
+            c(t)
+        })
+    }
+}
+
 // Parallel 对后续操作启用并行执行
 func (t Seq[T]) Parallel(concurrency ...int) Seq[T] {
     sl := 0
@@ -583,7 +612,7 @@ var (
 )
 
 type Comparable interface {
-    ~int | ~int8 | ~int16 | ~int32 | ~int64 | ~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 | ~uintptr | ~byte | ~float32 | ~float64 | ~string
+    ~int | ~int8 | ~int16 | ~int32 | ~int64 | ~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 | ~uintptr | ~float32 | ~float64 | ~string
 }
 
 // LessT 排序用,小的在前,用法: .Order(LessT[int])
@@ -594,4 +623,8 @@ func LessT[T Comparable](i T, i2 T) bool {
 // GreatT 排序用,大的在前,用法: .Order(GreatT[int])
 func GreatT[T Comparable](i int, i2 int) bool {
     return i > i2
+}
+
+func AnyT[T any](t T) any {
+    return any(t)
 }

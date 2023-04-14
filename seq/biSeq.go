@@ -197,6 +197,35 @@ func (t BiSeq[K, V]) OnEach(f func(K, V)) BiSeq[K, V] {
     }
 }
 
+// OnBefore 指定位置前(包含),每个元素额外执行
+func (t BiSeq[K, V]) OnBefore(i int, f func(K, V)) BiSeq[K, V] {
+    return func(c func(K, V)) {
+        x := 0
+        t(func(k K, v V) {
+            if x < i {
+                x++
+                f(k, v)
+            }
+            c(k, v)
+        })
+    }
+}
+
+// OnAfter 指定位置后(包含),每个元素额外执行
+func (t BiSeq[K, V]) OnAfter(i int, f func(K, V)) BiSeq[K, V] {
+    return func(c func(K, V)) {
+        x := 0
+        t(func(k K, v V) {
+            if x >= i {
+                f(k, v)
+            } else {
+                x++
+            }
+            c(k, v)
+        })
+    }
+}
+
 // Parallel 对后续操作启用并行执行
 func (t BiSeq[K, V]) Parallel() BiSeq[K, V] {
     return func(c func(K, V)) {
