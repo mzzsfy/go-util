@@ -1,5 +1,5 @@
 
-- seq  
+- [seq](./seq)  
   一个golang的链式调用库
 
 ```go
