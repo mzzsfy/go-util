@@ -198,7 +198,7 @@ func TestRand(t *testing.T) {
     //结果 "10,9,8 ... 3,2,1"
     if "10,9,8,7,6,5,4,3,2,1" != FromSlice([]int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}).Sort(func(i, j int) bool {
         return i > j
-    }).JoinString(strconv.Itoa, ",") {
+    }).JoinStringF(strconv.Itoa, ",") {
         t.Fail()
     }
 }

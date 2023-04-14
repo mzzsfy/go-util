@@ -4,6 +4,7 @@ import (
     "fmt"
     "math"
     "sort"
+    "strconv"
     "strings"
     "sync"
 )
@@ -349,8 +350,8 @@ func (t Seq[T]) ToSlice() []T {
 // Complete 消费所有元素
 func (t Seq[T]) Complete() { t(func(_ T) {}) }
 
-// JoinString 拼接为字符串
-func (t Seq[T]) JoinString(f func(T) string, delimiter ...string) string {
+// JoinStringF 拼接为字符串,自定义转换函数
+func (t Seq[T]) JoinStringF(f func(T) string, delimiter ...string) string {
     sb := strings.Builder{}
     d := ""
     if len(delimiter) > 0 {
@@ -363,6 +364,12 @@ func (t Seq[T]) JoinString(f func(T) string, delimiter ...string) string {
         sb.WriteString(s)
     })
     return sb.String()
+}
+
+// JoinString 拼接为字符串
+func (t Seq[T]) JoinString(delimiter ...string) string {
+    var x T
+    return t.JoinStringF(getToStringFn(x), delimiter...)
 }
 
 //======控制========
@@ -415,6 +422,87 @@ func (t Seq[T]) Drop(n int) Seq[T] {
                 n--
             }
         })
+    }
+}
+
+func getToStringFn[T any](i T) func(T) string {
+    switch any(i).(type) {
+    case string:
+        return func(t T) string {
+            return any(t).(string)
+        }
+    case bool:
+        return func(t T) string {
+            return strconv.FormatBool(any(t).(bool))
+        }
+    case float64:
+        return func(t T) string {
+            return strconv.FormatFloat(any(t).(float64), 'f', -1, 64)
+        }
+    case float32:
+        return func(t T) string {
+            return strconv.FormatFloat(float64(any(t).(float32)), 'f', -1, 64)
+        }
+    case int:
+        return func(t T) string {
+            return strconv.Itoa(any(t).(int))
+        }
+    case int64:
+        return func(t T) string {
+            return strconv.FormatInt(any(t).(int64), 10)
+        }
+    case int32:
+        return func(t T) string {
+            return strconv.Itoa(int(any(t).(int32)))
+        }
+    case int16:
+        return func(t T) string {
+            return strconv.Itoa(int(any(t).(int16)))
+        }
+    case int8:
+        return func(t T) string {
+            return strconv.Itoa(int(any(t).(int8)))
+        }
+    case uint:
+        return func(t T) string {
+            return strconv.FormatUint(uint64(any(t).(uint)), 10)
+        }
+    case uint64:
+        return func(t T) string {
+            return strconv.FormatUint(any(t).(uint64), 10)
+        }
+    case uint32:
+        return func(t T) string {
+            return strconv.FormatUint(uint64(any(t).(uint32)), 10)
+        }
+    case uint16:
+        return func(t T) string {
+            return strconv.FormatUint(uint64(any(t).(uint16)), 10)
+        }
+    case uint8:
+        return func(t T) string {
+            return strconv.FormatUint(uint64(any(t).(uint8)), 10)
+        }
+    case []byte:
+        return func(t T) string {
+            return string(any(t).([]byte))
+        }
+    case []rune:
+        return func(t T) string {
+            return string(any(t).([]rune))
+        }
+    case fmt.Stringer:
+        return func(t T) string {
+            return any(t).(fmt.Stringer).String()
+        }
+    case error:
+        return func(t T) string {
+            return any(t).(error).Error()
+        }
+    default:
+        return func(t T) string {
+            return fmt.Sprint(t)
+        }
     }
 }
 

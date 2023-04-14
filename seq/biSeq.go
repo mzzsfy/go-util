@@ -191,6 +191,96 @@ func (t BiSeq[K, V]) Parallel() BiSeq[K, V] {
     }
 }
 
+// Sort 排序
+func (t BiSeq[K, V]) Sort(less func(K, V, K, V) bool) BiSeq[K, V] {
+    var r []biTuple[K, V]
+    t(func(k K, v V) { r = append(r, biTuple[K, V]{k, v}) })
+    sort.Slice(r, func(i, j int) bool { return less(r[i].k, r[i].v, r[j].k, r[j].v) })
+    return BiFrom(func(k func(K, V)) {
+        for _, v := range r {
+            k(v.k, v.v)
+        }
+    })
+}
+
+// SortK 根据K排序
+func (t BiSeq[K, V]) SortK(less func(K, K) bool) BiSeq[K, V] {
+    var r []biTuple[K, V]
+    t(func(k K, v V) { r = append(r, biTuple[K, V]{k, v}) })
+    sort.Slice(r, func(i, j int) bool { return less(r[i].k, r[j].k) })
+    return BiFrom(func(k func(K, V)) {
+        for _, v := range r {
+            k(v.k, v.v)
+        }
+    })
+}
+
+// SortV 根据V排序
+func (t BiSeq[K, V]) SortV(less func(V, V) bool) BiSeq[K, V] {
+    var r []biTuple[K, V]
+    t(func(k K, v V) { r = append(r, biTuple[K, V]{k, v}) })
+    sort.Slice(r, func(i, j int) bool { return less(r[i].v, r[j].v) })
+    return BiFrom(func(k func(K, V)) {
+        for _, v := range r {
+            k(v.k, v.v)
+        }
+    })
+}
+
+// Distinct 去重
+func (t BiSeq[K, V]) Distinct(eq func(K, V, K, V) bool) BiSeq[K, V] {
+    var r []biTuple[K, V]
+    t(func(k K, v V) {
+        for _, x := range r {
+            if eq(k, v, x.k, x.v) {
+                return
+            }
+        }
+        r = append(r, biTuple[K, V]{k, v})
+    })
+    return BiFrom(func(k func(K, V)) {
+        for _, v := range r {
+            k(v.k, v.v)
+        }
+    })
+}
+
+// DistinctK 使用K去重
+func (t BiSeq[K, V]) DistinctK(eq func(K, K) bool) BiSeq[K, V] {
+    var r []biTuple[K, V]
+    t(func(k K, v V) {
+        for _, x := range r {
+            if eq(k, x.k) {
+                return
+            }
+        }
+        r = append(r, biTuple[K, V]{k, v})
+    })
+    return BiFrom(func(k func(K, V)) {
+        for _, v := range r {
+            k(v.k, v.v)
+        }
+    })
+}
+
+// DistinctV 使用V去重
+func (t BiSeq[K, V]) DistinctV(eq func(V, V) bool) BiSeq[K, V] {
+    var r []biTuple[K, V]
+    t(func(k K, v V) {
+        for _, x := range r {
+            if eq(v, x.v) {
+                return
+            }
+        }
+        r = append(r, biTuple[K, V]{k, v})
+    })
+    return BiFrom(func(k func(K, V)) {
+        for _, v := range r {
+            k(v.k, v.v)
+        }
+    })
+}
+
 //======消费========
 
 // DoEach 每个元素执行f
@@ -286,8 +376,8 @@ func (t BiSeq[K, V]) Cache() BiSeq[K, V] {
 // Complete 消费所有元素
 func (t BiSeq[K, V]) Complete() { t(func(_ K, _ V) {}) }
 
-// JoinString 拼接为字符串
-func (t BiSeq[K, V]) JoinString(f func(K, V) string, delimiter ...string) string {
+// JoinStringF 拼接为字符串
+func (t BiSeq[K, V]) JoinStringF(f func(K, V) string, delimiter ...string) string {
     sb := strings.Builder{}
     d := ""
     if len(delimiter) > 0 {
@@ -306,96 +396,6 @@ func (t BiSeq[K, V]) JoinString(f func(K, V) string, delimiter ...string) string
 func (t BiSeq[K, V]) Reduce(f func(K, V, any) any, init any) any {
     t.DoEach(func(k K, v V) { init = f(k, v, init) })
     return init
-}
-
-// Sort 排序
-func (t BiSeq[K, V]) Sort(less func(K, V, K, V) bool) BiSeq[K, V] {
-    var r []biTuple[K, V]
-    t(func(k K, v V) { r = append(r, biTuple[K, V]{k, v}) })
-    sort.Slice(r, func(i, j int) bool { return less(r[i].k, r[i].v, r[j].k, r[j].v) })
-    return BiFrom(func(k func(K, V)) {
-        for _, v := range r {
-            k(v.k, v.v)
-        }
-    })
-}
-
-// SortK 根据K排序
-func (t BiSeq[K, V]) SortK(less func(K, K) bool) BiSeq[K, V] {
-    var r []biTuple[K, V]
-    t(func(k K, v V) { r = append(r, biTuple[K, V]{k, v}) })
-    sort.Slice(r, func(i, j int) bool { return less(r[i].k, r[j].k) })
-    return BiFrom(func(k func(K, V)) {
-        for _, v := range r {
-            k(v.k, v.v)
-        }
-    })
-}
-
-// SortV 根据V排序
-func (t BiSeq[K, V]) SortV(less func(V, V) bool) BiSeq[K, V] {
-    var r []biTuple[K, V]
-    t(func(k K, v V) { r = append(r, biTuple[K, V]{k, v}) })
-    sort.Slice(r, func(i, j int) bool { return less(r[i].v, r[j].v) })
-    return BiFrom(func(k func(K, V)) {
-        for _, v := range r {
-            k(v.k, v.v)
-        }
-    })
-}
-
-// Distinct 去重
-func (t BiSeq[K, V]) Distinct(eq func(K, V, K, V) bool) BiSeq[K, V] {
-    var r []biTuple[K, V]
-    t(func(k K, v V) {
-        for _, x := range r {
-            if eq(k, v, x.k, x.v) {
-                return
-            }
-        }
-        r = append(r, biTuple[K, V]{k, v})
-    })
-    return BiFrom(func(k func(K, V)) {
-        for _, v := range r {
-            k(v.k, v.v)
-        }
-    })
-}
-
-// DistinctK 使用K去重
-func (t BiSeq[K, V]) DistinctK(eq func(K, K) bool) BiSeq[K, V] {
-    var r []biTuple[K, V]
-    t(func(k K, v V) {
-        for _, x := range r {
-            if eq(k, x.k) {
-                return
-            }
-        }
-        r = append(r, biTuple[K, V]{k, v})
-    })
-    return BiFrom(func(k func(K, V)) {
-        for _, v := range r {
-            k(v.k, v.v)
-        }
-    })
-}
-
-// DistinctV 使用V去重
-func (t BiSeq[K, V]) DistinctV(eq func(V, V) bool) BiSeq[K, V] {
-    var r []biTuple[K, V]
-    t(func(k K, v V) {
-        for _, x := range r {
-            if eq(v, x.v) {
-                return
-            }
-        }
-        r = append(r, biTuple[K, V]{k, v})
-    })
-    return BiFrom(func(k func(K, V)) {
-        for _, v := range r {
-            k(v.k, v.v)
-        }
-    })
 }
 
 //======控制========
