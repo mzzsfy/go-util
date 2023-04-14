@@ -262,7 +262,7 @@ func (t BiSeq[K, V]) Parallel(concurrency ...int) BiSeq[K, V] {
                 return &lock, nil
             })
         } else {
-            t.Map(func(k K, v V) (any, any) {
+            b = t.Map(func(k K, v V) (any, any) {
                 lock := sync.Mutex{}
                 lock.Lock()
                 go func() {
