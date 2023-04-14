@@ -3,7 +3,6 @@ package seq
 import (
     "fmt"
     "math/rand"
-    "strconv"
     "testing"
     "time"
 )
@@ -52,6 +51,24 @@ func TestAsync(t *testing.T) {
     now := time.Now()
     seq.Parallel().Map(func(i int) any {
         time.Sleep(duration)
+        return i
+    }).Complete()
+    sub := time.Now().Sub(now)
+    if sub < duration || sub.Truncate(duration) != duration {
+        t.Fail()
+    }
+}
+
+func TestConcurrencyControl(t *testing.T) {
+    n := 100 + rand.Intn(1000)
+    seq := FromIntSeq().Take(n)
+    now := time.Now()
+    duration := time.Millisecond * 100
+    concurrency := 1 + rand.Intn(n-1)
+    seq.Parallel(concurrency).Map(func(i int) any {
+        //println(i, "start")
+        time.Sleep(duration / time.Duration(n/concurrency))
+        //println(i, "end")
         return i
     }).Complete()
     sub := time.Now().Sub(now)
@@ -184,11 +201,7 @@ func TestCache(t *testing.T) {
 }
 
 func TestRand(t *testing.T) {
-    slice := From(func(f func(i int)) {
-        for {
-            f(rand.Int())
-        }
-    }).OnEach(func(i int) {
+    slice := FromRandIntSeq().OnEach(func(i int) {
         fmt.Println("", i)
     }).Filter(func(i int) bool {
         return i%2 == 0
@@ -197,10 +210,13 @@ func TestRand(t *testing.T) {
         t.Fail()
     }
     fmt.Println(slice)
+}
+
+func TestSort(t *testing.T) {
     //结果 "10,9,8 ... 3,2,1"
-    if "10,9,8,7,6,5,4,3,2,1" != FromSlice([]int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}).Sort(func(i, j int) bool {
+    if "10,9,8,7,6,5,4,3,2,1" != FromIntSeq(1).Take(10).Sort(func(i, j int) bool {
         return i > j
-    }).JoinStringF(strconv.Itoa, ",") {
+    }).JoinString(",") {
         t.Fail()
     }
 }

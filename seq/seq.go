@@ -1,8 +1,11 @@
 package seq
 
 import (
+    "context"
     "fmt"
+    "golang.org/x/sync/semaphore"
     "math"
+    "math/rand"
     "sort"
     "strconv"
     "strings"
@@ -29,7 +32,36 @@ func From[T any](f Seq[T]) Seq[T] {
     return f
 }
 
+// FromRandIntSeq 生成随机整数序列,可以自定义随机数范围
+// 如果不指定范围,则生成的随机数为int类型的最大值
+// 参数1: 生成数量
+// 参数2: 随机数范围
+func FromRandIntSeq(i ...int) Seq[int] {
+    l := math.MaxInt
+    r := 0
+    if len(i) > 0 {
+        l = i[0]
+    }
+    if len(i) > 1 {
+        r = i[1]
+    }
+    return func(t func(int)) {
+        if r > 0 {
+            for st := 0; st <= l; st++ {
+                t(rand.Intn(r))
+            }
+        } else {
+            for st := 0; st <= l; st++ {
+                t(rand.Int())
+            }
+        }
+    }
+}
+
 // FromIntSeq 生成整数序列,可以自定义起始值,结束值,步长
+// 参数1,起始值,默认为0
+// 参数2,结束值,默认为int类型的最大值
+// 参数3,步长,默认为1
 func FromIntSeq(rang ...int) Seq[int] {
     start := 0
     end := math.MaxInt
@@ -223,21 +255,42 @@ func (t Seq[T]) OnEach(f func(T)) Seq[T] {
 }
 
 // Parallel 对后续操作启用并行执行
-func (t Seq[T]) Parallel() Seq[T] {
+func (t Seq[T]) Parallel(concurrency ...int) Seq[T] {
+    sl := 0
+    if len(concurrency) > 0 {
+        sl = concurrency[0]
+    }
     return func(c func(T)) {
-        t.Map(func(t T) any {
-            lock := sync.Mutex{}
-            lock.Lock()
-            go func() {
-                defer lock.Unlock()
-                c(t)
-            }()
-            return &lock
-        }).Cache()(func(t any) {
-            lock := t.(sync.Locker)
-            lock.Lock()
-        })
-
+        if sl > 0 {
+            s := semaphore.NewWeighted(int64(sl))
+            t.Map(func(t T) any {
+                lock := sync.Mutex{}
+                lock.Lock()
+                go func() {
+                    defer lock.Unlock()
+                    s.Acquire(context.Background(), 1)
+                    defer s.Release(1)
+                    c(t)
+                }()
+                return &lock
+            }).Cache()(func(t any) {
+                lock := t.(sync.Locker)
+                lock.Lock()
+            })
+        } else {
+            t.Map(func(t T) any {
+                lock := sync.Mutex{}
+                lock.Lock()
+                go func() {
+                    defer lock.Unlock()
+                    c(t)
+                }()
+                return &lock
+            }).Cache()(func(t any) {
+                lock := t.(sync.Locker)
+                lock.Lock()
+            })
+        }
     }
 }
 
@@ -528,3 +581,17 @@ func getToStringFn[T any](i T) func(T) string {
 var (
     stop *bool
 )
+
+type Comparable interface {
+    ~int | ~int8 | ~int16 | ~int32 | ~int64 | ~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 | ~uintptr | ~byte | ~float32 | ~float64 | ~string
+}
+
+// LessT 排序用,小的在前,用法: .Order(LessT[int])
+func LessT[T Comparable](i T, i2 T) bool {
+    return i < i2
+}
+
+// GreatT 排序用,大的在前,用法: .Order(GreatT[int])
+func GreatT[T Comparable](i int, i2 int) bool {
+    return i > i2
+}
