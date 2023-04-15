@@ -179,12 +179,12 @@ func (t BiSeq[K, V]) MapFlat(f func(K, V) BiSeq[any, any]) BiSeq[any, any] {
     }
 }
 
-// MapSliceN 每n个元素合并为[]T
-func (t BiSeq[K, V]) MapSliceN(n int) Seq[[]BiTuple[K, V]] {
-    return func(c func([]BiTuple[K, V])) {
-        var ts []BiTuple[K, V]
+// MapSliceN 每n个元素合并为[]T,由于golang泛型问题,不能使用[]BiTuple[K,V]
+func (t BiSeq[K, V]) MapSliceN(n int) Seq[[]BiTuple[any, any]] {
+    return func(c func([]BiTuple[any, any])) {
+        var ts []BiTuple[any, any]
         t(func(k K, v V) {
-            ts = append(ts, BiTuple[K, V]{k, v})
+            ts = append(ts, BiTuple[any, any]{k, v})
             if len(ts) == n {
                 c(ts)
                 ts = nil
@@ -196,12 +196,12 @@ func (t BiSeq[K, V]) MapSliceN(n int) Seq[[]BiTuple[K, V]] {
     }
 }
 
-// MapSliceF 自定义元素合并为[]T
-func (t BiSeq[K, V]) MapSliceF(f func(K, V, []BiTuple[K, V]) bool) Seq[[]BiTuple[K, V]] {
-    return func(c func([]BiTuple[K, V])) {
-        var ts []BiTuple[K, V]
+//MapSliceF 自定义元素合并为[]T,由于golang泛型问题,不能使用[]BiTuple[K,V]
+func (t BiSeq[K, V]) MapSliceF(f func(K, V, []BiTuple[any, any]) bool) Seq[[]BiTuple[any, any]] {
+    return func(c func([]BiTuple[any, any])) {
+        var ts []BiTuple[any, any]
         t(func(k K, v V) {
-            ts = append(ts, BiTuple[K, V]{k, v})
+            ts = append(ts, BiTuple[any, any]{k, v})
             if f(k, v, ts) {
                 c(ts)
                 ts = nil

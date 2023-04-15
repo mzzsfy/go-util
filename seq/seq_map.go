@@ -181,36 +181,36 @@ func (t Seq[T]) MapFloat64(f func(T) float64) Seq[float64] {
     return func(c func(float64)) { t(func(t T) { c(f(t)) }) }
 }
 
-// MapSliceN 每n个元素合并为[]T
-func (t Seq[T]) MapSliceN(n int) Seq[[]T] {
-    return func(c func([]T)) {
+// MapSliceN 每n个元素合并为[]T,由于golang泛型问题,不能使用[]Seq[T]
+func (t Seq[T]) MapSliceN(n int) Seq[[]any] {
+    return func(c func([]any)) {
         var ts []T
         t(func(t T) {
             ts = append(ts, t)
             if len(ts) == n {
-                c(ts)
+                c(FromSlice(ts).Map(AnyT[T]).ToSlice())
                 ts = nil
             }
         })
         if len(ts) > 0 {
-            c(ts)
+            c(FromSlice(ts).Map(AnyT[T]).ToSlice())
         }
     }
 }
 
-// MapSliceF 自定义元素合并为[]T
-func (t Seq[T]) MapSliceF(f func(T, []T) bool) Seq[[]T] {
-    return func(c func([]T)) {
+// MapSliceF 自定义元素合并为[]T,由于golang泛型问题,不能使用[]Seq[T]
+func (t Seq[T]) MapSliceF(f func(T, []T) bool) Seq[[]any] {
+    return func(c func([]any)) {
         var ts []T
         t(func(t T) {
             ts = append(ts, t)
             if f(t, ts) {
-                c(ts)
+                c(FromSlice(ts).Map(AnyT[T]).ToSlice())
                 ts = nil
             }
         })
         if len(ts) > 0 {
-            c(ts)
+            c(FromSlice(ts).Map(AnyT[T]).ToSlice())
         }
     }
 }

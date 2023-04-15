@@ -109,6 +109,9 @@ func GreatT[T Comparable](i int, i2 int) bool {
 func AnyT[T any](t T) any {
     return any(t)
 }
+func AnyBiT[K, V any](k K, v V) (any, any) {
+    return any(k), any(v)
+}
 func AnyBiTR[T any](t T, a any) (any, any) {
     return any(t), a
 }
