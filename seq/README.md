@@ -24,6 +24,8 @@ FromSlice([]int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}).Sort(func(i, j int) bool {
 }).JoinString(strconv.Itoa,",")
 ```
 
+更多例子见: [seq_test.go](./seq_test.go) [biSeq_test.go](./biSeq_test.go)
+
 多元素,如map使用BiSeq
 
 ```go

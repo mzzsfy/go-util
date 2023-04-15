@@ -51,3 +51,17 @@ func (t Seq[T]) Drop(n int) Seq[T] {
         })
     }
 }
+
+// Distinct 去重
+func (t Seq[T]) Distinct(equals func(T, T) bool) Seq[T] {
+    var r []T
+    t(func(t T) {
+        for _, v := range r {
+            if equals(t, v) {
+                return
+            }
+        }
+        r = append(r, t)
+    })
+    return FromSlice(r)
+}

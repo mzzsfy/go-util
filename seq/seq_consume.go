@@ -103,6 +103,13 @@ func (t Seq[T]) ToSlice() []T {
     return r
 }
 
+// Count 计数
+func (t Seq[T]) Count() int64 {
+    var r int64
+    t(func(t T) { r++ })
+    return r
+}
+
 // JoinStringF 拼接为字符串,自定义转换函数
 func (t Seq[T]) JoinStringF(f func(T) string, delimiter ...string) string {
     sb := strings.Builder{}

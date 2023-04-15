@@ -112,19 +112,6 @@ func (t Seq[T]) Sort(less func(T, T) bool) Seq[T] {
     return FromSlice(r)
 }
 
-// Distinct 去重
-func (t Seq[T]) Distinct(eq func(T, T) bool) Seq[T] {
-    var r []T
-    t(func(t T) {
-        for _, v := range r {
-            if eq(t, v) {
-                return
-            }
-        }
-        r = append(r, t)
-    })
-    return FromSlice(r)
-}
 
 // Cache 缓存Seq,使该Seq可以多次重复消费,并保证前面内容不会重复执行
 func (t Seq[T]) Cache() Seq[T] {

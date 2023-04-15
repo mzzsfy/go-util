@@ -95,6 +95,13 @@ func (t BiSeq[K, V]) Cache() BiSeq[K, V] {
     }
 }
 
+// Count 计数
+func (t BiSeq[K, V]) Count() int64 {
+    var r int64
+    t(func(k K, v V) { r++ })
+    return r
+}
+
 // JoinStringF 拼接为字符串
 func (t BiSeq[K, V]) JoinStringF(f func(K, V) string, delimiter ...string) string {
     sb := strings.Builder{}

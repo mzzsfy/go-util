@@ -96,6 +96,11 @@ type Comparable interface {
     ~int | ~int8 | ~int16 | ~int32 | ~int64 | ~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 | ~uintptr | ~float32 | ~float64 | ~string
 }
 
+// EqualsT 是否相等,用法: .Distinct(EqualsT[int])
+func EqualsT[T comparable](i T, i2 T) bool {
+    return i == i2
+}
+
 // LessT 排序用,小的在前,用法: .Order(LessT[int])
 func LessT[T Comparable](i T, i2 T) bool {
     return i < i2

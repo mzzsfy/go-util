@@ -51,3 +51,57 @@ func (t BiSeq[K, V]) Drop(n int) BiSeq[K, V] {
         })
     }
 }
+
+// Distinct 去重
+func (t BiSeq[K, V]) Distinct(equals func(K, V, K, V) bool) BiSeq[K, V] {
+    var r []BiTuple[K, V]
+    t(func(k K, v V) {
+        for _, x := range r {
+            if equals(k, v, x.K, x.V) {
+                return
+            }
+        }
+        r = append(r, BiTuple[K, V]{k, v})
+    })
+    return BiFrom(func(k func(K, V)) {
+        for _, v := range r {
+            k(v.K, v.V)
+        }
+    })
+}
+
+// DistinctK 使用K去重
+func (t BiSeq[K, V]) DistinctK(equals func(K, K) bool) BiSeq[K, V] {
+    var r []BiTuple[K, V]
+    t(func(k K, v V) {
+        for _, x := range r {
+            if equals(k, x.K) {
+                return
+            }
+        }
+        r = append(r, BiTuple[K, V]{k, v})
+    })
+    return BiFrom(func(k func(K, V)) {
+        for _, v := range r {
+            k(v.K, v.V)
+        }
+    })
+}
+
+// DistinctV 使用V去重
+func (t BiSeq[K, V]) DistinctV(equals func(V, V) bool) BiSeq[K, V] {
+    var r []BiTuple[K, V]
+    t(func(k K, v V) {
+        for _, x := range r {
+            if equals(v, x.V) {
+                return
+            }
+        }
+        r = append(r, BiTuple[K, V]{k, v})
+    })
+    return BiFrom(func(k func(K, V)) {
+        for _, v := range r {
+            k(v.K, v.V)
+        }
+    })
+}
