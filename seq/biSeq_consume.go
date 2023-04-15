@@ -86,11 +86,11 @@ func (t BiSeq[K, V]) Values() []V {
 
 // Cache 缓存Seq,使该Seq可以多次消费,并保证前面内容不会重复执行
 func (t BiSeq[K, V]) Cache() BiSeq[K, V] {
-    var r []biTuple[K, V]
-    t(func(k K, v V) { r = append(r, biTuple[K, V]{k, v}) })
+    var r []BiTuple[K, V]
+    t(func(k K, v V) { r = append(r, BiTuple[K, V]{k, v}) })
     return func(k func(K, V)) {
         for _, v := range r {
-            k(v.k, v.v)
+            k(v.K, v.V)
         }
     }
 }

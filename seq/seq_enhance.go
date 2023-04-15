@@ -19,6 +19,23 @@ func (t Seq[T]) OnEach(f func(T)) Seq[T] {
     }
 }
 
+// OnEachN 每n个元素额外执行一次
+func (t Seq[T]) OnEachN(step int, f func(T), skip ...int) Seq[T] {
+    return func(c func(T)) {
+        x := 0
+        if len(skip) > 0 {
+            x = -skip[0]
+        }
+        t(func(t T) {
+            x++
+            if x > 0 && x%step == 0 {
+                f(t)
+            }
+            c(t)
+        })
+    }
+}
+
 // OnBefore 指定位置前(包含),每个元素额外执行
 func (t Seq[T]) OnBefore(i int, f func(T)) Seq[T] {
     return func(c func(T)) {

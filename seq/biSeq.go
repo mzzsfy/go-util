@@ -1,8 +1,8 @@
 package seq
 
-type biTuple[K, V any] struct {
-    k K
-    v V
+type BiTuple[K, V any] struct {
+    K K
+    V V
 }
 
 // BiSeq 一种特殊的双元素集合,可以用于链式操作
@@ -22,6 +22,15 @@ func BiFromIterator[K, V any](it BiIterator[K, V]) BiSeq[K, V] {
                 break
             }
             t(k, v)
+        }
+    }
+}
+func BiFromBiTuple[K, V any](ts []BiTuple[K, V]) BiSeq[K, V] {
+    return func(t func(K, V)) {
+        for {
+            for _, v := range ts {
+                t(v.K, v.V)
+            }
         }
     }
 }

@@ -181,6 +181,23 @@ func (t Seq[T]) MapFloat64(f func(T) float64) Seq[float64] {
     return func(c func(float64)) { t(func(t T) { c(f(t)) }) }
 }
 
+// MapSliceN 每n个元素合并为[]T
+func (t Seq[T]) MapSliceN(n int) Seq[[]T] {
+    return func(c func([]T)) {
+        var ts []T
+        t(func(t T) {
+            ts = append(ts, t)
+            if len(ts) == n {
+                c(ts)
+                ts = nil
+            }
+        })
+        if len(ts) > 0 {
+            c(ts)
+        }
+    }
+}
+
 // Join 合并多个Seq
 func (t Seq[T]) Join(seqs ...Seq[T]) Seq[T] {
     return func(c func(T)) {
