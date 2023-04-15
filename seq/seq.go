@@ -38,6 +38,10 @@ func From[T any](f Seq[T]) Seq[T] {
     return f
 }
 
+func FromT[T any](ts ...T) Seq[T] {
+    return FromSlice(ts)
+}
+
 // FromRandIntSeq 生成随机整数序列,可以自定义随机数范围
 // 如果不指定范围,则生成的随机数为int类型的最大值
 // 参数1: 生成数量

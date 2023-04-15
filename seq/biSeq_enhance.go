@@ -50,8 +50,8 @@ func (t BiSeq[K, V]) OnAfter(i int, f func(K, V)) BiSeq[K, V] {
 
 // Sync 串行执行
 func (t BiSeq[K, V]) Sync() BiSeq[K, V] {
+    lock := sync.Mutex{}
     return func(c func(K, V)) {
-        lock := sync.Mutex{}
         t(func(k K, v V) {
             lock.Lock()
             defer lock.Unlock()
@@ -60,7 +60,7 @@ func (t BiSeq[K, V]) Sync() BiSeq[K, V] {
     }
 }
 
-// Parallel 对后续操作启用并行执行
+// Parallel 对后续操作启用并行执行,使用 Sync() 保证消费不竞争
 func (t BiSeq[K, V]) Parallel(concurrency ...int) BiSeq[K, V] {
     sl := 0
     if len(concurrency) > 0 {

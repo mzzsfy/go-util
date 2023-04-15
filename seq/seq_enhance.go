@@ -50,8 +50,8 @@ func (t Seq[T]) OnAfter(i int, f func(T)) Seq[T] {
 
 // Sync 串行执行
 func (t Seq[T]) Sync() Seq[T] {
+    lock := sync.Mutex{}
     return func(c func(T)) {
-        lock := sync.Mutex{}
         t(func(t T) {
             lock.Lock()
             defer lock.Unlock()
@@ -60,7 +60,7 @@ func (t Seq[T]) Sync() Seq[T] {
     }
 }
 
-// Parallel 对后续操作启用并行执行
+// Parallel 对后续操作启用并行执行 使用 Sync() 保证消费不竞争
 func (t Seq[T]) Parallel(concurrency ...int) Seq[T] {
     sl := 0
     if len(concurrency) > 0 {

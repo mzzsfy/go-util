@@ -2,6 +2,26 @@ package seq
 
 //======转换========
 
+// AsyncMap 每个元素转换为any,使用 Sync() 保证消费不竞争
+// order 是否保持顺序,大于0保持顺序,默认不保持顺序
+// order 第二个参数,并发数
+func (t Seq[T]) AsyncMap(f func(T) any, order ...int) Seq[any] {
+    o := false
+    c := 0
+    if len(order) > 0 {
+        o = order[0] > 0
+    }
+    if len(order) > 1 {
+        c = order[1]
+    }
+    if o {
+        return t.MapBiSerialNumber().Parallel(c).
+            MapV(func(i int, t T) any { return f(t) }).SortK(LessT[int]).SeqV()
+    } else {
+        return t.Parallel(c).Map(f)
+    }
+}
+
 // Map 每个元素转换为any
 func (t Seq[T]) Map(f func(T) any) Seq[any] {
     return func(c func(any)) { t(func(t T) { c(f(t)) }) }
