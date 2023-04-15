@@ -99,6 +99,42 @@ func (t BiSeq[K, V]) Parallel(concurrency ...int) BiSeq[K, V] {
     }
 }
 
+//
+//// ParallelOrdered 对后续操作启用并行执行,保执行回调顺序,使用 Sync() 保证消费不竞争
+//func (t BiSeq[K, V]) ParallelOrdered(concurrency ...int) BiSeq[K, V] {
+//    //sl := 0
+//    //if len(concurrency) > 0 {
+//    //    sl = concurrency[0]
+//    //}
+//    l := sync.NewCond(&sync.Mutex{})
+//    return func(c func(K, V)) {
+//        var b BiSeq[any, any]
+//        var currentIndex int
+//        var id int
+//        b = t.Map(func(k K, v V) (any, any) {
+//            lock := sync.Mutex{}
+//            lock.Lock()
+//            id++
+//            id := id
+//            go func() {
+//                defer lock.Unlock()
+//                l.L.Lock()
+//                for currentIndex != id {
+//                    l.Wait()
+//                }
+//                l.L.Unlock()
+//                currentIndex++
+//                c(k, v)
+//            }()
+//            return &lock, nil
+//        })
+//        b.Cache()(func(t, _ any) {
+//            lock := t.(sync.Locker)
+//            lock.Lock()
+//        })
+//    }
+//}
+
 // Sort 排序
 func (t BiSeq[K, V]) Sort(less func(K, V, K, V) bool) BiSeq[K, V] {
     var r []biTuple[K, V]

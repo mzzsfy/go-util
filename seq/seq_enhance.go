@@ -67,32 +67,20 @@ func (t Seq[T]) Parallel(concurrency ...int) Seq[T] {
         sl = concurrency[0]
     }
     return func(c func(T)) {
-        var b Seq[any]
-        if sl > 0 {
-            s := semaphore.NewWeighted(int64(sl))
-            b = t.Map(func(t T) any {
-                lock := sync.Mutex{}
-                lock.Lock()
-                go func() {
-                    defer lock.Unlock()
+        s := semaphore.NewWeighted(int64(sl))
+        t.Map(func(t T) any {
+            lock := sync.Mutex{}
+            lock.Lock()
+            go func() {
+                defer lock.Unlock()
+                if sl > 0 {
                     s.Acquire(context.Background(), 1)
                     defer s.Release(1)
-                    c(t)
-                }()
-                return &lock
-            })
-        } else {
-            b = t.Map(func(t T) any {
-                lock := sync.Mutex{}
-                lock.Lock()
-                go func() {
-                    defer lock.Unlock()
-                    c(t)
-                }()
-                return &lock
-            })
-        }
-        b.Cache()(func(t any) {
+                }
+                c(t)
+            }()
+            return &lock
+        }).Cache()(func(t any) {
             lock := t.(sync.Locker)
             lock.Lock()
         })

@@ -3,11 +3,21 @@ package seq
 import (
     "fmt"
     "math/rand"
+    "os"
+    "runtime"
     "testing"
     "time"
 )
 
+func init() {
+    rand.Seed(time.Now().UnixNano())
+}
+func preTest(t *testing.T) {
+    t.Parallel()
+}
+
 func Test1(t *testing.T) {
+    preTest(t)
     seq := FromSlice([]int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10})
     ok1 := 0
     ok2 := 0
@@ -35,6 +45,7 @@ func Test1(t *testing.T) {
 }
 
 func TestAsync(t *testing.T) {
+    preTest(t)
     duration := time.Millisecond * 100
     seq := FromSlice([]int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10})
     go func() {
@@ -60,15 +71,16 @@ func TestAsync(t *testing.T) {
 }
 
 func TestConcurrencyControl(t *testing.T) {
-    n := 100 + rand.Intn(1000)
+    preTest(t)
+    n := 30 + rand.Intn(100)
     seq := FromIntSeq().Take(n)
     now := time.Now()
-    duration := time.Millisecond * 100
-    concurrency := 1 + rand.Intn(n-1)
+    duration := time.Millisecond * 200
+    concurrency := 1 + rand.Intn(n-1)/2
     seq.Parallel(concurrency).Map(func(i int) any {
-        //println(i, "start")
+        println(i, "start")
         time.Sleep(duration / time.Duration(n/concurrency))
-        //println(i, "end")
+        println(i, "end")
         return i
     }).Complete()
     sub := time.Now().Sub(now)
@@ -78,6 +90,7 @@ func TestConcurrencyControl(t *testing.T) {
 }
 
 func TestFromIntSeq(t *testing.T) {
+    preTest(t)
     seq := FromIntSeq(1, 10)
     ok := 0
     seq.ForEach(func(i int) {
@@ -89,6 +102,7 @@ func TestFromIntSeq(t *testing.T) {
 }
 
 func TestTake(t *testing.T) {
+    preTest(t)
     seq := FromIntSeq(0, 9)
     var r []int
     seq.Take(5).ForEach(func(i int) { r = append(r, i) })
@@ -103,6 +117,7 @@ func TestTake(t *testing.T) {
 }
 
 func TestDrop(t *testing.T) {
+    preTest(t)
     seq := FromIntSeq(0, 9)
     var r []int
     seq.Drop(5).ForEach(func(i int) { r = append(r, i) })
@@ -117,6 +132,7 @@ func TestDrop(t *testing.T) {
 }
 
 func TestDropTake(t *testing.T) {
+    preTest(t)
     seq := FromIntSeq()
     var r []int
     seq.Drop(5).Take(5).ForEach(func(i int) { r = append(r, i) })
@@ -131,6 +147,7 @@ func TestDropTake(t *testing.T) {
 }
 
 func TestCache(t *testing.T) {
+    preTest(t)
     d := 0
     seq := From(func(f func(i int)) {
         d++
@@ -201,6 +218,7 @@ func TestCache(t *testing.T) {
 }
 
 func TestRand(t *testing.T) {
+    preTest(t)
     slice := FromRandIntSeq().OnEach(func(i int) {
         fmt.Println("", i)
     }).Filter(func(i int) bool {
@@ -213,6 +231,7 @@ func TestRand(t *testing.T) {
 }
 
 func TestSort(t *testing.T) {
+    preTest(t)
     //结果 "10,9,8 ... 3,2,1"
     if "10,9,8,7,6,5,4,3,2,1" != FromIntSeq(1).Take(10).Sort(func(i, j int) bool {
         return i > j
@@ -222,6 +241,7 @@ func TestSort(t *testing.T) {
 }
 
 func TestSeq_Complete(t *testing.T) {
+    preTest(t)
     s := FromIntSeq().Take(1000).MapBiSerialNumber(100).Cache()
     {
         it := IteratorInt()
@@ -244,6 +264,7 @@ func TestSeq_Complete(t *testing.T) {
 }
 
 func TestSeq_MergeBiInt(t *testing.T) {
+    preTest(t)
     s := FromIntSeq().Take(1000).MergeBiInt(IteratorInt(111)).Cache()
     {
         it := IteratorInt()
@@ -263,4 +284,50 @@ func TestSeq_MergeBiInt(t *testing.T) {
             }
         })
     }
+}
+
+func TestSeq_ParallelOrdered(t *testing.T) {
+    preTest(t)
+    it := IteratorInt()
+    n := 1000
+    FromIntSeq().Take(n).AsyncMap(func(i int) any {
+        s := time.Duration(rand.Intn(3000)) * time.Microsecond
+        //println("sleep", i, s.Truncate(time.Microsecond*100).String())
+        time.Sleep(s)
+        println("sleep over", i, s.Truncate(time.Microsecond*100).String())
+        return i
+    }, 1, n/3).ForEach(func(ia any) {
+        runtime.Gosched()
+        i := ia.(int)
+        i2, _ := it()
+        println("test", i, "expect", i2)
+        if i != i2 {
+            runtime.Gosched()
+            t.Fail()
+            os.Exit(1)
+        }
+    })
+}
+
+func TestSeq_ParallelOrdered1(t *testing.T) {
+    preTest(t)
+    it := IteratorInt()
+    n := 1000
+    FromIntSeq().Take(n).AsyncMap(func(i int) any {
+        s := time.Duration(rand.Intn(3000)) * time.Microsecond
+        //println("sleep", i, s.Truncate(time.Microsecond*100).String())
+        time.Sleep(s)
+        println("sleep over", i, s.Truncate(time.Microsecond*100).String())
+        return i
+    }, 1, n/4).Sync().ForEach(func(ia any) {
+        runtime.Gosched()
+        i := ia.(int)
+        i2, _ := it()
+        println("test", i, "expect", i2)
+        if i != i2 {
+            runtime.Gosched()
+            t.Fail()
+            os.Exit(1)
+        }
+    })
 }

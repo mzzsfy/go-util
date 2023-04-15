@@ -1,24 +1,63 @@
 package seq
 
+import (
+    "context"
+    "golang.org/x/sync/semaphore"
+    "sync"
+    "sync/atomic"
+)
+
 //======转换========
 
 // AsyncMap 每个元素转换为any,使用 Sync() 保证消费不竞争
-// order 是否保持顺序,大于0保持顺序,默认不保持顺序
+// order 是否保持顺序,大于0保持顺序
 // order 第二个参数,并发数
 func (t Seq[T]) AsyncMap(f func(T) any, order ...int) Seq[any] {
     o := false
-    c := 0
+    sl := 0
     if len(order) > 0 {
         o = order[0] > 0
     }
     if len(order) > 1 {
-        c = order[1]
+        sl = order[1]
     }
     if o {
-        return t.MapBiSerialNumber().Parallel(c).
-            MapV(func(i int, t T) any { return f(t) }).SortK(LessT[int]).SeqV()
+        l := sync.NewCond(&sync.Mutex{})
+        return func(c func(any)) {
+            var currentIndex int32 = 1
+            var id int32
+            s := semaphore.NewWeighted(int64(sl))
+            t.Map(func(t T) any {
+                lock := sync.Mutex{}
+                lock.Lock()
+                id++
+                var id = id
+                go func() {
+                    if sl > 0 {
+                        s.Acquire(context.Background(), 1)
+                    }
+                    defer lock.Unlock()
+                    a := f(t)
+                    if sl > 0 {
+                        s.Release(1)
+                    }
+                    l.L.Lock()
+                    for atomic.LoadInt32(&currentIndex) != id {
+                        l.Wait()
+                    }
+                    c(a)
+                    atomic.AddInt32(&currentIndex, 1)
+                    l.L.Unlock()
+                    l.Broadcast()
+                }()
+                return &lock
+            }).Cache()(func(t any) {
+                lock := t.(sync.Locker)
+                lock.Lock()
+            })
+        }
     } else {
-        return t.Parallel(c).Map(f)
+        return t.Parallel(sl).Map(f)
     }
 }
 

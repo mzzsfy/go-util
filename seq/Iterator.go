@@ -36,11 +36,11 @@ func IteratorInt(rang ...int) Iterator[int] {
     }
     return func() (int, bool) {
         if step > 0 {
-            if start >= end {
+            if start > end {
                 return 0, false
             }
         } else {
-            if start <= end {
+            if start < end {
                 return 0, false
             }
         }
