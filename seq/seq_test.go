@@ -220,3 +220,25 @@ func TestSort(t *testing.T) {
         t.Fail()
     }
 }
+
+func TestSeq_Complete(t *testing.T) {
+    s := FromIntSeq().Take(1000).MapBiSerialNumber(100).Cache()
+    {
+        it := IteratorInt()
+        s.SeqV().ForEach(func(i int) {
+            i2, _ := it()
+            if i != i2 {
+                t.Fail()
+            }
+        })
+    }
+    {
+        it := IteratorInt(100)
+        s.SeqK().ForEach(func(i int) {
+            i2, _ := it()
+            if i != i2 {
+                t.Fail()
+            }
+        })
+    }
+}
