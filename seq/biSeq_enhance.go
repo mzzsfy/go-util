@@ -84,32 +84,20 @@ func (t BiSeq[K, V]) Parallel(concurrency ...int) BiSeq[K, V] {
         sl = concurrency[0]
     }
     return func(c func(K, V)) {
-        var b BiSeq[any, any]
-        if sl > 0 {
-            s := semaphore.NewWeighted(int64(sl))
-            b = t.Map(func(k K, v V) (any, any) {
-                lock := sync.Mutex{}
-                lock.Lock()
-                go func() {
-                    defer lock.Unlock()
+        s := semaphore.NewWeighted(int64(sl))
+        t.Map(func(k K, v V) (any, any) {
+            lock := sync.Mutex{}
+            lock.Lock()
+            go func() {
+                defer lock.Unlock()
+                if sl > 0 {
                     s.Acquire(context.Background(), 1)
                     defer s.Release(1)
-                    c(k, v)
-                }()
-                return &lock, nil
-            })
-        } else {
-            b = t.Map(func(k K, v V) (any, any) {
-                lock := sync.Mutex{}
-                lock.Lock()
-                go func() {
-                    defer lock.Unlock()
-                    c(k, v)
-                }()
-                return &lock, nil
-            })
-        }
-        b.Cache()(func(t, _ any) {
+                }
+                c(k, v)
+            }()
+            return &lock, nil
+        }).Cache()(func(t, _ any) {
             lock := t.(sync.Locker)
             lock.Lock()
         })
