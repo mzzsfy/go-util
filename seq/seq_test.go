@@ -302,8 +302,9 @@ func TestSeq_ParallelOrdered(t *testing.T) {
         i2, _ := it()
         //println("test", i, "expect", i2)
         if i != i2 {
-            runtime.Gosched()
             t.Fail()
+            runtime.Gosched()
+            println("test", i, "expect", i2)
             os.Exit(1)
         }
     })
@@ -317,16 +318,17 @@ func TestSeq_ParallelOrdered1(t *testing.T) {
         s := time.Duration(rand.Intn(3000)) * time.Microsecond
         //println("sleep", i, s.Truncate(time.Microsecond*100).String())
         time.Sleep(s)
-        println("sleep over", i, s.Truncate(time.Microsecond*100).String())
+        //println("sleep over", i, s.Truncate(time.Microsecond*100).String())
         return i
     }, 1, n/4).Sync().ForEach(func(ia any) {
         runtime.Gosched()
         i := ia.(int)
         i2, _ := it()
-        println("test", i, "expect", i2)
+        //println("test", i, "expect", i2)
         if i != i2 {
-            runtime.Gosched()
             t.Fail()
+            runtime.Gosched()
+            println("test", i, "expect", i2)
             os.Exit(1)
         }
     })

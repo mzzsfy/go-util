@@ -25,15 +25,23 @@ func (t BiSeq[K, V]) MapKParallel(f func(k K, v V) any, order ...int) BiSeq[any,
         l := sync.NewCond(&sync.Mutex{})
         return func(c func(k any, v V)) {
             var currentIndex int32 = 1
+            var currentIndex1 int32 = 1
             var id int32
             s := semaphore.NewWeighted(int64(sl))
             t.MapK(func(k K, v V) any {
                 lock := sync.Mutex{}
                 lock.Lock()
-                id++
-                var id = id
+                var id = atomic.AddInt32(&id, 1)
                 go func() {
                     if sl > 0 {
+                        //限制并发时,保证携程启动顺序
+                        l.L.Lock()
+                        for atomic.LoadInt32(&currentIndex1) != id {
+                            l.Wait()
+                        }
+                        atomic.AddInt32(&currentIndex1, 1)
+                        l.L.Unlock()
+                        l.Broadcast()
                         s.Acquire(context.Background(), 1)
                     }
                     defer lock.Unlock()
@@ -77,15 +85,23 @@ func (t BiSeq[K, V]) MapVParallel(f func(k K, v V) any, order ...int) BiSeq[K, a
         l := sync.NewCond(&sync.Mutex{})
         return func(c func(k K, v any)) {
             var currentIndex int32 = 1
+            var currentIndex1 int32 = 1
             var id int32
             s := semaphore.NewWeighted(int64(sl))
             t.MapK(func(k K, v V) any {
                 lock := sync.Mutex{}
                 lock.Lock()
-                id++
-                var id = id
+                var id = atomic.AddInt32(&id, 1)
                 go func() {
                     if sl > 0 {
+                        //限制并发时,保证携程启动顺序
+                        l.L.Lock()
+                        for atomic.LoadInt32(&currentIndex1) != id {
+                            l.Wait()
+                        }
+                        atomic.AddInt32(&currentIndex1, 1)
+                        l.L.Unlock()
+                        l.Broadcast()
                         s.Acquire(context.Background(), 1)
                     }
                     defer lock.Unlock()
