@@ -196,6 +196,23 @@ func (t BiSeq[K, V]) MapSliceN(n int) Seq[[]BiTuple[K, V]] {
     }
 }
 
+// MapSliceF 每n个元素合并为[]T
+func (t BiSeq[K, V]) MapSliceF(f func(K, V, []BiTuple[K, V]) bool) Seq[[]BiTuple[K, V]] {
+    return func(c func([]BiTuple[K, V])) {
+        var ts []BiTuple[K, V]
+        t(func(k K, v V) {
+            ts = append(ts, BiTuple[K, V]{k, v})
+            if f(k, v, ts) {
+                c(ts)
+                ts = nil
+            }
+        })
+        if len(ts) > 0 {
+            c(ts)
+        }
+    }
+}
+
 // StringMap 转换为Seq[string]
 func (t BiSeq[K, V]) StringMap(f func(K, V) string) Seq[string] {
     return func(c func(string)) { t(func(k K, v V) { c(f(k, v)) }) }

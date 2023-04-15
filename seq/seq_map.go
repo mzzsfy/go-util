@@ -198,6 +198,23 @@ func (t Seq[T]) MapSliceN(n int) Seq[[]T] {
     }
 }
 
+// MapSliceF 自定义元素合并为[]T
+func (t Seq[T]) MapSliceF(f func(T, []T) bool) Seq[[]T] {
+    return func(c func([]T)) {
+        var ts []T
+        t(func(t T) {
+            ts = append(ts, t)
+            if f(t, ts) {
+                c(ts)
+                ts = nil
+            }
+        })
+        if len(ts) > 0 {
+            c(ts)
+        }
+    }
+}
+
 // Join 合并多个Seq
 func (t Seq[T]) Join(seqs ...Seq[T]) Seq[T] {
     return func(c func(T)) {
