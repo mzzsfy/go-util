@@ -244,6 +244,16 @@ func (t BiSeq[K, V]) Add(k K, v V) BiSeq[K, V] {
     }
 }
 
+// AddTuple 添加元素
+func (t BiSeq[K, V]) AddTuple(vs ...BiTuple[K, V]) BiSeq[K, V] {
+    return func(c func(K, V)) {
+        t(func(k K, v V) { c(k, v) })
+        for _, v := range vs {
+            c(v.K, v.V)
+        }
+    }
+}
+
 // AddF 添加元素
 func (t BiSeq[K, V]) AddF(cast func(any, any) (K, V), es ...any) BiSeq[K, V] {
     if len(es)%2 != 0 {
