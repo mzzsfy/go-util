@@ -242,3 +242,25 @@ func TestSeq_Complete(t *testing.T) {
         })
     }
 }
+
+func TestSeq_MergeBiInt(t *testing.T) {
+    s := FromIntSeq().Take(1000).MergeBiInt(IteratorInt(111)).Cache()
+    {
+        it := IteratorInt()
+        s.SeqV().ForEach(func(i int) {
+            i2, _ := it()
+            if i != i2 {
+                t.Fail()
+            }
+        })
+    }
+    {
+        it := IteratorInt(111)
+        s.SeqK().ForEach(func(i int) {
+            i2, _ := it()
+            if i != i2 {
+                t.Fail()
+            }
+        })
+    }
+}
