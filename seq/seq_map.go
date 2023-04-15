@@ -9,10 +9,10 @@ import (
 
 //======转换========
 
-// AsyncMap 每个元素转换为any,使用 Sync() 保证消费不竞争
+// MapParallel 每个元素转换为any,使用 Sync() 保证消费不竞争
 // order 是否保持顺序,大于0保持顺序
 // order 第二个参数,并发数
-func (t Seq[T]) AsyncMap(f func(T) any, order ...int) Seq[any] {
+func (t Seq[T]) MapParallel(f func(T) any, order ...int) Seq[any] {
     o := false
     sl := 0
     if len(order) > 0 {

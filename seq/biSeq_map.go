@@ -1,6 +1,117 @@
 package seq
 
+import (
+    "context"
+    "golang.org/x/sync/semaphore"
+    "sync"
+    "sync/atomic"
+)
+
 //======转换========
+
+// MapKParallel 每个元素转换为any,使用 Sync() 保证消费不竞争
+// order 是否保持顺序,大于0保持顺序
+// order 第二个参数,并发数
+func (t BiSeq[K, V]) MapKParallel(f func(k K, v V) any, order ...int) BiSeq[any, V] {
+    o := false
+    sl := 0
+    if len(order) > 0 {
+        o = order[0] > 0
+    }
+    if len(order) > 1 {
+        sl = order[1]
+    }
+    if o {
+        l := sync.NewCond(&sync.Mutex{})
+        return func(c func(k any, v V)) {
+            var currentIndex int32 = 1
+            var id int32
+            s := semaphore.NewWeighted(int64(sl))
+            t.MapK(func(k K, v V) any {
+                lock := sync.Mutex{}
+                lock.Lock()
+                id++
+                var id = id
+                go func() {
+                    if sl > 0 {
+                        s.Acquire(context.Background(), 1)
+                    }
+                    defer lock.Unlock()
+                    a := f(k, v)
+                    if sl > 0 {
+                        s.Release(1)
+                    }
+                    l.L.Lock()
+                    for atomic.LoadInt32(&currentIndex) != id {
+                        l.Wait()
+                    }
+                    c(a, v)
+                    atomic.AddInt32(&currentIndex, 1)
+                    l.L.Unlock()
+                    l.Broadcast()
+                }()
+                return &lock
+            }).SeqK().Cache()(func(t any) {
+                lock := t.(sync.Locker)
+                lock.Lock()
+            })
+        }
+    } else {
+        return t.Parallel(sl).MapK(f)
+    }
+}
+
+// MapVParallel 每个元素转换为any,使用 Sync() 保证消费不竞争
+// order 是否保持顺序,大于0保持顺序
+// order 第二个参数,并发数
+func (t BiSeq[K, V]) MapVParallel(f func(k K, v V) any, order ...int) BiSeq[K, any] {
+    o := false
+    sl := 0
+    if len(order) > 0 {
+        o = order[0] > 0
+    }
+    if len(order) > 1 {
+        sl = order[1]
+    }
+    if o {
+        l := sync.NewCond(&sync.Mutex{})
+        return func(c func(k K, v any)) {
+            var currentIndex int32 = 1
+            var id int32
+            s := semaphore.NewWeighted(int64(sl))
+            t.MapK(func(k K, v V) any {
+                lock := sync.Mutex{}
+                lock.Lock()
+                id++
+                var id = id
+                go func() {
+                    if sl > 0 {
+                        s.Acquire(context.Background(), 1)
+                    }
+                    defer lock.Unlock()
+                    a := f(k, v)
+                    if sl > 0 {
+                        s.Release(1)
+                    }
+                    l.L.Lock()
+                    for atomic.LoadInt32(&currentIndex) != id {
+                        l.Wait()
+                    }
+                    c(k, a)
+                    atomic.AddInt32(&currentIndex, 1)
+                    l.L.Unlock()
+                    l.Broadcast()
+                }()
+                return &lock
+            }).SeqK().Cache()(func(t any) {
+                lock := t.(sync.Locker)
+                lock.Lock()
+            })
+        }
+    } else {
+        return t.Parallel(sl).MapV(f)
+    }
+}
 
 // Map 每个元素自定义转换为any,用于连续转换操作,使用 BiCastAny 进行恢复泛型
 func (t BiSeq[K, V]) Map(f func(K, V) (any, any)) BiSeq[any, any] {
