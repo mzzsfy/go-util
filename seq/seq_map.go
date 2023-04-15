@@ -74,8 +74,8 @@ func (t Seq[T]) Map(f func(T) any) Seq[any] {
     return func(c func(any)) { t(func(t T) { c(f(t)) }) }
 }
 
-// FlatMap 每个元素转换为Seq,并扁平化
-func (t Seq[T]) FlatMap(f func(T) Seq[any]) Seq[any] {
+// MapFlat 每个元素转换为Seq,并扁平化
+func (t Seq[T]) MapFlat(f func(T) Seq[any]) Seq[any] {
     return func(c func(any)) { t(func(t T) { f(t).ForEach(c) }) }
 }
 

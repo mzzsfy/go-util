@@ -169,8 +169,8 @@ func (t BiSeq[K, V]) SeqVF(f func(K, V) V) Seq[V] {
     return func(c func(V)) { t(func(k K, v V) { c(f(k, v)) }) }
 }
 
-// FlatMap 每个元素转换为BiSeq[any,any],并扁平化
-func (t BiSeq[K, V]) FlatMap(f func(K, V) BiSeq[any, any]) BiSeq[any, any] {
+// MapFlat 每个元素转换为BiSeq[any,any],并扁平化
+func (t BiSeq[K, V]) MapFlat(f func(K, V) BiSeq[any, any]) BiSeq[any, any] {
     return func(c func(any, any)) {
         t(func(k K, v V) {
             s := f(k, v)
@@ -196,7 +196,7 @@ func (t BiSeq[K, V]) MapSliceN(n int) Seq[[]BiTuple[K, V]] {
     }
 }
 
-// MapSliceF 每n个元素合并为[]T
+// MapSliceF 自定义元素合并为[]T
 func (t BiSeq[K, V]) MapSliceF(f func(K, V, []BiTuple[K, V]) bool) Seq[[]BiTuple[K, V]] {
     return func(c func([]BiTuple[K, V])) {
         var ts []BiTuple[K, V]

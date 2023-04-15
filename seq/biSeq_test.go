@@ -16,7 +16,7 @@ func TestBi1(t *testing.T) {
         return i%2 == 0
     }).OnEach(func(i int, j int) {
         ok2++
-    }).FlatMap(func(i int, j int) BiSeq[any, any] {
+    }).MapFlat(func(i int, j int) BiSeq[any, any] {
         return func(f func(any, any)) {
             f(i, j)
             f(i+1, j+1)

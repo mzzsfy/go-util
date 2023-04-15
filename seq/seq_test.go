@@ -29,7 +29,7 @@ func Test1(t *testing.T) {
             return i%2 == 0
         }).OnEach(func(i int) {
             ok2++
-        }).FlatMap(func(i int) Seq[any] {
+        }).MapFlat(func(i int) Seq[any] {
             return FromSlice([]any{i, i + 1})
         }), 0,
     ).ForEach(func(i int) {
