@@ -64,7 +64,7 @@ func (t BiSeq[K, V]) OnAfter(i int, f func(K, V)) BiSeq[K, V] {
 }
 
 // OnLast 执行完成后额外执行
-func (t BiSeq[K, V]) OnLast(f func(K, V)) BiSeq[K, V] {
+func (t BiSeq[K, V]) OnLast(f func(*K, *V)) BiSeq[K, V] {
     return func(x func(K, V)) {
         var lastK *K
         var lastV *V
@@ -73,7 +73,7 @@ func (t BiSeq[K, V]) OnLast(f func(K, V)) BiSeq[K, V] {
             lastV = &v
             x(k, v)
         })
-        f(*lastK, *lastV)
+        f(lastK, lastV)
     }
 }
 
