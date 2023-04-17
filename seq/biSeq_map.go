@@ -25,7 +25,7 @@ func (t BiSeq[K, V]) MapKParallel(f func(k K, v V) any, order ...int) BiSeq[any,
         return func(c func(any, V)) {
             var currentIndex int32 = 1
             var id int32
-            t.ForEach(func(k K, v V) {
+            t(func(k K, v V) {
                 var id = atomic.AddInt32(&id, 1)
                 p.Add(func() {
                     a := f(k, v)
@@ -68,7 +68,7 @@ func (t BiSeq[K, V]) MapVParallel(f func(k K, v V) any, order ...int) BiSeq[K, a
         return func(c func(K, any)) {
             var currentIndex int32 = 1
             var id int32
-            t.ForEach(func(k K, v V) {
+            t(func(k K, v V) {
                 var id = atomic.AddInt32(&id, 1)
                 p.Add(func() {
                     a := f(k, v)
@@ -213,6 +213,6 @@ func (t BiSeq[K, V]) AddF(cast func(any, any) (K, V), es ...any) BiSeq[K, V] {
     }
     return func(c func(K, V)) {
         t(func(k K, v V) { c(k, v) })
-        FromIntSeq(0, len(es), 2).ForEach(func(i int) { c(cast(es[i], es[i+1])) })
+        FromIntSeq(0, len(es), 2)(func(i int) { c(cast(es[i], es[i+1])) })
     }
 }

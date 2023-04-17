@@ -5,7 +5,7 @@ import (
     "sync/atomic"
 )
 
-//======转换========
+//======转换,添加或修改内部元素========
 
 // MapParallel 每个元素转换为any,使用 Sync() 保证消费不竞争
 // order 是否保持顺序,1尽量保持顺序(可能消费竞争),大于1强制保持顺序(约等于加锁)
@@ -25,7 +25,7 @@ func (t Seq[T]) MapParallel(f func(T) any, order ...int) Seq[any] {
         return func(c func(any)) {
             var currentIndex int32 = 1
             var id int32
-            t.ForEach(func(t T) {
+            t(func(t T) {
                 var id = atomic.AddInt32(&id, 1)
                 p.Add(func() {
                     a := f(t)

@@ -10,7 +10,12 @@ import (
 // Seq 一种特殊的集合,可以用于链式操作
 type Seq[T any] func(t func(T))
 
-//======生成========
+//======生成,产生新的seq========
+
+// From 从函数生成Seq,是一个便捷方法
+func From[T any](f Seq[T]) Seq[T] {
+    return f
+}
 
 // FromSlice 从数组生成Seq
 func FromSlice[T any](arr []T) Seq[T] {
@@ -18,6 +23,27 @@ func FromSlice[T any](arr []T) Seq[T] {
         for _, v := range arr {
             t(v)
         }
+    }
+}
+
+// FromSliceRepeat 从数组生成Seq,可以指定重复次数
+func FromSliceRepeat[T any](arr []T, limit ...int) Seq[T] {
+    return func(t func(T)) {
+        if len(limit) > 0 && limit[0] > 0 {
+            l := limit[0]
+            for i := 0; i < l; i++ {
+                for _, e := range arr {
+                    t(e)
+                }
+            }
+        } else {
+            for {
+                for _, e := range arr {
+                    t(e)
+                }
+            }
+        }
+
     }
 }
 
@@ -34,12 +60,16 @@ func FromIterator[T any](it Iterator[T]) Seq[T] {
     }
 }
 
-func From[T any](f Seq[T]) Seq[T] {
-    return f
-}
-
+// FromT 从元素生成Seq
 func FromT[T any](ts ...T) Seq[T] {
     return FromSlice(ts)
+}
+
+func FromTRepeat[T any](ts ...T) Seq[T] {
+    return FromSliceRepeat(ts)
+}
+func FromTRepeatN[T any](limit int, ts ...T) Seq[T] {
+    return FromSliceRepeat(ts, limit)
 }
 
 // FromRandIntSeq 生成随机整数序列,可以自定义随机数范围
@@ -74,28 +104,6 @@ func FromRandIntSeq(i ...int) Seq[int] {
 // 参数3,步长,默认为1
 func FromIntSeq(rang ...int) Seq[int] {
     return FromIterator(IteratorInt(rang...))
-}
-
-// Unit 生成单元素的Seq
-func Unit[T any](e T) Seq[T] {
-    return func(t func(T)) { t(e) }
-}
-
-// UnitRepeat 生成重复产生单元素的Seq
-func UnitRepeat[T any](e T, limit ...int) Seq[T] {
-    return func(t func(T)) {
-        if len(limit) > 0 && limit[0] > 0 {
-            l := limit[0]
-            for i := 0; i < l; i++ {
-                t(e)
-            }
-        } else {
-            for {
-                t(e)
-            }
-        }
-
-    }
 }
 
 // CastAny 从any类型的Seq转换为T类型的Seq,强制转换

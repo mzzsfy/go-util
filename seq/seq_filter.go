@@ -1,6 +1,6 @@
 package seq
 
-//======控制========
+//======控制,删除或者停止========
 
 // ConsumeTillStop 消费直到遇到stop
 func (t Seq[T]) ConsumeTillStop(f func(T)) {
@@ -21,7 +21,6 @@ func (t Seq[T]) Filter(f func(T) bool) Seq[T] {
                 c(t)
             }
         })
-
     }
 }
 
@@ -56,6 +55,7 @@ func (t Seq[T]) Drop(n int) Seq[T] {
 func (t Seq[T]) Distinct(equals func(T, T) bool) Seq[T] {
     var r []T
     t(func(t T) {
+        //如何优化?
         for _, v := range r {
             if equals(t, v) {
                 return

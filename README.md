@@ -10,6 +10,6 @@ FromIntSeq(19, -10, -3).Add(-100,100,10).Filter(func(i int) bool {
     fmt.Println(i)
 })
 ```
-更多例子见: [seq_test.go](./seq/seq_test.go) [biSeq_test.go](./seq/biSeq_test.go)
+更多例子见: [seq_test.go](./seq/seq__test.go) [biSeq_test.go](./seq/biSeq_test.go)
 
 > 参考了: https://mp.weixin.qq.com/s/v-HMKBWxtz1iakxFL09PDw

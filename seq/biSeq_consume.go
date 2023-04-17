@@ -56,6 +56,49 @@ func (t BiSeq[K, V]) FirstOrF(f func() (K, V)) (K, V) {
     return f()
 }
 
+// Last 获取最后一个元素,无则返回nil
+func (t BiSeq[K, V]) Last() (*K, *V) {
+    var rk *K
+    var rv *V
+    t(func(k K, v V) {
+        rk = &k
+        rv = &v
+    })
+    return rk, rv
+}
+
+// LastOr 获取最后一个元素,无则返回默认值
+func (t BiSeq[K, V]) LastOr(k K, v V) (K, V) {
+    var rk *K
+    var rv *V
+    exist := false
+    t(func(k K, v V) {
+        rk = &k
+        rv = &v
+        exist = true
+    })
+    if exist {
+        return *rk, *rv
+    }
+    return k, v
+}
+
+// LastOrF 获取最后一个元素,无则返回f的值
+func (t BiSeq[K, V]) LastOrF(f func() (K, V)) (K, V) {
+    var rk *K
+    var rv *V
+    exist := false
+    t(func(k K, v V) {
+        rk = &k
+        rv = &v
+        exist = true
+    })
+    if exist {
+        return *rk, *rv
+    }
+    return f()
+}
+
 // AnyMatch 任意匹配
 func (t BiSeq[K, V]) AnyMatch(f func(K, V) bool) bool {
     r := false
@@ -84,17 +127,6 @@ func (t BiSeq[K, V]) Values() []V {
     return r
 }
 
-// Cache 缓存Seq,使该Seq可以多次消费,并保证前面内容不会重复执行
-func (t BiSeq[K, V]) Cache() BiSeq[K, V] {
-    var r []BiTuple[K, V]
-    t(func(k K, v V) { r = append(r, BiTuple[K, V]{k, v}) })
-    return func(k func(K, V)) {
-        for _, v := range r {
-            k(v.K, v.V)
-        }
-    }
-}
-
 // Count 计数
 func (t BiSeq[K, V]) Count() int64 {
     var r int64
@@ -109,7 +141,7 @@ func (t BiSeq[K, V]) JoinStringF(f func(K, V) string, delimiter ...string) strin
     if len(delimiter) > 0 {
         d = delimiter[0]
     }
-    t.StringMap(f).ForEach(func(s string) {
+    t.StringMap(f)(func(s string) {
         if d != "" && sb.Len() > 0 {
             sb.WriteString(d)
         }
@@ -120,6 +152,6 @@ func (t BiSeq[K, V]) JoinStringF(f func(K, V) string, delimiter ...string) strin
 
 // Reduce 求值
 func (t BiSeq[K, V]) Reduce(f func(K, V, any) any, init any) any {
-    t.ForEach(func(k K, v V) { init = f(k, v, init) })
+    t(func(k K, v V) { init = f(k, v, init) })
     return init
 }

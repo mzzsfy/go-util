@@ -14,6 +14,11 @@ type BiSeq[K, V any] func(k func(K, V))
 func BiFrom[K, V any](f BiSeq[K, V]) BiSeq[K, V] {
     return f
 }
+func BiFromT[K, V any](k K, v V) BiSeq[K, V] {
+    return func(t func(K, V)) {
+        t(k, v)
+    }
+}
 func BiFromIterator[K, V any](it BiIterator[K, V]) BiSeq[K, V] {
     return func(t func(K, V)) {
         for {
@@ -25,11 +30,43 @@ func BiFromIterator[K, V any](it BiIterator[K, V]) BiSeq[K, V] {
         }
     }
 }
-func BiFromBiTuple[K, V any](ts []BiTuple[K, V]) BiSeq[K, V] {
+
+func BiFromTuple[K, V any](ts ...BiTuple[K, V]) BiSeq[K, V] {
     return func(t func(K, V)) {
-        for {
-            for _, v := range ts {
-                t(v.K, v.V)
+        for _, v := range ts {
+            t(v.K, v.V)
+        }
+    }
+}
+
+// BiFromTupleRepeat 重复生成BiSeq,limit为0时无限重复
+func BiFromTupleRepeat[K, V any](limit int, ts ...BiTuple[K, V]) BiSeq[K, V] {
+    return func(t func(K, V)) {
+        if limit > 0 {
+            for i := 0; i < limit; i++ {
+                for _, v := range ts {
+                    t(v.K, v.V)
+                }
+            }
+        } else {
+            for {
+                for _, v := range ts {
+                    t(v.K, v.V)
+                }
+            }
+        }
+    }
+}
+func BiFromTRepeat[K, V any](k K, v V, limit ...int) BiSeq[K, V] {
+    return func(t func(K, V)) {
+        if len(limit) > 0 && limit[0] > 0 {
+            l := limit[0]
+            for i := 0; i < l; i++ {
+                t(k, v)
+            }
+        } else {
+            for {
+                t(k, v)
             }
         }
     }
@@ -44,26 +81,27 @@ func BiFromMap[K comparable, V any](m map[K]V) BiSeq[K, V] {
     }
 }
 
-// BiUnit 生成单元素的BiSeq
-func BiUnit[K, V any](k K, v V) BiSeq[K, V] {
-    return func(t func(K, V)) { t(k, v) }
-}
-
-// BiUnitRepeat 生成重复的单元素的BiSeq
-func BiUnitRepeat[K, V any](k K, v V, limit ...int) BiSeq[K, V] {
+// BiFromMapRepeat 从map生成BiSeq
+func BiFromMapRepeat[K comparable, V any](m map[K]V, limit ...int) BiSeq[K, V] {
     return func(t func(K, V)) {
         if len(limit) > 0 && limit[0] > 0 {
             l := limit[0]
             for i := 0; i < l; i++ {
-                t(k, v)
+                for k, v := range m {
+                    t(k, v)
+                }
             }
         } else {
             for {
-                t(k, v)
+                for k, v := range m {
+                    t(k, v)
+                }
             }
         }
     }
 }
+
+//======静态转换方法========
 
 // BiCastAny 从BiSeq[any,any]强制转换为BiSeq[K,V]
 func BiCastAny[K, V any](seq BiSeq[any, any]) BiSeq[K, V] {

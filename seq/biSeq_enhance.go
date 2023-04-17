@@ -63,6 +63,17 @@ func (t BiSeq[K, V]) OnAfter(i int, f func(K, V)) BiSeq[K, V] {
     }
 }
 
+// Cache 缓存Seq,使该Seq可以多次消费,并保证前面内容不会重复执行
+func (t BiSeq[K, V]) Cache() BiSeq[K, V] {
+    var r []BiTuple[K, V]
+    t(func(k K, v V) { r = append(r, BiTuple[K, V]{k, v}) })
+    return func(k func(K, V)) {
+        for _, v := range r {
+            k(v.K, v.V)
+        }
+    }
+}
+
 // Sync 串行执行
 func (t BiSeq[K, V]) Sync() BiSeq[K, V] {
     lock := sync.Mutex{}
@@ -84,11 +95,11 @@ func (t BiSeq[K, V]) Parallel(concurrency ...int) BiSeq[K, V] {
     return func(c func(k K, v V)) {
         if sl > 0 {
             p := NewParallel(sl)
-            t.ForEach(func(k K, v V) { p.Add(func() { c(k, v) }) })
+            t(func(k K, v V) { p.Add(func() { c(k, v) }) })
             p.Wait()
         } else {
             wg := sync.WaitGroup{}
-            t.ForEach(func(k K, v V) {
+            t(func(k K, v V) {
                 wg.Add(1)
                 go func() {
                     defer wg.Done()

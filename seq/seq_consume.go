@@ -4,7 +4,7 @@ import (
     "strings"
 )
 
-//======消费========
+//======消费,消耗掉当前seq========
 
 // Complete 消费所有元素
 func (t Seq[T]) Complete() { t(func(_ T) {}) }
@@ -13,7 +13,7 @@ func (t Seq[T]) Complete() { t(func(_ T) {}) }
 func (t Seq[T]) ForEach(f func(T)) { t(f) }
 
 // AsyncEach 每个元素执行f,并行执行
-func (t Seq[T]) AsyncEach(f func(T)) { t.Parallel().ForEach(f) }
+func (t Seq[T]) AsyncEach(f func(T)) { t.Parallel()(f) }
 
 // First 有则返回第一个元素,无则返回nil
 func (t Seq[T]) First() *T {
@@ -44,6 +44,35 @@ func (t Seq[T]) FirstOrF(d func() T) T {
     return d()
 }
 
+// Last 有则返回最后一个元素,无则返回nil
+func (t Seq[T]) Last() *T {
+    var r *T
+    t(func(t T) { r = &t })
+    return r
+}
+
+// LastOr 有则返回最后一个元素,无则返回默认值
+func (t Seq[T]) LastOr(d T) T {
+    var r *T
+    exist := false
+    t(func(t T) { r = &t; exist = true })
+    if exist {
+        return *r
+    }
+    return d
+}
+
+// LastOrF 有则返回最后一个元素,无则返回默认值
+func (t Seq[T]) LastOrF(d func() T) T {
+    var r *T
+    exist := false
+    t(func(t T) { r = &t; exist = true })
+    if exist {
+        return *r
+    }
+    return d()
+}
+
 // AnyMatch 任意匹配
 func (t Seq[T]) AnyMatch(f func(T) bool) bool {
     r := false
@@ -61,7 +90,7 @@ func (t Seq[T]) AllMatch(f func(T) bool) bool {
 // GroupBy 元素分组,每个组保留所有元素
 func (t Seq[T]) GroupBy(f func(T) any) map[any][]T {
     r := make(map[any][]T)
-    t.ForEach(func(t T) {
+    t(func(t T) {
         k := f(t)
         r[k] = append(r[k], t)
     })
@@ -71,7 +100,7 @@ func (t Seq[T]) GroupBy(f func(T) any) map[any][]T {
 // GroupByFirst 元素分组,每个组只保留第一个元素
 func (t Seq[T]) GroupByFirst(f func(T) any) map[any]T {
     r := make(map[any]T)
-    t.ForEach(func(t T) {
+    t(func(t T) {
         k := f(t)
         if _, ok := r[k]; !ok {
             r[k] = t
@@ -83,7 +112,7 @@ func (t Seq[T]) GroupByFirst(f func(T) any) map[any]T {
 // GroupByLast 元素分组,每个组只保留最后一个元素
 func (t Seq[T]) GroupByLast(f func(T) any) map[any]T {
     r := make(map[any]T)
-    t.ForEach(func(t T) {
+    t(func(t T) {
         k := f(t)
         r[k] = t
     })
@@ -92,7 +121,7 @@ func (t Seq[T]) GroupByLast(f func(T) any) map[any]T {
 
 // Reduce 求值
 func (t Seq[T]) Reduce(f func(T, any) any, init any) any {
-    t.ForEach(func(t T) { init = f(t, init) })
+    t(func(t T) { init = f(t, init) })
     return init
 }
 

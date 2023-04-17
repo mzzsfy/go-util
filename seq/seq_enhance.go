@@ -5,7 +5,7 @@ import (
     "sync"
 )
 
-//======增强========
+//======增强,不改变内容========
 
 // OnEach 每个元素额外执行
 func (t Seq[T]) OnEach(f func(T)) Seq[T] {
@@ -63,6 +63,18 @@ func (t Seq[T]) OnAfter(i int, f func(T)) Seq[T] {
     }
 }
 
+// OnLast 执行完成后额外执行
+func (t Seq[T]) OnLast(f func(*T)) Seq[T] {
+    return func(c func(T)) {
+        var last *T
+        t(func(t T) {
+            last = &t
+            c(t)
+        })
+        f(last)
+    }
+}
+
 // Sync 串行执行
 func (t Seq[T]) Sync() Seq[T] {
     lock := sync.Mutex{}
@@ -84,11 +96,11 @@ func (t Seq[T]) Parallel(concurrency ...int) Seq[T] {
     return func(c func(T)) {
         if sl > 0 {
             p := NewParallel(sl)
-            t.ForEach(func(t T) { p.Add(func() { c(t) }) })
+            t(func(t T) { p.Add(func() { c(t) }) })
             p.Wait()
         } else {
             wg := sync.WaitGroup{}
-            t.ForEach(func(t T) {
+            t(func(t T) {
                 wg.Add(1)
                 go func() {
                     defer wg.Done()
