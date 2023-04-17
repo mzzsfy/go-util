@@ -1,8 +1,6 @@
 package seq
 
 import (
-    "context"
-    "golang.org/x/sync/semaphore"
     "sort"
     "sync"
 )
@@ -84,23 +82,21 @@ func (t Seq[T]) Parallel(concurrency ...int) Seq[T] {
         sl = concurrency[0]
     }
     return func(c func(T)) {
-        s := semaphore.NewWeighted(int64(sl))
-        t.Map(func(t T) any {
-            lock := sync.Mutex{}
-            lock.Lock()
-            go func() {
-                defer lock.Unlock()
-                if sl > 0 {
-                    s.Acquire(context.Background(), 1)
-                    defer s.Release(1)
-                }
-                c(t)
-            }()
-            return &lock
-        }).Cache()(func(t any) {
-            lock := t.(sync.Locker)
-            lock.Lock()
-        })
+        if sl > 0 {
+            p := NewParallel(sl)
+            t.ForEach(func(t T) { p.Add(func() { c(t) }) })
+            p.Wait()
+        } else {
+            wg := sync.WaitGroup{}
+            t.ForEach(func(t T) {
+                wg.Add(1)
+                go func() {
+                    defer wg.Done()
+                    c(t)
+                }()
+            })
+            wg.Wait()
+        }
     }
 }
 
@@ -111,7 +107,6 @@ func (t Seq[T]) Sort(less func(T, T) bool) Seq[T] {
     sort.Slice(r, func(i, j int) bool { return less(r[i], r[j]) })
     return FromSlice(r)
 }
-
 
 // Cache 缓存Seq,使该Seq可以多次重复消费,并保证前面内容不会重复执行
 func (t Seq[T]) Cache() Seq[T] {

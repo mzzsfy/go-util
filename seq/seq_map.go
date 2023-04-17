@@ -1,8 +1,6 @@
 package seq
 
 import (
-    "context"
-    "golang.org/x/sync/semaphore"
     "sync"
     "sync/atomic"
 )
@@ -10,59 +8,42 @@ import (
 //======转换========
 
 // MapParallel 每个元素转换为any,使用 Sync() 保证消费不竞争
-// order 是否保持顺序,大于0保持顺序
+// order 是否保持顺序,1尽量保持顺序(可能消费竞争),大于1强制保持顺序(约等于加锁)
 // order 第二个参数,并发数
 func (t Seq[T]) MapParallel(f func(T) any, order ...int) Seq[any] {
-    o := false
+    o := 0
     sl := 0
     if len(order) > 0 {
-        o = order[0] > 0
+        o = order[0]
     }
     if len(order) > 1 {
         sl = order[1]
     }
-    if o {
+    if o > 0 {
+        p := NewParallel(sl)
         l := sync.NewCond(&sync.Mutex{})
         return func(c func(any)) {
             var currentIndex int32 = 1
-            var currentIndex1 int32 = 1
             var id int32
-            s := semaphore.NewWeighted(int64(sl))
-            t.Map(func(t T) any {
-                lock := sync.Mutex{}
-                lock.Lock()
+            t.ForEach(func(t T) {
                 var id = atomic.AddInt32(&id, 1)
-                go func() {
-                    if sl > 0 {
-                        //限制并发时,保证携程启动顺序
-                        l.L.Lock()
-                        for atomic.LoadInt32(&currentIndex1) != id {
-                            l.Wait()
-                        }
-                        atomic.AddInt32(&currentIndex1, 1)
-                        l.L.Unlock()
-                        l.Broadcast()
-                        s.Acquire(context.Background(), 1)
-                    }
-                    defer lock.Unlock()
+                p.Add(func() {
                     a := f(t)
-                    if sl > 0 {
-                        s.Release(1)
-                    }
                     l.L.Lock()
                     for atomic.LoadInt32(&currentIndex) != id {
                         l.Wait()
                     }
-                    c(a)
                     atomic.AddInt32(&currentIndex, 1)
-                    l.L.Unlock()
-                    l.Broadcast()
-                }()
-                return &lock
-            }).Cache()(func(t any) {
-                lock := t.(sync.Locker)
-                lock.Lock()
+                    defer l.Broadcast()
+                    if o > 1 {
+                        defer l.L.Unlock()
+                    } else {
+                        l.L.Unlock()
+                    }
+                    c(a)
+                })
             })
+            p.Wait()
         }
     } else {
         return t.Parallel(sl).Map(f)
@@ -183,19 +164,7 @@ func (t Seq[T]) MapFloat64(f func(T) float64) Seq[float64] {
 
 // MapSliceN 每n个元素合并为[]T,由于golang泛型问题,不能使用[]Seq[T]
 func (t Seq[T]) MapSliceN(n int) Seq[[]any] {
-    return func(c func([]any)) {
-        var ts []T
-        t(func(t T) {
-            ts = append(ts, t)
-            if len(ts) == n {
-                c(FromSlice(ts).Map(AnyT[T]).ToSlice())
-                ts = nil
-            }
-        })
-        if len(ts) > 0 {
-            c(FromSlice(ts).Map(AnyT[T]).ToSlice())
-        }
-    }
+    return t.MapSliceF(func(t T, ts []T) bool { return len(ts) == n })
 }
 
 // MapSliceF 自定义元素合并为[]T,由于golang泛型问题,不能使用[]Seq[T]

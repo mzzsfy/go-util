@@ -3,8 +3,8 @@ package seq
 import (
     "fmt"
     "math/rand"
-    "os"
-    "runtime"
+    "sync"
+    "sync/atomic"
     "testing"
     "time"
 )
@@ -22,6 +22,7 @@ func Test1(t *testing.T) {
     ok1 := 0
     ok2 := 0
     ok3 := 0
+    ok4 := 1
     CastAnyT(
         seq.OnEach(func(i int) {
             ok1++
@@ -33,20 +34,27 @@ func Test1(t *testing.T) {
             return FromSlice([]any{i, i + 1})
         }), 0,
     ).ForEach(func(i int) {
-        t.Log(i)
         ok3++
+        ok4++
+        if ok4 != i {
+            t.Fail()
+        }
     })
     if ok1 != 10 || ok2 != 5 || ok3 != 10 {
         t.Fail()
     }
+    ok4 = 0
     seq.ForEach(func(i int) {
-        t.Log("test", i)
+        ok4++
+        if ok4 != i {
+            t.Fail()
+        }
     })
 }
 
 func TestAsync(t *testing.T) {
     preTest(t)
-    duration := time.Millisecond * 100
+    duration := time.Millisecond * 300
     seq := FromSlice([]int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10})
     go func() {
         seq := FromSlice([]int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10})
@@ -72,21 +80,36 @@ func TestAsync(t *testing.T) {
 
 func TestConcurrencyControl(t *testing.T) {
     preTest(t)
-    n := 30 + rand.Intn(100)
+    n := 30 + rand.Intn(1000)
     seq := FromIntSeq().Take(n)
     now := time.Now()
-    duration := time.Millisecond * 200
+    duration := time.Millisecond * 500
     concurrency := 1 + rand.Intn(n-1)/2
-    seq.Parallel(concurrency).Map(func(i int) any {
-        println(i, "start")
+    var maxConcurrency int32
+    var nowConcurrency int32
+    lock := sync.Mutex{}
+    seq.Parallel(concurrency).ForEach(func(i int) {
+        c := atomic.AddInt32(&nowConcurrency, 1)
+        if c > atomic.LoadInt32(&maxConcurrency) {
+            lock.Lock()
+            x := atomic.LoadInt32(&maxConcurrency)
+            if x <= c {
+                maxConcurrency = c
+            }
+            lock.Unlock()
+        }
         time.Sleep(duration / time.Duration(n/concurrency))
-        println(i, "end")
-        return i
-    }).Complete()
+        atomic.AddInt32(&nowConcurrency, -1)
+    })
     sub := time.Now().Sub(now)
     if sub < duration || sub.Truncate(duration) != duration {
         t.Fail()
     }
+    if maxConcurrency != int32(concurrency) {
+        println("maxConcurrency:", maxConcurrency, "concurrency:", concurrency)
+        t.Fail()
+    }
+    println("ok,use ", sub.String())
 }
 
 func TestFromIntSeq(t *testing.T) {
@@ -284,52 +307,4 @@ func TestSeq_MergeBiInt(t *testing.T) {
             }
         })
     }
-}
-
-func TestSeq_ParallelOrdered(t *testing.T) {
-    preTest(t)
-    it := IteratorInt()
-    n := 1000
-    FromIntSeq().Take(n).MapParallel(func(i int) any {
-        s := time.Duration(rand.Intn(3000)) * time.Microsecond
-        //println("sleep", i, s.Truncate(time.Microsecond*100).String())
-        time.Sleep(s)
-        //println("sleep over", i, s.Truncate(time.Microsecond*100).String())
-        return i
-    }, 1, n/3).ForEach(func(ia any) {
-        runtime.Gosched()
-        i := ia.(int)
-        i2, _ := it()
-        //println("test", i, "expect", i2)
-        if i != i2 {
-            t.Fail()
-            runtime.Gosched()
-            println("test", i, "expect", i2)
-            os.Exit(1)
-        }
-    })
-}
-
-func TestSeq_ParallelOrdered1(t *testing.T) {
-    preTest(t)
-    it := IteratorInt()
-    n := 1000
-    FromIntSeq().Take(n).MapParallel(func(i int) any {
-        s := time.Duration(rand.Intn(3000)) * time.Microsecond
-        //println("sleep", i, s.Truncate(time.Microsecond*100).String())
-        time.Sleep(s)
-        //println("sleep over", i, s.Truncate(time.Microsecond*100).String())
-        return i
-    }, 1, n/4).Sync().ForEach(func(ia any) {
-        runtime.Gosched()
-        i := ia.(int)
-        i2, _ := it()
-        //println("test", i, "expect", i2)
-        if i != i2 {
-            t.Fail()
-            runtime.Gosched()
-            println("test", i, "expect", i2)
-            os.Exit(1)
-        }
-    })
 }

@@ -1,8 +1,6 @@
 package seq
 
 import (
-    "context"
-    "golang.org/x/sync/semaphore"
     "sort"
     "sync"
 )
@@ -83,24 +81,22 @@ func (t BiSeq[K, V]) Parallel(concurrency ...int) BiSeq[K, V] {
     if len(concurrency) > 0 {
         sl = concurrency[0]
     }
-    return func(c func(K, V)) {
-        s := semaphore.NewWeighted(int64(sl))
-        t.Map(func(k K, v V) (any, any) {
-            lock := sync.Mutex{}
-            lock.Lock()
-            go func() {
-                defer lock.Unlock()
-                if sl > 0 {
-                    s.Acquire(context.Background(), 1)
-                    defer s.Release(1)
-                }
-                c(k, v)
-            }()
-            return &lock, nil
-        }).Cache()(func(t, _ any) {
-            lock := t.(sync.Locker)
-            lock.Lock()
-        })
+    return func(c func(k K, v V)) {
+        if sl > 0 {
+            p := NewParallel(sl)
+            t.ForEach(func(k K, v V) { p.Add(func() { c(k, v) }) })
+            p.Wait()
+        } else {
+            wg := sync.WaitGroup{}
+            t.ForEach(func(k K, v V) {
+                wg.Add(1)
+                go func() {
+                    defer wg.Done()
+                    c(k, v)
+                }()
+            })
+            wg.Wait()
+        }
     }
 }
 
