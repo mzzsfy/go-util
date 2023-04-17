@@ -63,6 +63,20 @@ func (t BiSeq[K, V]) OnAfter(i int, f func(K, V)) BiSeq[K, V] {
     }
 }
 
+// OnLast 执行完成后额外执行
+func (t BiSeq[K, V]) OnLast(f func(K, V)) BiSeq[K, V] {
+    return func(x func(K, V)) {
+        var lastK *K
+        var lastV *V
+        t(func(k K, v V) {
+            lastK = &k
+            lastV = &v
+            x(k, v)
+        })
+        f(*lastK, *lastV)
+    }
+}
+
 // Cache 缓存Seq,使该Seq可以多次消费,并保证前面内容不会重复执行
 func (t BiSeq[K, V]) Cache() BiSeq[K, V] {
     var r []BiTuple[K, V]
