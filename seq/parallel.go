@@ -6,7 +6,7 @@ import (
 )
 
 type Parallel interface {
-    // Add 添加一个函数到并行执行队列中
+    // Add 添加一个函数到并行执行队列中,当并发数达到上限时, 会阻塞等待
     Add(fn func())
     // Wait 等待所有函数执行完成
     Wait()

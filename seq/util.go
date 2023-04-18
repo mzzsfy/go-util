@@ -117,9 +117,9 @@ func AnyT[T any](t T) any {
 func AnyBiT[K, V any](k K, v V) (any, any) {
     return any(k), any(v)
 }
-func AnyBiTR[T any](t T, a any) (any, any) {
+func AnyBiTK[T any](t T, a any) (any, any) {
     return any(t), a
 }
-func AnyBiTL[T any](a any, t T) (any, any) {
+func AnyBiTV[T any](a any, t T) (any, any) {
     return a, any(t)
 }

@@ -11,7 +11,6 @@ import (
 )
 
 func TestSeq_MapSliceN(t *testing.T) {
-    preTest(t)
     n := 999
     seq := FromIntSeq().Take(n)
     s := seq.MapSliceN(3)
@@ -59,7 +58,7 @@ func TestSeq_ParallelOrdered1(t *testing.T) {
     var maxConcurrency int32
     var nowConcurrency int32
     lock := sync.Mutex{}
-    concurrency := 5 + rand.Intn(n/4)
+    concurrency := 5 + rand.Intn(n/2)
     FromIntSeq().Take(n).MapParallel(func(i int) any {
         c := atomic.AddInt32(&nowConcurrency, 1)
         if c > atomic.LoadInt32(&maxConcurrency) {
@@ -95,7 +94,6 @@ func TestSeq_ParallelOrdered1(t *testing.T) {
 }
 
 func TestSeq_MergeBiInt(t *testing.T) {
-    preTest(t)
     s := FromIntSeq().Take(1000).MergeBiInt(IteratorInt(111)).Cache()
     {
         it := IteratorInt()

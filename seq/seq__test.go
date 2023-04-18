@@ -15,7 +15,6 @@ func preTest(t *testing.T) {
 }
 
 func Test1(t *testing.T) {
-    preTest(t)
     seq := FromSlice([]int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10})
     ok1 := 0
     ok2 := 0
@@ -51,7 +50,6 @@ func Test1(t *testing.T) {
 }
 
 func TestFromIntSeq(t *testing.T) {
-    preTest(t)
     seq := FromIntSeq(1, 10)
     ok := 0
     seq.ForEach(func(i int) {
@@ -63,7 +61,6 @@ func TestFromIntSeq(t *testing.T) {
 }
 
 func TestTake(t *testing.T) {
-    preTest(t)
     seq := FromIntSeq(0, 9)
     var r []int
     seq.Take(5).ForEach(func(i int) { r = append(r, i) })
@@ -78,7 +75,6 @@ func TestTake(t *testing.T) {
 }
 
 func TestDrop(t *testing.T) {
-    preTest(t)
     seq := FromIntSeq(0, 9)
     var r []int
     seq.Drop(5).ForEach(func(i int) { r = append(r, i) })
@@ -93,7 +89,6 @@ func TestDrop(t *testing.T) {
 }
 
 func TestDropTake(t *testing.T) {
-    preTest(t)
     seq := FromIntSeq()
     var r []int
     seq.Drop(5).Take(5).ForEach(func(i int) { r = append(r, i) })
@@ -108,7 +103,6 @@ func TestDropTake(t *testing.T) {
 }
 
 func TestRand(t *testing.T) {
-    preTest(t)
     slice := FromRandIntSeq().OnEach(func(i int) {
         fmt.Println("", i)
     }).Filter(func(i int) bool {
@@ -121,7 +115,6 @@ func TestRand(t *testing.T) {
 }
 
 func TestSeq_Complete(t *testing.T) {
-    preTest(t)
     s := FromIntSeq().Take(1000).MapBiSerialNumber(100).Cache()
     {
         it := IteratorInt()

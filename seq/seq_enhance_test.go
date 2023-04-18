@@ -82,7 +82,6 @@ func Test_Seq_ParallelN(t *testing.T) {
 }
 
 func TestCache(t *testing.T) {
-    preTest(t)
     d := 0
     seq := From(func(f func(i int)) {
         d++
@@ -153,7 +152,6 @@ func TestCache(t *testing.T) {
 }
 
 func TestSort(t *testing.T) {
-    preTest(t)
     //结果 "10,9,8 ... 3,2,1"
     if "10,9,8,7,6,5,4,3,2,1" != FromIntSeq(1).Take(10).Sort(func(i, j int) bool {
         return i > j

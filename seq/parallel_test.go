@@ -9,7 +9,7 @@ import (
 func TestParallel(t *testing.T) {
     preTest(t)
     n := 30 + rand.Intn(1000)
-    duration := time.Millisecond * 500
+    duration := time.Millisecond * 800
     concurrent := 1 + rand.Intn(n-1)/(rand.Intn(10)+1)
     p := NewParallel(concurrent)
     now := time.Now()

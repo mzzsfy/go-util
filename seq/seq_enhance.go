@@ -19,6 +19,9 @@ func (t Seq[T]) OnEach(f func(T)) Seq[T] {
 
 // OnEachN 每n个元素额外执行一次
 func (t Seq[T]) OnEachN(step int, f func(T), skip ...int) Seq[T] {
+    if step <= 0 {
+        panic("step must > 0")
+    }
     return func(c func(T)) {
         x := 0
         if len(skip) > 0 {
@@ -31,6 +34,31 @@ func (t Seq[T]) OnEachN(step int, f func(T), skip ...int) Seq[T] {
             }
             c(t)
         })
+    }
+}
+
+// OnEachNX 每n个元素额外执行一次,当结束时,如果剩余元素不足n个,额外执行一次
+func (t Seq[T]) OnEachNX(step int, f func(T), skip ...int) Seq[T] {
+    if step <= 0 {
+        panic("step must > 0")
+    }
+    return func(c func(T)) {
+        x := 0
+        if len(skip) > 0 {
+            x = -skip[0]
+        }
+        var last *T
+        t(func(t T) {
+            x++
+            last = &t
+            if x > 0 && x%step == 0 {
+                f(t)
+            }
+            c(t)
+        })
+        if x%step != 0 {
+            f(*last)
+        }
     }
 }
 

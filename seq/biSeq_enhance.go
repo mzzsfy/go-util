@@ -7,7 +7,7 @@ import (
 
 //======增强========
 
-// OnEach 每个元素执行f
+// OnEach 每个元素额外在前面执行一次
 func (t BiSeq[K, V]) OnEach(f func(K, V)) BiSeq[K, V] {
     return func(c func(K, V)) {
         t(func(k K, v V) {
@@ -17,8 +17,21 @@ func (t BiSeq[K, V]) OnEach(f func(K, V)) BiSeq[K, V] {
     }
 }
 
+// OnEachAfter 每个元素额外在后面执行一次
+func (t BiSeq[K, V]) OnEachAfter(f func(K, V)) BiSeq[K, V] {
+    return func(c func(K, V)) {
+        t(func(k K, v V) {
+            c(k, v)
+            f(k, v)
+        })
+    }
+}
+
 // OnEachN 每n个元素额外执行一次
 func (t BiSeq[K, V]) OnEachN(step int, f func(k K, v V), skip ...int) BiSeq[K, V] {
+    if step <= 0 {
+        panic("step must > 0")
+    }
     return func(c func(k K, v V)) {
         x := 0
         if len(skip) > 0 {
@@ -31,6 +44,33 @@ func (t BiSeq[K, V]) OnEachN(step int, f func(k K, v V), skip ...int) BiSeq[K, V
             }
             c(k, v)
         })
+    }
+}
+
+// OnEachNX 每n个元素额外执行一次,当结束时,如果剩余元素不足n个,额外执行一次
+func (t BiSeq[K, V]) OnEachNX(step int, f func(k K, v V), skip ...int) BiSeq[K, V] {
+    if step <= 0 {
+        panic("step must > 0")
+    }
+    return func(c func(k K, v V)) {
+        x := 0
+        if len(skip) > 0 {
+            x = -skip[0]
+        }
+        var lastK *K
+        var lastV *V
+        t(func(k K, v V) {
+            x++
+            lastK = &k
+            lastV = &v
+            if x > 0 && x%step == 0 {
+                f(k, v)
+            }
+            c(k, v)
+        })
+        if x%step != 0 {
+            f(*lastK, *lastV)
+        }
     }
 }
 
