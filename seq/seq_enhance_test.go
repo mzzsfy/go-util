@@ -26,7 +26,6 @@ func Test_Seq_Parallel(t *testing.T) {
     duration := time.Millisecond * 300
     seq := FromSlice([]int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10})
     go func() {
-        seq := FromSlice([]int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10})
         now := time.Now()
         seq.AsyncEach(func(i int) {
             time.Sleep(duration)
