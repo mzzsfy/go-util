@@ -91,6 +91,20 @@ func (t Seq[T]) OnAfter(i int, f func(T)) Seq[T] {
     }
 }
 
+// OnFirst 执行前额外执行
+func (t Seq[T]) OnFirst(f func(T)) Seq[T] {
+    return func(c func(T)) {
+        x := 0
+        t(func(t T) {
+            if x == 0 {
+                x++
+                f(t)
+            }
+            c(t)
+        })
+    }
+}
+
 // OnLast 执行完成后额外执行
 func (t Seq[T]) OnLast(f func(*T)) Seq[T] {
     return func(c func(T)) {

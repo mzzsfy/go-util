@@ -103,6 +103,20 @@ func (t BiSeq[K, V]) OnAfter(i int, f func(K, V)) BiSeq[K, V] {
     }
 }
 
+// OnFirst 执行前额外执行
+func (t BiSeq[K, V]) OnFirst(f func(K, V)) BiSeq[K, V] {
+    return func(c func(K, V)) {
+        x := 0
+        t(func(k K, v V) {
+            if x == 0 {
+                x++
+                f(k, v)
+            }
+            c(k, v)
+        })
+    }
+}
+
 // OnLast 执行完成后额外执行
 func (t BiSeq[K, V]) OnLast(f func(*K, *V)) BiSeq[K, V] {
     return func(x func(K, V)) {
