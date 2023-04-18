@@ -102,8 +102,19 @@ func FromRandIntSeq(i ...int) Seq[int] {
 // 参数1,起始值,默认为0
 // 参数2,结束值,默认为int类型的最大值
 // 参数3,步长,默认为1
-func FromIntSeq(rang ...int) Seq[int] {
-    return FromIterator(IteratorInt(rang...))
+func FromIntSeq(Range ...int) Seq[int] {
+    return func(f func(int)) {
+        r := makeRange(Range...)
+        defer func() {
+            a := recover()
+            if a != nil && a != &Stop {
+                panic(a)
+            }
+        }()
+        for {
+            f(r())
+        }
+    }
 }
 
 // CastAny 从any类型的Seq转换为T类型的Seq,强制转换

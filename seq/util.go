@@ -5,10 +5,10 @@ import (
     "strconv"
 )
 
-type stop bool
+type _stop bool
 
 var (
-    Stop *stop
+    Stop *_stop
 )
 
 func getToStringFn[T any](i T) func(T) string {

@@ -114,15 +114,11 @@ func (t Seq[T]) MergeBiAnyRight(iterator Iterator[any]) BiSeq[any, T] {
 }
 
 // MapBiSerialNumber 为每个元素生成一个序列号,并转换为BiSeq,参数rang为规则,参考 IteratorInt
-func (t Seq[T]) MapBiSerialNumber(rang ...int) BiSeq[int, T] {
-    it := IteratorInt(rang...)
+func (t Seq[T]) MapBiSerialNumber(Range ...int) BiSeq[int, T] {
     return BiFrom(func(f1 func(int, T)) {
+        r := makeRange(Range...)
         t.ConsumeTillStop(func(t T) {
-            i, exist := it()
-            if !exist {
-                panic(&Stop)
-            }
-            f1(i, t)
+            f1(r(), t)
         })
     })
 }
