@@ -4,7 +4,8 @@
     一个高性能的golang的泛型链式调用库,实现了类似java stream逻辑,不依赖chan和goroutine,支持任意类型的链式调用,支持并行化(可限制并行数量),排序等
 
     ```go
-    FromIntSeq(19, -10, -3).Add(-100,100,10).Filter(func(i int) bool {
+    // 从19开始,每次减3,直到-10,额外添加100,10,0,1,过滤出偶数,再丢弃前5个,从小到大排序,打印到控制台
+    FromIntSeq(19, -10, -3).Add(-100,100,10,0,1).Filter(func(i int) bool {
         return i%2 == 0
     }).Drop(5).Order(LessT[int]).ForEach(func(i int) {
         fmt.Println(i)

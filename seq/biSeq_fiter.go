@@ -27,6 +27,7 @@ func (t BiSeq[K, V]) Filter(f func(K, V) bool) BiSeq[K, V] {
 // Take 保留前n个元素
 func (t BiSeq[K, V]) Take(n int) BiSeq[K, V] {
     return func(c func(K, V)) {
+        n := n
         t.ConsumeTillStop(func(k K, v V) {
             n--
             if n >= 0 {

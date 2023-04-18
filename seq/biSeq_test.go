@@ -6,7 +6,11 @@ import (
 )
 
 func TestBi1(t *testing.T) {
-    seq := BiFrom(func(k func(int, int)) { FromIntSeq(1, 10).ForEach(func(i int) { k(i, i+1) }) })
+    seq := BiFrom(func(k func(int, int)) {
+        FromIntSeq(1, 10).ForEach(func(i int) {
+            k(i, i+1)
+        })
+    })
     ok1 := 0
     ok2 := 0
     ok3 := 0
@@ -26,6 +30,7 @@ func TestBi1(t *testing.T) {
         ok3++
     })
     if ok1 != 10 || ok2 != 5 || ok3 != 10 {
+        t.Logf("ok1=%d, ok2=%d, ok3=%d", ok1, ok2, ok3)
         t.Fail()
     }
 }

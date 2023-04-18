@@ -27,6 +27,7 @@ func (t Seq[T]) Filter(f func(T) bool) Seq[T] {
 // Take 保留前n个元素
 func (t Seq[T]) Take(n int) Seq[T] {
     return func(c func(T)) {
+        n := n
         t.ConsumeTillStop(func(e T) {
             n--
             if n >= 0 {
