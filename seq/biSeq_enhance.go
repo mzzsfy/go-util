@@ -7,6 +7,51 @@ import (
 
 //======增强========
 
+// Stoppable 调用后可以 panic(&Stop) 来主动停止迭代
+func (t BiSeq[K, V]) Stoppable() BiSeq[K, V] {
+    return func(c func(K, V)) {
+        defer func() {
+            a := recover()
+            if a != nil && a != &Stop {
+                panic(a)
+            }
+        }()
+        t(func(k K, v V) { c(k, v) })
+    }
+}
+
+// Catch defer recover 的简单封装
+func (t BiSeq[K, V]) Catch(f func(any)) BiSeq[K, V] {
+    return func(c func(K, V)) {
+        defer func() {
+            a := recover()
+            if a != nil && a != &Stop {
+                f(a)
+            }
+        }()
+        t(func(k K, v V) { c(k, v) })
+    }
+}
+
+// CatchWithValue defer recover 的简单封装,保留最后一次调用的值
+func (t BiSeq[K, V]) CatchWithValue(f func(K, V, any)) BiSeq[K, V] {
+    return func(c func(K, V)) {
+        var lastK K
+        var lastV V
+        defer func() {
+            a := recover()
+            if a != nil && a != &Stop {
+                f(lastK, lastV, a)
+            }
+        }()
+        t(func(k K, v V) {
+            lastK = k
+            lastV = v
+            c(k, v)
+        })
+    }
+}
+
 // OnEach 每个元素额外在前面执行一次
 func (t BiSeq[K, V]) OnEach(f func(K, V)) BiSeq[K, V] {
     return func(c func(K, V)) {

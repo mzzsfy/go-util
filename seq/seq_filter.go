@@ -1,17 +1,6 @@
 package seq
 
-//======控制,删除或者停止========
-
-// ConsumeTillStop 消费直到遇到stop
-func (t Seq[T]) ConsumeTillStop(f func(T)) {
-    defer func() {
-        a := recover()
-        if a != nil && a != &Stop {
-            panic(a)
-        }
-    }()
-    t(f)
-}
+//======控制========
 
 // Filter 过滤元素,只保留满足条件的元素,即f(t) == true保留
 func (t Seq[T]) Filter(f func(T) bool) Seq[T] {
@@ -28,7 +17,7 @@ func (t Seq[T]) Filter(f func(T) bool) Seq[T] {
 func (t Seq[T]) Take(n int) Seq[T] {
     return func(c func(T)) {
         n := n
-        t.ConsumeTillStop(func(e T) {
+        t.Stoppable()(func(e T) {
             n--
             if n >= 0 {
                 c(e)

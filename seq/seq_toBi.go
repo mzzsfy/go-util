@@ -5,7 +5,7 @@ package seq
 // MergeBiInt 与一个Iterator合并,参数为一个迭代器,返回 BiSeq[int, T]
 func (t Seq[T]) MergeBiInt(iterator Iterator[int]) BiSeq[int, T] {
     return BiFrom(func(f1 func(int, T)) {
-        t.ConsumeTillStop(func(t T) {
+        t.Stoppable()(func(t T) {
             x, exist := iterator()
             if !exist {
                 panic(&Stop)
@@ -18,7 +18,7 @@ func (t Seq[T]) MergeBiInt(iterator Iterator[int]) BiSeq[int, T] {
 // MergeBiIntRight 与一个Iterator合并,参数为一个迭代器,返回 BiSeq[T, int]
 func (t Seq[T]) MergeBiIntRight(iterator Iterator[int]) BiSeq[T, int] {
     return BiFrom(func(f1 func(T, int)) {
-        t.ConsumeTillStop(func(t T) {
+        t.Stoppable()(func(t T) {
             x, exist := iterator()
             if !exist {
                 panic(&Stop)
@@ -31,7 +31,7 @@ func (t Seq[T]) MergeBiIntRight(iterator Iterator[int]) BiSeq[T, int] {
 // MergeBiString 与一个Iterator合并,参数为一个迭代器,返回 BiSeq[string, T]
 func (t Seq[T]) MergeBiString(iterator Iterator[string]) BiSeq[string, T] {
     return BiFrom(func(f1 func(string, T)) {
-        t.ConsumeTillStop(func(t T) {
+        t.Stoppable()(func(t T) {
             x, exist := iterator()
             if !exist {
                 panic(&Stop)
@@ -44,7 +44,7 @@ func (t Seq[T]) MergeBiString(iterator Iterator[string]) BiSeq[string, T] {
 // MergeBiStringRight 与一个Iterator合并,参数为一个迭代器,返回 BiSeq[T, string]
 func (t Seq[T]) MergeBiStringRight(iterator Iterator[string]) BiSeq[T, string] {
     return BiFrom(func(f1 func(T, string)) {
-        t.ConsumeTillStop(func(t T) {
+        t.Stoppable()(func(t T) {
             x, exist := iterator()
             if !exist {
                 panic(&Stop)
@@ -57,7 +57,7 @@ func (t Seq[T]) MergeBiStringRight(iterator Iterator[string]) BiSeq[T, string] {
 // MergeBiAny 与一个Iterator合并,参数为一个迭代器,返回 BiSeq
 func (t Seq[T]) MergeBiAny(iterator Iterator[any]) BiSeq[any, T] {
     return BiFrom(func(f1 func(any, T)) {
-        t.ConsumeTillStop(func(t T) {
+        t.Stoppable()(func(t T) {
             x, exist := iterator()
             if !exist {
                 panic(&Stop)
@@ -70,7 +70,7 @@ func (t Seq[T]) MergeBiAny(iterator Iterator[any]) BiSeq[any, T] {
 // MergeBiAnyRight 与一个Iterator合并,参数为一个迭代器,返回 BiSeq
 func (t Seq[T]) MergeBiAnyRight(iterator Iterator[any]) BiSeq[any, T] {
     return BiFrom(func(f1 func(any, T)) {
-        t.ConsumeTillStop(func(t T) {
+        t.Stoppable()(func(t T) {
             x, exist := iterator()
             if !exist {
                 panic(&Stop)
@@ -84,7 +84,7 @@ func (t Seq[T]) MergeBiAnyRight(iterator Iterator[any]) BiSeq[any, T] {
 func (t Seq[T]) MapBiSerialNumber(Range ...int) BiSeq[int, T] {
     return BiFrom(func(f1 func(int, T)) {
         r := makeRange(Range...)
-        t.ConsumeTillStop(func(t T) {
+        t.Stoppable()(func(t T) {
             f1(r(), t)
         })
     })

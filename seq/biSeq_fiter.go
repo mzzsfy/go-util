@@ -2,17 +2,6 @@ package seq
 
 //======控制========
 
-// ConsumeTillStop 消费直到遇到stop
-func (t BiSeq[K, V]) ConsumeTillStop(f func(K, V)) {
-    defer func() {
-        a := recover()
-        if a != nil && a != &Stop {
-            panic(a)
-        }
-    }()
-    t(f)
-}
-
 // Filter 过滤元素,只保留满足条件的元素,即f() == true保留
 func (t BiSeq[K, V]) Filter(f func(K, V) bool) BiSeq[K, V] {
     return func(c func(K, V)) {
@@ -28,7 +17,7 @@ func (t BiSeq[K, V]) Filter(f func(K, V) bool) BiSeq[K, V] {
 func (t BiSeq[K, V]) Take(n int) BiSeq[K, V] {
     return func(c func(K, V)) {
         n := n
-        t.ConsumeTillStop(func(k K, v V) {
+        t.Stoppable()(func(k K, v V) {
             n--
             if n >= 0 {
                 c(k, v)

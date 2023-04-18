@@ -7,6 +7,49 @@ import (
 
 //======增强,不改变内容========
 
+// Stoppable 调用后可以 panic(&Stop) 来主动停止迭代
+func (t Seq[T]) Stoppable() Seq[T] {
+    return func(c func(T)) {
+        defer func() {
+            a := recover()
+            if a != nil && a != &Stop {
+                panic(a)
+            }
+        }()
+        t(func(t T) { c(t) })
+    }
+}
+
+// Catch defer recover 的简单封装
+func (t Seq[T]) Catch(f func(any)) Seq[T] {
+    return func(c func(T)) {
+        defer func() {
+            a := recover()
+            if a != nil && a != &Stop {
+                f(a)
+            }
+        }()
+        t(func(t T) { c(t) })
+    }
+}
+
+// CatchWithValue defer recover 的简单封装,保留最后一次调用的值
+func (t Seq[T]) CatchWithValue(f func(T, any)) Seq[T] {
+    return func(c func(T)) {
+        var last T
+        defer func() {
+            a := recover()
+            if a != nil && a != &Stop {
+                f(last, a)
+            }
+        }()
+        t(func(t T) {
+            last = t
+            c(t)
+        })
+    }
+}
+
 // OnEach 每个元素额外执行
 func (t Seq[T]) OnEach(f func(T)) Seq[T] {
     return func(c func(T)) {
