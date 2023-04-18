@@ -149,8 +149,8 @@ func JoinL[T, E any](seq1 Seq[T], seq2 Seq[E], cast func(E) T) Seq[T] {
     }
 }
 
-// JoinF 合并2个不同Seq,统一转换为新类型
-func JoinF[T, E, R any](seq1 Seq[T], cast1 func(T) R, seq2 Seq[E], cast2 func(E) R) Seq[R] {
+// JoinBy 合并2个不同Seq,统一转换为新类型
+func JoinBy[T, E, R any](seq1 Seq[T], cast1 func(T) R, seq2 Seq[E], cast2 func(E) R) Seq[R] {
     return func(c func(R)) {
         seq1(func(t T) { c(cast1(t)) })
         seq2(func(t E) { c(cast2(t)) })

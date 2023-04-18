@@ -134,8 +134,15 @@ func (t BiSeq[K, V]) Count() int64 {
     return r
 }
 
-// JoinStringF 拼接为字符串
-func (t BiSeq[K, V]) JoinStringF(f func(K, V) string, delimiter ...string) string {
+// SumBy 求和
+func (t BiSeq[K, V]) SumBy(f func(K, V) int) int {
+    var r int
+    t(func(k K, v V) { r += f(k, v) })
+    return r
+}
+
+// JoinStringBy 拼接为字符串
+func (t BiSeq[K, V]) JoinStringBy(f func(K, V) string, delimiter ...string) string {
     sb := strings.Builder{}
     d := ""
     if len(delimiter) > 0 {

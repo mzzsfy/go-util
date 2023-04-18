@@ -158,13 +158,35 @@ func (t Seq[T]) MapFloat64(f func(T) float64) Seq[float64] {
     return func(c func(float64)) { t(func(t T) { c(f(t)) }) }
 }
 
-// MapSliceN 每n个元素合并为[]T,由于golang泛型问题,不能使用[]Seq[T]
-func (t Seq[T]) MapSliceN(n int) Seq[[]any] {
-    return t.MapSliceF(func(t T, ts []T) bool { return len(ts) == n })
+// MapSliceN 每n个元素合并为[]T,由于golang泛型问题,不能使用Seq[[]T],使用 CastAny 转换为Seq[[]T]
+func (t Seq[T]) MapSliceN(n int) Seq[any] {
+    return t.MapSliceBy(func(t T, ts []T) bool { return len(ts) == n })
 }
 
-// MapSliceF 自定义元素合并为[]T,由于golang泛型问题,不能使用[]Seq[T]
-func (t Seq[T]) MapSliceF(f func(T, []T) bool) Seq[[]any] {
+// MapSliceAnyN 每n个元素合并为[]T,由于golang泛型问题,不能使用[]Seq[T]
+func (t Seq[T]) MapSliceAnyN(n int) Seq[[]any] {
+    return t.MapSliceAnyBy(func(t T, ts []T) bool { return len(ts) == n })
+}
+
+// MapSliceBy 自定义元素合并为[]T,由于golang泛型问题,不能使用[]Seq[T] CastAny 转换为Seq[[]T]
+func (t Seq[T]) MapSliceBy(f func(T, []T) bool) Seq[any] {
+    return func(c func(any)) {
+        var ts []T
+        t(func(t T) {
+            ts = append(ts, t)
+            if f(t, ts) {
+                c(ts)
+                ts = nil
+            }
+        })
+        if len(ts) > 0 {
+            c(ts)
+        }
+    }
+}
+
+// MapSliceAnyBy 自定义元素合并为[]T,由于golang泛型问题,不能使用[]Seq[T]
+func (t Seq[T]) MapSliceAnyBy(f func(T, []T) bool) Seq[[]any] {
     return func(c func([]any)) {
         var ts []T
         t(func(t T) {
@@ -190,6 +212,14 @@ func (t Seq[T]) Join(seqs ...Seq[T]) Seq[T] {
     }
 }
 
+// JoinF 合并Seq
+func (t Seq[T]) JoinF(seq Seq[any], cast func(any) T) Seq[T] {
+    return func(c func(T)) {
+        t(func(t T) { c(t) })
+        seq(func(t any) { c(cast(t)) })
+    }
+}
+
 // Add 添加单个元素
 func (t Seq[T]) Add(ts ...T) Seq[T] {
     return func(c func(T)) {
@@ -207,13 +237,5 @@ func (t Seq[T]) AddF(cast func(any) T, ts ...any) Seq[T] {
         for _, e := range ts {
             c(cast(e))
         }
-    }
-}
-
-// JoinF 合并Seq
-func (t Seq[T]) JoinF(seq Seq[any], cast func(any) T) Seq[T] {
-    return func(c func(T)) {
-        t(func(t T) { c(t) })
-        seq(func(t any) { c(cast(t)) })
     }
 }

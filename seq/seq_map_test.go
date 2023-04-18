@@ -13,8 +13,8 @@ import (
 func TestSeq_MapSliceN(t *testing.T) {
     n := 999
     seq := FromIntSeq().Take(n)
-    s := seq.MapSliceN(3)
-    s.ForEach(func(is []any) {
+    s := CastAny[[]int](seq.MapSliceN(3))
+    s.ForEach(func(is []int) {
         if len(is) != 3 {
             t.Fail()
         }

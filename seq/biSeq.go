@@ -165,8 +165,8 @@ func BiJoinL[K, V, K1, V1 any](seq1 BiSeq[K, V], seq2 BiSeq[K1, V1], cast func(K
     }
 }
 
-// BiJoinF 合并2个不同Seq,统一转换为新类型
-func BiJoinF[K1, V1, K2, V2, K, V any](seq1 BiSeq[K1, V1], cast1 func(K1, V1) (K, V), seq2 BiSeq[K2, V2], cast2 func(K2, V2) (K, V), ) BiSeq[K, V] {
+// BiJoinBy 合并2个不同Seq,统一转换为新类型
+func BiJoinBy[K1, V1, K2, V2, K, V any](seq1 BiSeq[K1, V1], cast1 func(K1, V1) (K, V), seq2 BiSeq[K2, V2], cast2 func(K2, V2) (K, V), ) BiSeq[K, V] {
     return func(c func(K, V)) {
         seq1(func(k K1, v V1) { c(cast1(k, v)) })
         seq2(func(k K2, v V2) { c(cast2(k, v)) })

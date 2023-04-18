@@ -139,8 +139,15 @@ func (t Seq[T]) Count() int64 {
     return r
 }
 
-// JoinStringF 拼接为字符串,自定义转换函数
-func (t Seq[T]) JoinStringF(f func(T) string, delimiter ...string) string {
+// SumBy 求和
+func (t Seq[T]) SumBy(f func(T) int) int {
+    var r int
+    t(func(t T) { r += f(t) })
+    return r
+}
+
+// JoinStringBy 拼接为字符串,自定义转换函数
+func (t Seq[T]) JoinStringBy(f func(T) string, delimiter ...string) string {
     sb := strings.Builder{}
     d := ""
     if len(delimiter) > 0 {
@@ -158,5 +165,5 @@ func (t Seq[T]) JoinStringF(f func(T) string, delimiter ...string) string {
 // JoinString 拼接为字符串
 func (t Seq[T]) JoinString(delimiter ...string) string {
     var x T
-    return t.JoinStringF(getToStringFn(x), delimiter...)
+    return t.JoinStringBy(getToStringFn(x), delimiter...)
 }
