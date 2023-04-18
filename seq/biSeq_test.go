@@ -5,7 +5,7 @@ import (
     "time"
 )
 
-func TestBi1(t *testing.T) {
+func Test_Bi1(t *testing.T) {
     seq := BiFrom(func(k func(int, int)) {
         FromIntSeq(1, 10).ForEach(func(i int) {
             k(i, i+1)
@@ -34,7 +34,7 @@ func TestBi1(t *testing.T) {
         t.Fail()
     }
 }
-func TestBiAsync(t *testing.T) {
+func Test_BiAsync(t *testing.T) {
     duration := time.Millisecond * 100
     go func() {
         seq := BiFrom(func(k func(int, int)) { FromIntSeq(1, 10).ForEach(func(i int) { k(i, i+1) }) })
@@ -59,7 +59,7 @@ func TestBiAsync(t *testing.T) {
     }
 }
 
-func TestBiTake(t *testing.T) {
+func Test_BiTake(t *testing.T) {
     seq := BiFrom(func(k func(int, int)) { FromIntSeq().ForEach(func(i int) { k(i, i+1) }) })
 
     var r []int
@@ -76,7 +76,7 @@ func TestBiTake(t *testing.T) {
     }
 }
 
-func TestBiDrop(t *testing.T) {
+func Test_BiDrop(t *testing.T) {
     seq := BiFrom(func(k func(int, int)) { FromIntSeq(0, 9).ForEach(func(i int) { k(i, i+1) }) })
 
     var r []int
@@ -91,7 +91,7 @@ func TestBiDrop(t *testing.T) {
     }
 }
 
-func TestBiDropTake(t *testing.T) {
+func Test_BiDropTake(t *testing.T) {
     seq := BiFrom(func(k func(int, int)) { FromIntSeq().ForEach(func(i int) { k(i, i+1) }) })
 
     var r []int

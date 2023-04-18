@@ -6,7 +6,7 @@ import (
     "time"
 )
 
-func TestParallel(t *testing.T) {
+func Test_Parallel(t *testing.T) {
     preTest(t)
     n := 30 + rand.Intn(1000)
     duration := time.Millisecond * 800

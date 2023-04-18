@@ -10,7 +10,7 @@ import (
     "time"
 )
 
-func TestSeq_MapSliceN(t *testing.T) {
+func Test_Seq_MapSliceN(t *testing.T) {
     n := 999
     seq := FromIntSeq().Take(n)
     s := CastAny[[]int](seq.MapSliceN(3))
@@ -21,7 +21,7 @@ func TestSeq_MapSliceN(t *testing.T) {
     })
 }
 
-func TestSeq_ParallelOrdered(t *testing.T) {
+func Test_Seq_ParallelOrdered(t *testing.T) {
     preTest(t)
     n := 1000
     var maxConcurrency int32
@@ -51,7 +51,7 @@ func TestSeq_ParallelOrdered(t *testing.T) {
     }
 }
 
-func TestSeq_ParallelOrdered1(t *testing.T) {
+func Test_Seq_ParallelOrdered1(t *testing.T) {
     preTest(t)
     it := IteratorInt()
     n := 1000
@@ -93,7 +93,7 @@ func TestSeq_ParallelOrdered1(t *testing.T) {
     }
 }
 
-func TestSeq_MergeBiInt(t *testing.T) {
+func Test_Seq_MergeBiInt(t *testing.T) {
     s := FromIntSeq().Take(1000).MergeBiInt(IteratorInt(111)).Cache()
     {
         it := IteratorInt()

@@ -8,7 +8,7 @@ import (
     "time"
 )
 
-func TestSeq_OnLast(t *testing.T) {
+func Test_Seq_OnLast(t *testing.T) {
     exec := 0
     FromIntSeq().Take(10).OnLast(func(i *int) {
         if *i != 9 {
@@ -21,7 +21,7 @@ func TestSeq_OnLast(t *testing.T) {
     }
 }
 
-func Test_Seq_Parallel(t *testing.T) {
+func Test__Seq_Parallel(t *testing.T) {
     preTest(t)
     duration := time.Millisecond * 300
     seq := FromSlice([]int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10})
@@ -46,7 +46,7 @@ func Test_Seq_Parallel(t *testing.T) {
     }
 }
 
-func Test_Seq_ParallelN(t *testing.T) {
+func Test__Seq_ParallelN(t *testing.T) {
     preTest(t)
     n := 30 + rand.Intn(1000)
     seq := FromIntSeq().Take(n)
@@ -80,7 +80,7 @@ func Test_Seq_ParallelN(t *testing.T) {
     println("ok,use ", sub.String())
 }
 
-func TestCache(t *testing.T) {
+func Test_Cache(t *testing.T) {
     d := 0
     seq := From(func(f func(i int)) {
         d++
@@ -150,7 +150,7 @@ func TestCache(t *testing.T) {
     }
 }
 
-func TestSort(t *testing.T) {
+func Test_Sort(t *testing.T) {
     //结果 "10,9,8 ... 3,2,1"
     if "10,9,8,7,6,5,4,3,2,1" != FromIntSeq(1).Take(10).Sort(func(i, j int) bool {
         return i > j
