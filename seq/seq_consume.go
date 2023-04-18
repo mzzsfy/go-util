@@ -133,7 +133,14 @@ func (t Seq[T]) ToSlice() []T {
 }
 
 // Count 计数
-func (t Seq[T]) Count() int64 {
+func (t Seq[T]) Count() int {
+    var r int
+    t(func(t T) { r++ })
+    return r
+}
+
+// Count64 计数
+func (t Seq[T]) Count64() int64 {
     var r int64
     t(func(t T) { r++ })
     return r
@@ -142,6 +149,13 @@ func (t Seq[T]) Count() int64 {
 // SumBy 求和
 func (t Seq[T]) SumBy(f func(T) int) int {
     var r int
+    t(func(t T) { r += f(t) })
+    return r
+}
+
+// SumBy64 求和
+func (t Seq[T]) SumBy64(f func(T) int64) int64 {
+    var r int64
     t(func(t T) { r += f(t) })
     return r
 }

@@ -128,7 +128,14 @@ func (t BiSeq[K, V]) Values() []V {
 }
 
 // Count 计数
-func (t BiSeq[K, V]) Count() int64 {
+func (t BiSeq[K, V]) Count() int {
+    var r int
+    t(func(k K, v V) { r++ })
+    return r
+}
+
+// Count64 计数
+func (t BiSeq[K, V]) Count64() int64 {
     var r int64
     t(func(k K, v V) { r++ })
     return r
@@ -141,6 +148,13 @@ func (t BiSeq[K, V]) SumBy(f func(K, V) int) int {
     return r
 }
 
+// SumBy64 求和
+func (t BiSeq[K, V]) SumBy64(f func(K, V) int64) int64 {
+    var r int64
+    t(func(k K, v V) { r += f(k, v) })
+    return r
+}
+
 // JoinStringBy 拼接为字符串
 func (t BiSeq[K, V]) JoinStringBy(f func(K, V) string, delimiter ...string) string {
     sb := strings.Builder{}
@@ -148,7 +162,7 @@ func (t BiSeq[K, V]) JoinStringBy(f func(K, V) string, delimiter ...string) stri
     if len(delimiter) > 0 {
         d = delimiter[0]
     }
-    t.StringMap(f)(func(s string) {
+    t.MapStringBy(f)(func(s string) {
         if d != "" && sb.Len() > 0 {
             sb.WriteString(d)
         }
