@@ -179,8 +179,12 @@ func (t BiSeq[K, V]) OnLast(f func(*K, *V)) BiSeq[K, V] {
 // Cache 缓存Seq,使该Seq可以多次消费,并保证前面内容不会重复执行
 func (t BiSeq[K, V]) Cache() BiSeq[K, V] {
     var r []BiTuple[K, V]
-    t(func(k K, v V) { r = append(r, BiTuple[K, V]{k, v}) })
+    once := sync.Once{}
+    fn := func() {
+        t(func(k K, v V) { r = append(r, BiTuple[K, V]{k, v}) })
+    }
     return func(k func(K, V)) {
+        once.Do(fn)
         for _, v := range r {
             k(v.K, v.V)
         }
@@ -227,9 +231,13 @@ func (t BiSeq[K, V]) Parallel(concurrency ...int) BiSeq[K, V] {
 // Sort 排序
 func (t BiSeq[K, V]) Sort(less func(K, V, K, V) bool) BiSeq[K, V] {
     var r []BiTuple[K, V]
-    t(func(k K, v V) { r = append(r, BiTuple[K, V]{k, v}) })
-    sort.Slice(r, func(i, j int) bool { return less(r[i].K, r[i].V, r[j].K, r[j].V) })
+    once := sync.Once{}
+    fn := func() {
+        t(func(k K, v V) { r = append(r, BiTuple[K, V]{k, v}) })
+        sort.Slice(r, func(i, j int) bool { return less(r[i].K, r[i].V, r[j].K, r[j].V) })
+    }
     return BiFrom(func(k func(K, V)) {
+        once.Do(fn)
         for _, v := range r {
             k(v.K, v.V)
         }
@@ -239,9 +247,13 @@ func (t BiSeq[K, V]) Sort(less func(K, V, K, V) bool) BiSeq[K, V] {
 // SortK 根据K排序
 func (t BiSeq[K, V]) SortK(less func(K, K) bool) BiSeq[K, V] {
     var r []BiTuple[K, V]
-    t(func(k K, v V) { r = append(r, BiTuple[K, V]{k, v}) })
-    sort.Slice(r, func(i, j int) bool { return less(r[i].K, r[j].K) })
+    once := sync.Once{}
+    fn := func() {
+        t(func(k K, v V) { r = append(r, BiTuple[K, V]{k, v}) })
+        sort.Slice(r, func(i, j int) bool { return less(r[i].K, r[j].K) })
+    }
     return BiFrom(func(k func(K, V)) {
+        once.Do(fn)
         for _, v := range r {
             k(v.K, v.V)
         }
@@ -251,9 +263,13 @@ func (t BiSeq[K, V]) SortK(less func(K, K) bool) BiSeq[K, V] {
 // SortV 根据V排序
 func (t BiSeq[K, V]) SortV(less func(V, V) bool) BiSeq[K, V] {
     var r []BiTuple[K, V]
-    t(func(k K, v V) { r = append(r, BiTuple[K, V]{k, v}) })
-    sort.Slice(r, func(i, j int) bool { return less(r[i].V, r[j].V) })
+    once := sync.Once{}
+    fn := func() {
+        t(func(k K, v V) { r = append(r, BiTuple[K, V]{k, v}) })
+        sort.Slice(r, func(i, j int) bool { return less(r[i].V, r[j].V) })
+    }
     return BiFrom(func(k func(K, V)) {
+        once.Do(fn)
         for _, v := range r {
             k(v.K, v.V)
         }

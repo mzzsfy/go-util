@@ -200,14 +200,30 @@ func (t Seq[T]) Parallel(concurrency ...int) Seq[T] {
 // Sort 排序
 func (t Seq[T]) Sort(less func(T, T) bool) Seq[T] {
     var r []T
-    t(func(t T) { r = append(r, t) })
-    sort.Slice(r, func(i, j int) bool { return less(r[i], r[j]) })
-    return FromSlice(r)
+    once := sync.Once{}
+    fn := func() {
+        t(func(t T) { r = append(r, t) })
+        sort.Slice(r, func(i, j int) bool { return less(r[i], r[j]) })
+    }
+    return func(t func(T)) {
+        once.Do(fn)
+        for _, v := range r {
+            t(v)
+        }
+    }
 }
 
 // Cache 缓存Seq,使该Seq可以多次重复消费,并保证前面内容不会重复执行
 func (t Seq[T]) Cache() Seq[T] {
     var r []T
-    t(func(t T) { r = append(r, t) })
-    return FromSlice(r)
+    once := sync.Once{}
+    fn := func() {
+        t(func(t T) { r = append(r, t) })
+    }
+    return func(t func(T)) {
+        once.Do(fn)
+        for _, v := range r {
+            t(v)
+        }
+    }
 }
