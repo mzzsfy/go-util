@@ -64,7 +64,12 @@ func (t BiSeq[K, V]) MapKParallel(f func(k K, v V) any, order ...int) BiSeq[any,
                         } else {
                             c(a, v)
                             atomic.AddInt32(&currentIndex, 1)
-                            fn()
+                            for _, f := range fns {
+                                if f != nil {
+                                    go fn()
+                                    return
+                                }
+                            }
                         }
                     } else {
                         l.L.Lock()
@@ -113,6 +118,8 @@ func (t BiSeq[K, V]) MapVParallel(f func(k K, v V) any, order ...int) BiSeq[K, a
             l := sync.NewCond(lock)
             p := NewParallel(sl)
             fn := func() {
+                lock.Lock()
+                defer lock.Unlock()
                 for {
                     loaded := false
                     idx := atomic.LoadInt32(&currentIndex)
@@ -144,7 +151,12 @@ func (t BiSeq[K, V]) MapVParallel(f func(k K, v V) any, order ...int) BiSeq[K, a
                         } else {
                             c(k, a)
                             atomic.AddInt32(&currentIndex, 1)
-                            fn()
+                            for _, f := range fns {
+                                if f != nil {
+                                    go fn()
+                                    return
+                                }
+                            }
                         }
                     } else {
                         l.L.Lock()

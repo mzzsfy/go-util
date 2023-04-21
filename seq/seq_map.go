@@ -33,6 +33,8 @@ func (t Seq[T]) MapParallel(f func(T) any, order ...int) Seq[any] {
             l := sync.NewCond(lock)
             p := NewParallel(sl)
             fn := func() {
+                lock.Lock()
+                defer lock.Unlock()
                 for {
                     loaded := false
                     idx := atomic.LoadInt32(&currentIndex)
@@ -64,7 +66,12 @@ func (t Seq[T]) MapParallel(f func(T) any, order ...int) Seq[any] {
                         } else {
                             c(a)
                             atomic.AddInt32(&currentIndex, 1)
-                            fn()
+                            for _, f := range fns {
+                                if f != nil {
+                                    go fn()
+                                    return
+                                }
+                            }
                         }
                     } else {
                         l.L.Lock()
