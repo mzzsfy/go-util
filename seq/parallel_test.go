@@ -11,15 +11,15 @@ const allSleepDuration = time.Millisecond * 1000
 func Test_Parallel(t *testing.T) {
     preTest(t)
     FromIntSeq().Take(10).Parallel().ForEach(func(i int) {
-        n := 30 + rand.Intn(1000)
-        concurrent := FromT(rand.Intn(n-1)/(rand.Intn(10)+2), n/10+1, n/2-1).Sort(LessT[int]).Drop(1).FirstOr(0)
+        n := 30 + rand.Intn(10000)
+        concurrent := FromT(rand.Intn(n-1), n/10+1).Sort(LessT[int]).Drop(1).FirstOr(0)
         p := NewParallel(concurrent)
         now := time.Now()
         t.Logf("%d,开始,concurrent=%d,n=%d", i, concurrent, n)
         for i := 0; i < n; i++ {
             //i := i
             p.Add(func() {
-                d := time.Duration(float64(allSleepDuration) / float64(n/concurrent))
+                d := time.Duration(float64(allSleepDuration) / (float64(n) / float64(concurrent)))
                 //t.Logf("%d sleep %s", i, d.String())
                 time.Sleep(d)
             })

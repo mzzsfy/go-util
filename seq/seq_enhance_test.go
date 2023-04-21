@@ -50,7 +50,7 @@ func Test_Seq_ParallelN(t *testing.T) {
     n := 30 + rand.Intn(1000)
     seq := FromIntSeq().Take(n)
     now := time.Now()
-    concurrent := FromT(rand.Intn(n-1), n/10+1, n/2-1).Sort(LessT[int]).Drop(1).FirstOr(0)
+    concurrent := 5 + rand.Intn(n-1)
     var maxConcurrent int32
     var nowConcurrent int32
     lock := sync.Mutex{}
@@ -64,7 +64,7 @@ func Test_Seq_ParallelN(t *testing.T) {
             }
             lock.Unlock()
         }
-        time.Sleep(time.Duration(float64(allSleepDuration) / float64(n/concurrent)))
+        time.Sleep(time.Duration(float64(allSleepDuration) / (float64(n) / float64(concurrent))))
         atomic.AddInt32(&nowConcurrent, -1)
     })
     sub := time.Now().Sub(now)
