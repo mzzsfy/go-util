@@ -39,7 +39,7 @@ func (t Seq[T]) MapParallel(f func(T) any, order ...int) Seq[any] {
                     } else {
                         l.L.Unlock()
                     }
-                    defer l.Broadcast()
+                    l.Broadcast()
                     c(a)
                 })
             })
