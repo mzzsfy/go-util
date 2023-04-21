@@ -12,7 +12,7 @@ func Test_Parallel(t *testing.T) {
     preTest(t)
     FromIntSeq().Take(10).Parallel().ForEach(func(i int) {
         n := 30 + rand.Intn(10000)
-        concurrent := FromT(rand.Intn(n-1), n/10+1).Sort(LessT[int]).Drop(1).FirstOr(0)
+        concurrent := 5 + rand.Intn(n-100)
         p := NewParallel(concurrent)
         now := time.Now()
         t.Logf("%d,开始,concurrent=%d,n=%d", i, concurrent, n)
@@ -30,7 +30,7 @@ func Test_Parallel(t *testing.T) {
             t.Log("运行时间不正确", i, allSleepDuration.String(), sub.String())
             t.FailNow()
         } else {
-            t.Log("ok,use ", sub.String())
+            t.Log("ok,use ", i, sub.String())
         }
     })
 }
