@@ -6,7 +6,7 @@ import (
     "time"
 )
 
-const allSleepDuration = time.Millisecond * 1000
+const allSleepDuration = time.Millisecond * 2000
 
 func Test_Parallel(t *testing.T) {
     preTest(t)
