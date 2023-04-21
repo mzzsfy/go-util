@@ -46,7 +46,7 @@ func Test_Seq_Parallel(t *testing.T) {
     }
 }
 
-func Test__Seq_ParallelN(t *testing.T) {
+func Test_Seq_ParallelN(t *testing.T) {
     preTest(t)
     n := 30 + rand.Intn(1000)
     seq := FromIntSeq().Take(n)

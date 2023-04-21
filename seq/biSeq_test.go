@@ -34,7 +34,7 @@ func Test_Bi1(t *testing.T) {
         t.Fail()
     }
 }
-func Test_BiAsync(t *testing.T) {
+func Test_BiParallel(t *testing.T) {
     duration := time.Millisecond * 100
     go func() {
         seq := BiFrom(func(k func(int, int)) { FromIntSeq(1, 10).ForEach(func(i int) { k(i, i+1) }) })
@@ -56,6 +56,7 @@ func Test_BiAsync(t *testing.T) {
     sub := time.Now().Sub(now)
     if sub < duration || sub.Truncate(duration) != duration {
         t.Fail()
+        println("运行时间不正确", sub)
     }
 }
 

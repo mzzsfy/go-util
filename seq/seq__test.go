@@ -104,12 +104,13 @@ func Test_DropTake(t *testing.T) {
 
 func Test_Rand(t *testing.T) {
     slice := FromRandIntSeq().OnEach(func(i int) {
-        fmt.Println("", i)
+        fmt.Printf("%d,", i)
     }).Filter(func(i int) bool {
         return i%2 == 0
     }).Drop(10).Take(5).ToSlice()
     if len(slice) != 5 {
         t.Fail()
+        println("len(slice) != 5")
     }
     fmt.Println(slice)
 }
