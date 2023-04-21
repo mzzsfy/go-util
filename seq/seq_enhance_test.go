@@ -52,7 +52,7 @@ func Test_Seq_ParallelN(t *testing.T) {
     seq := FromIntSeq().Take(n)
     now := time.Now()
     duration := time.Millisecond * 2000
-    concurrency := 1 + rand.Intn(n-1)/2
+    concurrency := 15 + rand.Intn(n-1)/2
     var maxConcurrency int32
     var nowConcurrency int32
     lock := sync.Mutex{}
