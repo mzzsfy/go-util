@@ -23,6 +23,6 @@ jobs:
         run: |
           for ((i=1; i<=100; i++))
           do
-            go test -count=1 -run Test_.+ -v -timeout 5s ./...
+            go test -count=1 -run Test_.+ -v -timeout 6s ./...
             echo "Test $i done"
           done

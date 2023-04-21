@@ -56,7 +56,7 @@ func Test_BiParallel(t *testing.T) {
     sub := time.Now().Sub(now)
     if sub < duration || sub.Truncate(duration) != duration {
         t.Fail()
-        println("运行时间不正确", sub)
+        t.Log("运行时间不正确", sub)
     }
 }
 

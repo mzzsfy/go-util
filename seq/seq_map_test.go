@@ -39,14 +39,14 @@ func Test_Seq_ParallelOrdered(t *testing.T) {
             lock.Unlock()
         }
         s := 20*time.Millisecond + time.Duration(rand.Intn(60000))*time.Microsecond
-        //println("sleep", i, s.Truncate(time.Microsecond*100).String())
+        //t.Log("sleep", i, s.Truncate(time.Microsecond*100).String())
         time.Sleep(s)
         atomic.AddInt32(&nowConcurrency, -1)
-        //println("sleep over", i, s.Truncate(time.Microsecond*100).String())
+        //t.Log("sleep over", i, s.Truncate(time.Microsecond*100).String())
         return i
     }, 1, concurrency).Complete()
     if maxConcurrency != int32(concurrency) {
-        println("maxConcurrency:", maxConcurrency, "concurrency:", concurrency)
+        t.Log("maxConcurrency:", maxConcurrency, "concurrency:", concurrency)
         t.Fail()
     }
 }
@@ -70,25 +70,25 @@ func Test_Seq_ParallelOrdered1(t *testing.T) {
             lock.Unlock()
         }
         s := 20*time.Millisecond + time.Duration(rand.Intn(60000))*time.Microsecond
-        //println("sleep", i, s.Truncate(time.Microsecond*100).String())
+        //t.Log("sleep", i, s.Truncate(time.Microsecond*100).String())
         time.Sleep(s)
         atomic.AddInt32(&nowConcurrency, -1)
-        //println("sleep over", i, s.Truncate(time.Microsecond*100).String())
+        //t.Log("sleep over", i, s.Truncate(time.Microsecond*100).String())
         return i
     }, 2, concurrency).ForEach(func(ia any) {
         runtime.Gosched()
         i := ia.(int)
         i2, _ := it()
-        //println("test", i, "expect", i2)
+        //t.Log("test", i, "expect", i2)
         if i != i2 {
             t.Fail()
             runtime.Gosched()
-            println("test", i, "expect", i2)
+            t.Log("test", i, "expect", i2)
             os.Exit(1)
         }
     })
     if maxConcurrency != int32(concurrency) {
-        println("maxConcurrency:", maxConcurrency, "concurrency:", concurrency)
+        t.Log("maxConcurrency:", maxConcurrency, "concurrency:", concurrency)
         t.Fail()
     }
 }

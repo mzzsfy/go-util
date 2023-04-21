@@ -110,9 +110,9 @@ func Test_Rand(t *testing.T) {
     }).Drop(10).Take(5).ToSlice()
     if len(slice) != 5 {
         t.Fail()
-        println("len(slice) != 5")
+        t.Log("len(slice) != 5")
     }
-    fmt.Println(slice)
+    t.Log(slice)
 }
 
 func Test_Seq_Complete(t *testing.T) {

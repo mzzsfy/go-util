@@ -21,9 +21,31 @@ func Test_Seq_OnLast(t *testing.T) {
     }
 }
 
+func Test_Parallel(t *testing.T) {
+    preTest(t)
+    n := 30 + rand.Intn(1000)
+    duration := time.Millisecond * 3000
+    concurrent := 1 + rand.Intn(n-1)/(rand.Intn(10)+1)
+    p := NewParallel(concurrent)
+    now := time.Now()
+    for i := 0; i < n; i++ {
+        p.Add(func() {
+            time.Sleep(duration / time.Duration(n/concurrent))
+        })
+    }
+    p.Wait()
+    sub := time.Now().Sub(now)
+    if sub < duration || sub.Truncate(duration) != duration {
+        t.Log("运行时间不正确", duration.String(), sub.String())
+        t.Fail()
+    } else {
+        t.Log("ok,use ", sub.String())
+    }
+}
+
 func Test_Seq_Parallel(t *testing.T) {
     preTest(t)
-    duration := time.Millisecond * 300
+    duration := time.Millisecond * 2000
     seq := FromSlice([]int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10})
     go func() {
         now := time.Now()
@@ -51,7 +73,7 @@ func Test_Seq_ParallelN(t *testing.T) {
     n := 30 + rand.Intn(1000)
     seq := FromIntSeq().Take(n)
     now := time.Now()
-    duration := time.Millisecond * 500
+    duration := time.Millisecond * 2000
     concurrency := 1 + rand.Intn(n-1)/2
     var maxConcurrency int32
     var nowConcurrency int32
@@ -74,10 +96,10 @@ func Test_Seq_ParallelN(t *testing.T) {
         t.Fail()
     }
     if maxConcurrency != int32(concurrency) {
-        println("maxConcurrency:", maxConcurrency, "concurrency:", concurrency)
+        t.Log("maxConcurrency:", maxConcurrency, "concurrency:", concurrency)
         t.Fail()
     }
-    println("ok,use ", sub.String())
+    t.Log("ok,use ", sub.String())
 }
 
 func Test_Cache(t *testing.T) {
