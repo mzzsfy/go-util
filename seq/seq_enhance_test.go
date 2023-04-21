@@ -23,25 +23,24 @@ func Test_Seq_OnLast(t *testing.T) {
 
 func Test_Seq_Parallel(t *testing.T) {
     preTest(t)
-    duration := time.Millisecond * 2000
     seq := FromSlice([]int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10})
     go func() {
         now := time.Now()
         seq.AsyncEach(func(i int) {
-            time.Sleep(duration)
+            time.Sleep(allSleepDuration)
         })
         sub := time.Now().Sub(now)
-        if sub < duration || sub.Truncate(duration) != duration {
+        if sub < allSleepDuration || sub.Truncate(allSleepDuration) != allSleepDuration {
             t.Fail()
         }
     }()
     now := time.Now()
     seq.Parallel().Map(func(i int) any {
-        time.Sleep(duration)
+        time.Sleep(allSleepDuration)
         return i
     }).Complete()
     sub := time.Now().Sub(now)
-    if sub < duration || sub.Truncate(duration) != duration {
+    if sub < allSleepDuration || sub.Truncate(allSleepDuration) != allSleepDuration {
         t.Fail()
     }
 }
@@ -51,8 +50,7 @@ func Test_Seq_ParallelN(t *testing.T) {
     n := 30 + rand.Intn(1000)
     seq := FromIntSeq().Take(n)
     now := time.Now()
-    duration := time.Millisecond * 2000
-    concurrency := 15 + rand.Intn(n-1)/2
+    concurrency := FromT(rand.Intn(n-1), n/10+1, n/2-1).Sort(LessT[int]).Drop(1).FirstOr(0)
     var maxConcurrency int32
     var nowConcurrency int32
     lock := sync.Mutex{}
@@ -66,11 +64,11 @@ func Test_Seq_ParallelN(t *testing.T) {
             }
             lock.Unlock()
         }
-        time.Sleep(duration / time.Duration(n/concurrency))
+        time.Sleep(allSleepDuration / time.Duration(n/concurrency))
         atomic.AddInt32(&nowConcurrency, -1)
     })
     sub := time.Now().Sub(now)
-    if sub < duration || sub.Truncate(duration) != duration {
+    if sub < allSleepDuration || sub.Truncate(allSleepDuration) != allSleepDuration {
         t.Fail()
     }
     if maxConcurrency != int32(concurrency) {
