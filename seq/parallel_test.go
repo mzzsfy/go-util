@@ -19,7 +19,7 @@ func Test_Parallel(t *testing.T) {
         for i := 0; i < n; i++ {
             //i := i
             p.Add(func() {
-                d := allSleepDuration / time.Duration(n/concurrent)
+                d := time.Duration(float64(allSleepDuration) / float64(n/concurrent))
                 //t.Logf("%d sleep %s", i, d.String())
                 time.Sleep(d)
             })

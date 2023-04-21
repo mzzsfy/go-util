@@ -50,29 +50,29 @@ func Test_Seq_ParallelN(t *testing.T) {
     n := 30 + rand.Intn(1000)
     seq := FromIntSeq().Take(n)
     now := time.Now()
-    concurrency := FromT(rand.Intn(n-1), n/10+1, n/2-1).Sort(LessT[int]).Drop(1).FirstOr(0)
-    var maxConcurrency int32
-    var nowConcurrency int32
+    concurrent := FromT(rand.Intn(n-1), n/10+1, n/2-1).Sort(LessT[int]).Drop(1).FirstOr(0)
+    var maxConcurrent int32
+    var nowConcurrent int32
     lock := sync.Mutex{}
-    seq.Parallel(concurrency).ForEach(func(i int) {
-        c := atomic.AddInt32(&nowConcurrency, 1)
-        if c > atomic.LoadInt32(&maxConcurrency) {
+    seq.Parallel(concurrent).ForEach(func(i int) {
+        c := atomic.AddInt32(&nowConcurrent, 1)
+        if c > atomic.LoadInt32(&maxConcurrent) {
             lock.Lock()
-            x := atomic.LoadInt32(&maxConcurrency)
+            x := atomic.LoadInt32(&maxConcurrent)
             if x <= c {
-                maxConcurrency = c
+                maxConcurrent = c
             }
             lock.Unlock()
         }
-        time.Sleep(allSleepDuration / time.Duration(n/concurrency))
-        atomic.AddInt32(&nowConcurrency, -1)
+        time.Sleep(time.Duration(float64(allSleepDuration) / float64(n/concurrent)))
+        atomic.AddInt32(&nowConcurrent, -1)
     })
     sub := time.Now().Sub(now)
     if sub < allSleepDuration || sub.Truncate(allSleepDuration) != allSleepDuration {
         t.Fail()
     }
-    if maxConcurrency != int32(concurrency) {
-        t.Log("maxConcurrency:", maxConcurrency, "concurrency:", concurrency)
+    if maxConcurrent != int32(concurrent) {
+        t.Log("maxConcurrent:", maxConcurrent, "concurrent:", concurrent)
         t.Fail()
     }
     t.Log("ok,use ", sub.String())
