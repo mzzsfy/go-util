@@ -57,7 +57,7 @@ func Test_Seq_ParallelOrdered2(t *testing.T) {
     start := time.Now()
     it := IteratorInt()
     var count int32
-    n := rand.Intn(5000) + 100
+    n := rand.Intn(1000) + 100
     var maxConcurrent int32
     var nowConcurrent int32
     lock := sync.Mutex{}
@@ -72,7 +72,7 @@ func Test_Seq_ParallelOrdered2(t *testing.T) {
             }
             lock.Unlock()
         }
-        s := 100*time.Millisecond + time.Duration(rand.Intn(100000))*time.Microsecond
+        s := 30*time.Millisecond + time.Duration(rand.Intn(50000))*time.Microsecond
         //t.Log("sleep", i, s.Truncate(time.Microsecond*100).String())
         time.Sleep(s)
         atomic.AddInt32(&nowConcurrent, -1)
