@@ -7,9 +7,14 @@ import (
 
 //======转换,添加或修改内部元素========
 
-// MapParallel 每个元素转换为any,使用 Sync() 保证消费不竞争
-// order 是否保持顺序,1尽量保持顺序(可能消费竞争),大于1强制保持顺序(约等于加锁)
-// order 第二个参数,并发数
+// MapParallel 每个元素转换为any
+// order.1 顺序保证方式,规则如下:
+// 0:不保证任务启动顺序,不保证消费顺序,会消费竞争
+// 1:尽量保持顺序,优先保证并发数,异步任务完成时,会直接消费,会消费竞争,可以使用 Sync() 保证消费不竞争
+// 2:异步任务与消费端解偶,在保证顺序的前提下,优先保证并发数,不会消费竞争
+// 3:保持异步与消费同步,以消费为准,不消费完成不会开始下一个异步任务,不会消费竞争
+//
+// order.2 最大并发数,根据第一个参数决定逻辑
 func (t Seq[T]) MapParallel(f func(T) any, order ...int) Seq[any] {
     o := 0
     sl := 0
@@ -24,7 +29,8 @@ func (t Seq[T]) MapParallel(f func(T) any, order ...int) Seq[any] {
             var currentIndex int32 = 1
             var id int32
             var fns []*BiTuple[int32, func()]
-            l := &sync.Mutex{}
+            lock := &sync.Mutex{}
+            l := sync.NewCond(lock)
             p := NewParallel(sl)
             fn := func() {
                 for {
@@ -48,9 +54,11 @@ func (t Seq[T]) MapParallel(f func(T) any, order ...int) Seq[any] {
                 var id = atomic.AddInt32(&id, 1)
                 p.Add(func() {
                     a := f(t)
-                    if o > 1 {
-                        l.Lock()
-                        defer l.Unlock()
+                    if o == 1 {
+                        c(a)
+                    } else if o == 2 {
+                        lock.Lock()
+                        defer lock.Unlock()
                         if atomic.LoadInt32(&currentIndex) != id {
                             fns = append(fns, &BiTuple[int32, func()]{id, func() { c(a) }})
                         } else {
@@ -59,7 +67,14 @@ func (t Seq[T]) MapParallel(f func(T) any, order ...int) Seq[any] {
                             fn()
                         }
                     } else {
+                        l.L.Lock()
+                        defer l.L.Unlock()
+                        for atomic.LoadInt32(&currentIndex) != id {
+                            l.Wait()
+                        }
+                        defer l.Broadcast()
                         c(a)
+                        atomic.AddInt32(&currentIndex, 1)
                     }
                 })
             })

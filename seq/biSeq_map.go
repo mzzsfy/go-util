@@ -8,8 +8,13 @@ import (
 //======转换========
 
 // MapKParallel 每个元素转换为any,使用 Sync() 保证消费不竞争
-// order 是否保持顺序,大于0保持顺序
-// order 第二个参数,并发数
+// order.1 顺序保证方式,规则如下:
+// 0:不保证任务启动顺序,不保证消费顺序,会消费竞争
+// 1:尽量保持顺序,优先保证并发数,异步任务完成时,会直接消费,会消费竞争,可以使用 Sync() 保证消费不竞争
+// 2:异步任务与消费端解偶,在保证顺序的前提下,优先保证并发数,不会消费竞争
+// 3:保持异步与消费同步,以消费为准,不消费完成不会开始下一个异步任务,不会消费竞争
+//
+// order.2 最大并发数,根据第一个参数决定逻辑
 func (t BiSeq[K, V]) MapKParallel(f func(k K, v V) any, order ...int) BiSeq[any, V] {
     o := 0
     sl := 0
@@ -20,30 +25,62 @@ func (t BiSeq[K, V]) MapKParallel(f func(k K, v V) any, order ...int) BiSeq[any,
         sl = order[1]
     }
     if o > 0 {
-        p := NewParallel(sl)
-        l := sync.NewCond(&sync.Mutex{})
         return func(c func(any, V)) {
             var currentIndex int32 = 1
             var id int32
+            var fns []*BiTuple[int32, func()]
+            lock := &sync.Mutex{}
+            l := sync.NewCond(lock)
+            p := NewParallel(sl)
+            fn := func() {
+                for {
+                    loaded := false
+                    idx := atomic.LoadInt32(&currentIndex)
+                    for i, b := range fns {
+                        if b != nil && b.K == idx {
+                            b.V()
+                            atomic.AddInt32(&currentIndex, 1)
+                            loaded = true
+                            fns[i] = nil
+                            break
+                        }
+                    }
+                    if !loaded {
+                        break
+                    }
+                }
+            }
             t(func(k K, v V) {
                 var id = atomic.AddInt32(&id, 1)
                 p.Add(func() {
                     a := f(k, v)
-                    l.L.Lock()
-                    for atomic.LoadInt32(&currentIndex) != id {
-                        l.Wait()
-                    }
-                    atomic.AddInt32(&currentIndex, 1)
-                    defer l.Broadcast()
-                    if o > 1 {
-                        defer l.L.Unlock()
+                    if o == 1 {
+                        c(a, v)
+                    } else if o == 2 {
+                        lock.Lock()
+                        defer lock.Unlock()
+                        if atomic.LoadInt32(&currentIndex) != id {
+                            fns = append(fns, &BiTuple[int32, func()]{id, func() { c(a, v) }})
+                        } else {
+                            c(a, v)
+                            atomic.AddInt32(&currentIndex, 1)
+                            fn()
+                        }
                     } else {
-                        l.L.Unlock()
+                        l.L.Lock()
+                        defer l.L.Unlock()
+                        for atomic.LoadInt32(&currentIndex) != id {
+                            l.Wait()
+                        }
+                        defer l.Broadcast()
+                        c(a, v)
+                        atomic.AddInt32(&currentIndex, 1)
                     }
-                    c(a, v)
                 })
             })
             p.Wait()
+            fn()
+            fns = nil
         }
     } else {
         return t.Parallel(sl).MapK(f)
@@ -51,8 +88,13 @@ func (t BiSeq[K, V]) MapKParallel(f func(k K, v V) any, order ...int) BiSeq[any,
 }
 
 // MapVParallel 每个元素转换为any,使用 Sync() 保证消费不竞争
-// order 是否保持顺序,1尽量保持顺序(可能消费竞争),大于1强制保持顺序(约等于加锁)
-// order 第二个参数,并发数
+// order.1 顺序保证方式,规则如下:
+// 0:不保证任务启动顺序,不保证消费顺序,会消费竞争
+// 1:尽量保持顺序,优先保证并发数,异步任务完成时,会直接消费,会消费竞争,可以使用 Sync() 保证消费不竞争
+// 2:异步任务与消费端解偶,在保证顺序的前提下,优先保证并发数,不会消费竞争
+// 3:保持异步与消费同步,以消费为准,不消费完成不会开始下一个异步任务,不会消费竞争
+//
+// order.2 最大并发数,根据第一个参数决定逻辑
 func (t BiSeq[K, V]) MapVParallel(f func(k K, v V) any, order ...int) BiSeq[K, any] {
     o := 0
     sl := 0
@@ -63,30 +105,62 @@ func (t BiSeq[K, V]) MapVParallel(f func(k K, v V) any, order ...int) BiSeq[K, a
         sl = order[1]
     }
     if o > 0 {
-        p := NewParallel(sl)
-        l := sync.NewCond(&sync.Mutex{})
         return func(c func(K, any)) {
             var currentIndex int32 = 1
             var id int32
+            var fns []*BiTuple[int32, func()]
+            lock := &sync.Mutex{}
+            l := sync.NewCond(lock)
+            p := NewParallel(sl)
+            fn := func() {
+                for {
+                    loaded := false
+                    idx := atomic.LoadInt32(&currentIndex)
+                    for i, b := range fns {
+                        if b != nil && b.K == idx {
+                            b.V()
+                            atomic.AddInt32(&currentIndex, 1)
+                            loaded = true
+                            fns[i] = nil
+                            break
+                        }
+                    }
+                    if !loaded {
+                        break
+                    }
+                }
+            }
             t(func(k K, v V) {
                 var id = atomic.AddInt32(&id, 1)
                 p.Add(func() {
                     a := f(k, v)
-                    l.L.Lock()
-                    for atomic.LoadInt32(&currentIndex) != id {
-                        l.Wait()
-                    }
-                    atomic.AddInt32(&currentIndex, 1)
-                    defer l.Broadcast()
-                    if o > 1 {
-                        defer l.L.Unlock()
+                    if o == 1 {
+                        c(k, a)
+                    } else if o == 2 {
+                        lock.Lock()
+                        defer lock.Unlock()
+                        if atomic.LoadInt32(&currentIndex) != id {
+                            fns = append(fns, &BiTuple[int32, func()]{id, func() { c(k, a) }})
+                        } else {
+                            c(k, a)
+                            atomic.AddInt32(&currentIndex, 1)
+                            fn()
+                        }
                     } else {
-                        l.L.Unlock()
+                        l.L.Lock()
+                        defer l.L.Unlock()
+                        for atomic.LoadInt32(&currentIndex) != id {
+                            l.Wait()
+                        }
+                        defer l.Broadcast()
+                        c(k, a)
+                        atomic.AddInt32(&currentIndex, 1)
                     }
-                    c(k, a)
                 })
             })
             p.Wait()
+            fn()
+            fns = nil
         }
     } else {
         return t.Parallel(sl).MapV(f)
