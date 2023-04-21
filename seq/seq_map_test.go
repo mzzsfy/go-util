@@ -44,7 +44,7 @@ func Test_Seq_ParallelOrdered(t *testing.T) {
         atomic.AddInt32(&nowConcurrency, -1)
         //println("sleep over", i, s.Truncate(time.Microsecond*100).String())
         return i
-    }, 1, concurrency).Sync().Complete()
+    }, 1, concurrency).Complete()
     if maxConcurrency != int32(concurrency) {
         println("maxConcurrency:", maxConcurrency, "concurrency:", concurrency)
         t.Fail()
