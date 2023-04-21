@@ -38,9 +38,9 @@ func (p *parallel) Add(fn func()) {
     atomic.AddInt32(&p.running, 1)
     go func() {
         defer func() {
-            atomic.AddInt32(&p.running, -1)
             p.cond.L.Lock()
             defer p.cond.L.Unlock()
+            atomic.AddInt32(&p.running, -1)
             p.cond.Broadcast()
         }()
         fn()

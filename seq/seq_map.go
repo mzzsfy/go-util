@@ -34,12 +34,12 @@ func (t Seq[T]) MapParallel(f func(T) any, order ...int) Seq[any] {
                         l.Wait()
                     }
                     atomic.AddInt32(&currentIndex, 1)
-                    defer l.Broadcast()
                     if o > 1 {
                         defer l.L.Unlock()
                     } else {
                         l.L.Unlock()
                     }
+                    defer l.Broadcast()
                     c(a)
                 })
             })
