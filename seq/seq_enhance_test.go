@@ -50,7 +50,7 @@ func Test_Seq_ParallelN(t *testing.T) {
     n := 30 + rand.Intn(1000)
     seq := FromIntSeq().Take(n)
     now := time.Now()
-    concurrent := 5 + rand.Intn(n-10)
+    concurrent := 5 + rand.Intn(int(float64(n)*0.9))
     var maxConcurrent int32
     var nowConcurrent int32
     lock := sync.Mutex{}

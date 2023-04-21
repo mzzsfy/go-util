@@ -12,7 +12,7 @@ func Test_Parallel(t *testing.T) {
     preTest(t)
     FromIntSeq().Take(10).Parallel().ForEach(func(i int) {
         n := 30 + rand.Intn(10000)
-        concurrent := 5 + rand.Intn(n-100)
+        concurrent := 5 + rand.Intn(int(float64(n)*0.9))
         p := NewParallel(concurrent)
         now := time.Now()
         t.Logf("%d,开始,concurrent=%d,n=%d", i, concurrent, n)
