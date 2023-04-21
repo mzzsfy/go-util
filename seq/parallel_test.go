@@ -16,7 +16,7 @@ func Test_Parallel(t *testing.T) {
             t.Logf("%d ok,use %s", x, time.Now().Sub(now).String())
         }).ForEach(func(i int) {
             n := 30 + rand.Intn(10000)
-            concurrent := int(float64(n/10+rand.Intn(n-10)) * 0.9)
+            concurrent := 1 + int(float64(n/10+rand.Intn(n-10))*0.9)
             p := NewParallel(concurrent)
             sleepDuration := time.Duration(float64(allSleepDuration) / (float64(n) / float64(concurrent)))
             //t.Logf("%d,开始,concurrent=%d,n=%d", i, concurrent, n)
