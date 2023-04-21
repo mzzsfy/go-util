@@ -275,3 +275,12 @@ func (t BiSeq[K, V]) SortV(less func(V, V) bool) BiSeq[K, V] {
         }
     })
 }
+
+// Repeat 重复该Seq n次
+func (t BiSeq[K, V]) Repeat(n int) BiSeq[K, V] {
+    return func(f func(K, V)) {
+        for i := 0; i < n; i++ {
+            t(f)
+        }
+    }
+}

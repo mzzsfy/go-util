@@ -21,7 +21,7 @@ func Test_Seq_OnLast(t *testing.T) {
     }
 }
 
-func Test__Seq_Parallel(t *testing.T) {
+func Test_Seq_Parallel(t *testing.T) {
     preTest(t)
     duration := time.Millisecond * 300
     seq := FromSlice([]int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10})
@@ -155,6 +155,24 @@ func Test_Sort(t *testing.T) {
     if "10,9,8,7,6,5,4,3,2,1" != FromIntSeq(1).Take(10).Sort(func(i, j int) bool {
         return i > j
     }).JoinString(",") {
+        t.Fail()
+    }
+}
+
+func Test_Seq_Repeat(t *testing.T) {
+    testI := 0
+    repeatI := 0
+    FromIntSeq(0, 10).Repeat(3).ForEach(func(i int) {
+        if i != testI {
+            t.Fail()
+        }
+        testI++
+        if testI > 10 {
+            testI = 0
+            repeatI++
+        }
+    })
+    if repeatI != 3 {
         t.Fail()
     }
 }
