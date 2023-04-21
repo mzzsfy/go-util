@@ -12,6 +12,7 @@ func Test_Parallel(t *testing.T) {
     concurrent := 5 + rand.Intn(n-1)/(rand.Intn(10)+1)
     p := NewParallel(concurrent)
     now := time.Now()
+    t.Logf("开始,concurrent=%d,n=%d", concurrent, n)
     for i := 0; i < n; i++ {
         p.Add(func() {
             time.Sleep(duration / time.Duration(n/concurrent))
