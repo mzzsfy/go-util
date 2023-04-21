@@ -21,28 +21,6 @@ func Test_Seq_OnLast(t *testing.T) {
     }
 }
 
-func Test_Parallel(t *testing.T) {
-    preTest(t)
-    n := 30 + rand.Intn(1000)
-    duration := time.Millisecond * 3000
-    concurrent := 1 + rand.Intn(n-1)/(rand.Intn(10)+1)
-    p := NewParallel(concurrent)
-    now := time.Now()
-    for i := 0; i < n; i++ {
-        p.Add(func() {
-            time.Sleep(duration / time.Duration(n/concurrent))
-        })
-    }
-    p.Wait()
-    sub := time.Now().Sub(now)
-    if sub < duration || sub.Truncate(duration) != duration {
-        t.Log("运行时间不正确", duration.String(), sub.String())
-        t.Fail()
-    } else {
-        t.Log("ok,use ", sub.String())
-    }
-}
-
 func Test_Seq_Parallel(t *testing.T) {
     preTest(t)
     duration := time.Millisecond * 2000

@@ -24,6 +24,7 @@ func Test_Seq_MapSliceN(t *testing.T) {
 func Test_Seq_ParallelOrdered(t *testing.T) {
     preTest(t)
     n := 1000
+    start := time.Now()
     var maxConcurrency int32
     var nowConcurrency int32
     lock := sync.Mutex{}
@@ -49,10 +50,12 @@ func Test_Seq_ParallelOrdered(t *testing.T) {
         t.Log("maxConcurrency:", maxConcurrency, "concurrency:", concurrency)
         t.Fail()
     }
+    t.Log("ok,use", time.Now().Sub(start).String())
 }
 
 func Test_Seq_ParallelOrdered1(t *testing.T) {
     preTest(t)
+    start := time.Now()
     it := IteratorInt()
     n := 1000
     var maxConcurrency int32
@@ -69,7 +72,7 @@ func Test_Seq_ParallelOrdered1(t *testing.T) {
             }
             lock.Unlock()
         }
-        s := 20*time.Millisecond + time.Duration(rand.Intn(60000))*time.Microsecond
+        s := 10*time.Millisecond + time.Duration(rand.Intn(30000))*time.Microsecond
         //t.Log("sleep", i, s.Truncate(time.Microsecond*100).String())
         time.Sleep(s)
         atomic.AddInt32(&nowConcurrency, -1)
@@ -91,6 +94,7 @@ func Test_Seq_ParallelOrdered1(t *testing.T) {
         t.Log("maxConcurrency:", maxConcurrency, "concurrency:", concurrency)
         t.Fail()
     }
+    t.Log("ok,use", time.Now().Sub(start).String())
 }
 
 func Test_Seq_MergeBiInt(t *testing.T) {
