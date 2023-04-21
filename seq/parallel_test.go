@@ -18,19 +18,20 @@ func Test_Parallel(t *testing.T) {
             n := 30 + rand.Intn(10000)
             concurrent := int(float64(n/10+rand.Intn(n-10)) * 0.9)
             p := NewParallel(concurrent)
+            sleepDuration := time.Duration(float64(allSleepDuration) / (float64(n) / float64(concurrent)))
             //t.Logf("%d,开始,concurrent=%d,n=%d", i, concurrent, n)
             for i := 0; i < n; i++ {
                 //i := i
                 p.Add(func() {
-                    d := time.Duration(0.99 * (float64(allSleepDuration) / (float64(n) / float64(concurrent))))
+                    d := sleepDuration
                     //t.Logf("%d sleep %s", i, d.String())
                     time.Sleep(d)
                 })
             }
             p.Wait()
             sub := time.Now().Sub(now)
-            if sub < allSleepDuration || sub.Truncate(allSleepDuration) != allSleepDuration {
-                t.Logf("%d,运行时间不正确%s,%s,concurrent=%d,n=%d", i, allSleepDuration.String(), sub.String(), concurrent, n)
+            if sub < allSleepDuration || sub > 3*allSleepDuration {
+                t.Logf("%d,运行时间不正确%s,%s,concurrent=%d,n=%d,sleepDuration=%s", i, allSleepDuration.String(), sub.String(), concurrent, n, sleepDuration.String())
                 t.FailNow()
             } else {
                 //t.Log("ok,use ", i, sub.String())

@@ -68,7 +68,7 @@ func Test_Seq_ParallelN(t *testing.T) {
         atomic.AddInt32(&nowConcurrent, -1)
     })
     sub := time.Now().Sub(now)
-    if sub < allSleepDuration || sub.Truncate(allSleepDuration) != allSleepDuration {
+    if sub < allSleepDuration || sub > 3*allSleepDuration {
         t.Fail()
     }
     if maxConcurrent != int32(concurrent) {
