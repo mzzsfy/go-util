@@ -25,29 +25,29 @@ func Test_Seq_ParallelOrdered(t *testing.T) {
     preTest(t)
     n := 1000
     start := time.Now()
-    var maxConcurrency int32
-    var nowConcurrency int32
+    var maxConcurrent int32
+    var nowConcurrent int32
     lock := sync.Mutex{}
-    concurrency := 5 + rand.Intn(n/3)
+    concurrent := int(float64(n/10+rand.Intn(n-n/10)) * 0.9)
     FromIntSeq().Take(n).MapParallel(func(i int) any {
-        c := atomic.AddInt32(&nowConcurrency, 1)
-        if c > atomic.LoadInt32(&maxConcurrency) {
+        c := atomic.AddInt32(&nowConcurrent, 1)
+        if c > atomic.LoadInt32(&maxConcurrent) {
             lock.Lock()
-            x := atomic.LoadInt32(&maxConcurrency)
+            x := atomic.LoadInt32(&maxConcurrent)
             if x <= c {
-                maxConcurrency = c
+                maxConcurrent = c
             }
             lock.Unlock()
         }
-        s := 30*time.Millisecond + time.Duration(rand.Intn(50000))*time.Microsecond
+        s := 60*time.Millisecond + time.Duration(rand.Intn(100000))*time.Microsecond
         //t.Log("sleep", i, s.Truncate(time.Microsecond*100).String())
         time.Sleep(s)
-        atomic.AddInt32(&nowConcurrency, -1)
+        atomic.AddInt32(&nowConcurrent, -1)
         //t.Log("sleep over", i, s.Truncate(time.Microsecond*100).String())
         return i
-    }, 1, concurrency).Complete()
-    if maxConcurrency != int32(concurrency) {
-        t.Log("maxConcurrency:", maxConcurrency, "concurrency:", concurrency)
+    }, 1, concurrent).Complete()
+    if maxConcurrent != int32(concurrent) {
+        t.Log("maxConcurrent:", maxConcurrent, "concurrent:", concurrent)
         t.Fail()
     }
     t.Log("ok,use", time.Now().Sub(start).String())
@@ -57,28 +57,30 @@ func Test_Seq_ParallelOrdered1(t *testing.T) {
     preTest(t)
     start := time.Now()
     it := IteratorInt()
+    var count int32
     n := 1000
-    var maxConcurrency int32
-    var nowConcurrency int32
+    var maxConcurrent int32
+    var nowConcurrent int32
     lock := sync.Mutex{}
-    concurrency := 5 + rand.Intn(n/2)
+    concurrent := int(float64(n/10+rand.Intn(n-n/10)) * 0.9)
     FromIntSeq().Take(n).MapParallel(func(i int) any {
-        c := atomic.AddInt32(&nowConcurrency, 1)
-        if c > atomic.LoadInt32(&maxConcurrency) {
+        c := atomic.AddInt32(&nowConcurrent, 1)
+        if c > atomic.LoadInt32(&maxConcurrent) {
             lock.Lock()
-            x := atomic.LoadInt32(&maxConcurrency)
+            x := atomic.LoadInt32(&maxConcurrent)
             if x <= c {
-                maxConcurrency = c
+                maxConcurrent = c
             }
             lock.Unlock()
         }
-        s := 30*time.Millisecond + time.Duration(rand.Intn(50000))*time.Microsecond
+        s := 60*time.Millisecond + time.Duration(rand.Intn(100000))*time.Microsecond
         //t.Log("sleep", i, s.Truncate(time.Microsecond*100).String())
         time.Sleep(s)
-        atomic.AddInt32(&nowConcurrency, -1)
+        atomic.AddInt32(&nowConcurrent, -1)
         //t.Log("sleep over", i, s.Truncate(time.Microsecond*100).String())
         return i
-    }, 2, concurrency).ForEach(func(ia any) {
+    }, 2, concurrent).ForEach(func(ia any) {
+        atomic.AddInt32(&count, 1)
         runtime.Gosched()
         i := ia.(int)
         i2, _ := it()
@@ -90,11 +92,15 @@ func Test_Seq_ParallelOrdered1(t *testing.T) {
             os.Exit(1)
         }
     })
-    if maxConcurrency != int32(concurrency) {
-        t.Log("maxConcurrency:", maxConcurrency, "concurrency:", concurrency)
+    t.Logf("ok,use %s, n:%d,concurrent:%d,maxConcurrent:%d", time.Now().Sub(start).String(), n, concurrent, maxConcurrent)
+    if count != int32(n) {
+        t.Log("count:", count, "n:", n)
         t.Fail()
     }
-    t.Log("ok,use", time.Now().Sub(start).String())
+    if maxConcurrent != int32(concurrent) {
+        t.Log("maxConcurrent:", maxConcurrent, "concurrent:", concurrent)
+        t.Fail()
+    }
 }
 
 func Test_Seq_MergeBiInt(t *testing.T) {

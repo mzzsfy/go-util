@@ -204,10 +204,10 @@ func (t BiSeq[K, V]) Sync() BiSeq[K, V] {
 }
 
 // Parallel 对后续操作启用并行执行,使用 Sync() 保证消费不竞争
-func (t BiSeq[K, V]) Parallel(concurrency ...int) BiSeq[K, V] {
+func (t BiSeq[K, V]) Parallel(concurrent ...int) BiSeq[K, V] {
     sl := 0
-    if len(concurrency) > 0 {
-        sl = concurrency[0]
+    if len(concurrent) > 0 {
+        sl = concurrent[0]
     }
     return func(c func(k K, v V)) {
         if sl > 0 {

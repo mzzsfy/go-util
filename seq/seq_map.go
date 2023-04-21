@@ -20,30 +20,52 @@ func (t Seq[T]) MapParallel(f func(T) any, order ...int) Seq[any] {
         sl = order[1]
     }
     if o > 0 {
-        p := NewParallel(sl)
-        l := sync.NewCond(&sync.Mutex{})
         return func(c func(any)) {
             var currentIndex int32 = 1
             var id int32
+            var fns []*BiTuple[int32, func()]
+            l := &sync.Mutex{}
+            p := NewParallel(sl)
+            fn := func() {
+                for {
+                    loaded := false
+                    idx := atomic.LoadInt32(&currentIndex)
+                    for i, b := range fns {
+                        if b != nil && b.K == idx {
+                            b.V()
+                            atomic.AddInt32(&currentIndex, 1)
+                            loaded = true
+                            fns[i] = nil
+                            break
+                        }
+                    }
+                    if !loaded {
+                        break
+                    }
+                }
+            }
             t(func(t T) {
                 var id = atomic.AddInt32(&id, 1)
                 p.Add(func() {
                     a := f(t)
-                    l.L.Lock()
-                    for atomic.LoadInt32(&currentIndex) != id {
-                        l.Wait()
-                    }
-                    atomic.AddInt32(&currentIndex, 1)
                     if o > 1 {
-                        defer l.L.Unlock()
+                        l.Lock()
+                        defer l.Unlock()
+                        if atomic.LoadInt32(&currentIndex) != id {
+                            fns = append(fns, &BiTuple[int32, func()]{id, func() { c(a) }})
+                        } else {
+                            c(a)
+                            atomic.AddInt32(&currentIndex, 1)
+                            fn()
+                        }
                     } else {
-                        l.L.Unlock()
+                        c(a)
                     }
-                    l.Broadcast()
-                    c(a)
                 })
             })
             p.Wait()
+            fn()
+            fns = nil
         }
     } else {
         return t.Parallel(sl).Map(f)

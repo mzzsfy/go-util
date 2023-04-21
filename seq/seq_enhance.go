@@ -173,10 +173,10 @@ func (t Seq[T]) Sync() Seq[T] {
 }
 
 // Parallel 对后续操作启用并行执行 使用 Sync() 保证消费不竞争
-func (t Seq[T]) Parallel(concurrency ...int) Seq[T] {
+func (t Seq[T]) Parallel(concurrent ...int) Seq[T] {
     sl := 0
-    if len(concurrency) > 0 {
-        sl = concurrency[0]
+    if len(concurrent) > 0 {
+        sl = concurrent[0]
     }
     return func(c func(T)) {
         if sl > 0 {
