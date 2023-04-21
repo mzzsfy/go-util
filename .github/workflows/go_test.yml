@@ -21,7 +21,7 @@ jobs:
 
       - name: Test
         run: |
-          for ((i=1; i<=10; i++))
+          for ((i=1; i<=50; i++))
           do
             go test -count=1 -run Test_.+ -v -timeout 5s ./...
             echo "Test $i done"

@@ -16,6 +16,7 @@ type parallel struct {
     concurrent int32
     running    int32
     cond       sync.Cond
+    lock       sync.Mutex
 }
 
 func NewParallel(concurrent int) Parallel {
@@ -38,6 +39,8 @@ func (p *parallel) Add(fn func()) {
     go func() {
         defer func() {
             atomic.AddInt32(&p.running, -1)
+            p.cond.L.Lock()
+            defer p.cond.L.Unlock()
             p.cond.Broadcast()
         }()
         fn()
@@ -47,7 +50,7 @@ func (p *parallel) Add(fn func()) {
 func (p *parallel) Wait() {
     p.cond.L.Lock()
     defer p.cond.L.Unlock()
-    for p.running > 0 {
+    for atomic.LoadInt32(&p.running) > 0 {
         p.cond.Wait()
     }
 }
