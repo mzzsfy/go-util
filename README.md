@@ -12,6 +12,11 @@
     }).Drop(5).Order(LessT[int]).ForEach(func(i int) {
         fmt.t.Log(i)
     })
+    // a 1 b 2 c 3
+	// "a,b,c"
+    BiFromMap(map[string]int{"a": 1, "b": 2, "c": 3}).OnEach(func(k string, v int) {
+        print(k, v)
+    }).KSeq().JoinString(func(s string){retrun s}, ",")
     ```
     更多例子见: [seq_test.go](./seq/seq__test.go) [biSeq_test.go](./seq/biSeq_test.go)
     

@@ -155,6 +155,20 @@ func (t BiSeq[K, V]) SumBy64(f func(K, V) int64) int64 {
     return r
 }
 
+// SumByFloat32 求和
+func (t BiSeq[K, V]) SumByFloat32(f func(K, V) float32) float32 {
+    var r float32
+    t(func(k K, v V) { r += f(k, v) })
+    return r
+}
+
+// SumByFloat64 求和
+func (t BiSeq[K, V]) SumByFloat64(f func(K, V) float64) float64 {
+    var r float64
+    t(func(k K, v V) { r += f(k, v) })
+    return r
+}
+
 // JoinStringBy 拼接为字符串
 func (t BiSeq[K, V]) JoinStringBy(f func(K, V) string, delimiter ...string) string {
     sb := strings.Builder{}

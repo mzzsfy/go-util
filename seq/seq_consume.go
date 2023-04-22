@@ -160,6 +160,20 @@ func (t Seq[T]) SumBy64(f func(T) int64) int64 {
     return r
 }
 
+// SumByFloat32 求和
+func (t Seq[T]) SumByFloat32(f func(T) float32) float32 {
+    var r float32
+    t(func(t T) { r += f(t) })
+    return r
+}
+
+// SumByFloat64 求和
+func (t Seq[T]) SumByFloat64(f func(T) float64) float64 {
+    var r float64
+    t(func(t T) { r += f(t) })
+    return r
+}
+
 // JoinStringBy 拼接为字符串,自定义转换函数
 func (t Seq[T]) JoinStringBy(f func(T) string, delimiter ...string) string {
     sb := strings.Builder{}

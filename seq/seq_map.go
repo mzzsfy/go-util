@@ -99,29 +99,69 @@ func (t Seq[T]) Map(f func(T) any) Seq[any] {
     return func(c func(any)) { t(func(t T) { c(f(t)) }) }
 }
 
+// MapString 每个元素转换为 string
+func (t Seq[T]) MapString(f func(T) string) Seq[string] {
+    return func(c func(string)) { t(func(t T) { c(f(t)) }) }
+}
+
+// MapInt 每个元素转换为 int
+func (t Seq[T]) MapInt(f func(T) int) Seq[int] {
+    return func(c func(int)) { t(func(t T) { c(f(t)) }) }
+}
+
+// MapInt64 每个元素转换为 int64
+func (t Seq[T]) MapInt64(f func(T) int64) Seq[int64] {
+    return func(c func(int64)) { t(func(t T) { c(f(t)) }) }
+}
+
+// MapFloat32 每个元素转换为 float32
+func (t Seq[T]) MapFloat32(f func(T) float32) Seq[float32] {
+    return func(c func(float32)) { t(func(t T) { c(f(t)) }) }
+}
+
+// MapFloat64 每个元素转换为 float64
+func (t Seq[T]) MapFloat64(f func(T) float64) Seq[float64] {
+    return func(c func(float64)) { t(func(t T) { c(f(t)) }) }
+}
+
+// MapBytes 每个元素转换为 []byte
+func (t Seq[T]) MapBytes(f func(T) []byte) Seq[[]byte] {
+    return func(c func([]byte)) { t(func(t T) { c(f(t)) }) }
+}
+
 // MapFlat 每个元素转换为Seq,并扁平化
 func (t Seq[T]) MapFlat(f func(T) Seq[any]) Seq[any] {
     return func(c func(any)) { t(func(t T) { f(t).ForEach(c) }) }
 }
 
-// MapString 每个元素转换为字符串
-func (t Seq[T]) MapString(f func(T) string) Seq[string] {
-    return func(c func(string)) { t(func(t T) { c(f(t)) }) }
+// MapFlatInt 扁平化
+func (t Seq[T]) MapFlatInt(f func(T) Seq[int]) Seq[int] {
+    return func(c func(int)) { t(func(t T) { f(t).ForEach(c) }) }
 }
 
-// MapInt 每个元素转换为int
-func (t Seq[T]) MapInt(f func(T) int) Seq[int] {
-    return func(c func(int)) { t(func(t T) { c(f(t)) }) }
+// MapFlatInt64 扁平化
+func (t Seq[T]) MapFlatInt64(f func(T) Seq[int64]) Seq[int64] {
+    return func(c func(int64)) { t(func(t T) { f(t).ForEach(c) }) }
 }
 
-// MapFloat32 每个元素转换为float32
-func (t Seq[T]) MapFloat32(f func(T) float32) Seq[float32] {
-    return func(c func(float32)) { t(func(t T) { c(f(t)) }) }
+// MapFlatString 扁平化
+func (t Seq[T]) MapFlatString(f func(T) Seq[string]) Seq[string] {
+    return func(c func(string)) { t(func(t T) { f(t).ForEach(c) }) }
 }
 
-// MapFloat64 每个元素转换为float64
-func (t Seq[T]) MapFloat64(f func(T) float64) Seq[float64] {
-    return func(c func(float64)) { t(func(t T) { c(f(t)) }) }
+// MapFlatFloat32 扁平化
+func (t Seq[T]) MapFlatFloat32(f func(T) Seq[float32]) Seq[float32] {
+    return func(c func(float32)) { t(func(t T) { f(t).ForEach(c) }) }
+}
+
+// MapFlatFloat64 扁平化
+func (t Seq[T]) MapFlatFloat64(f func(T) Seq[float64]) Seq[float64] {
+    return func(c func(float64)) { t(func(t T) { f(t).ForEach(c) }) }
+}
+
+// MapFlatBytes 扁平化
+func (t Seq[T]) MapFlatBytes(f func(T) Seq[any]) Seq[any] {
+    return func(c func(any)) { t(func(t T) { f(t).ForEach(c) }) }
 }
 
 // MapSliceN 每n个元素合并为[]T,由于golang泛型问题,不能使用Seq[[]T],使用 CastAny 转换为Seq[[]T]

@@ -194,9 +194,59 @@ func (t BiSeq[K, V]) MapK(f func(K, V) any) BiSeq[any, V] {
     return func(c func(any, V)) { t(func(k K, v V) { c(f(k, v), v) }) }
 }
 
+// MapKInt 转换K的类型
+func (t BiSeq[K, V]) MapKInt(f func(K, V) int) BiSeq[int, V] {
+    return func(c func(int, V)) { t(func(k K, v V) { c(f(k, v), v) }) }
+}
+
+// MapKInt64 转换K的类型
+func (t BiSeq[K, V]) MapKInt64(f func(K, V) int64) BiSeq[int64, V] {
+    return func(c func(int64, V)) { t(func(k K, v V) { c(f(k, v), v) }) }
+}
+
+// MapKString 转换K的类型
+func (t BiSeq[K, V]) MapKString(f func(K, V) string) BiSeq[string, V] {
+    return func(c func(string, V)) { t(func(k K, v V) { c(f(k, v), v) }) }
+}
+
 // MapV 每个元素自定义转换V为any,用于连续转换操作,使用 BiCastAny 进行恢复泛型
 func (t BiSeq[K, V]) MapV(f func(K, V) any) BiSeq[K, any] {
     return func(c func(K, any)) { t(func(k K, v V) { c(k, f(k, v)) }) }
+}
+
+// MapVInt 转换V的类型
+func (t BiSeq[K, V]) MapVInt(f func(K, V) int) BiSeq[K, int] {
+    return func(c func(K, int)) { t(func(k K, v V) { c(k, f(k, v)) }) }
+}
+
+// MapVInt32 转换V的类型
+func (t BiSeq[K, V]) MapVInt32(f func(K, V) int32) BiSeq[K, int32] {
+    return func(c func(K, int32)) { t(func(k K, v V) { c(k, f(k, v)) }) }
+}
+
+// MapVInt64 转换V的类型
+func (t BiSeq[K, V]) MapVInt64(f func(K, V) int64) BiSeq[K, int64] {
+    return func(c func(K, int64)) { t(func(k K, v V) { c(k, f(k, v)) }) }
+}
+
+// MapVFloat32 转换V的类型
+func (t BiSeq[K, V]) MapVFloat32(f func(K, V) float32) BiSeq[K, float32] {
+    return func(c func(K, float32)) { t(func(k K, v V) { c(k, f(k, v)) }) }
+}
+
+// MapVFloat64 转换V的类型
+func (t BiSeq[K, V]) MapVFloat64(f func(K, V) float64) BiSeq[K, float64] {
+    return func(c func(K, float64)) { t(func(k K, v V) { c(k, f(k, v)) }) }
+}
+
+// MapVString 转换V的类型
+func (t BiSeq[K, V]) MapVString(f func(K, V) string) BiSeq[K, string] {
+    return func(c func(K, string)) { t(func(k K, v V) { c(k, f(k, v)) }) }
+}
+
+// MapVBytes 转换V的类型
+func (t BiSeq[K, V]) MapVBytes(f func(K, V) []byte) BiSeq[K, []byte] {
+    return func(c func(K, []byte)) { t(func(k K, v V) { c(k, f(k, v)) }) }
 }
 
 // MapFlat 每个元素转换为BiSeq[any,any],并扁平化
@@ -205,6 +255,114 @@ func (t BiSeq[K, V]) MapFlat(f func(K, V) BiSeq[any, any]) BiSeq[any, any] {
         t(func(k K, v V) {
             s := f(k, v)
             s.ForEach(c)
+        })
+    }
+}
+
+// MapFlatK K扁平化
+func (t BiSeq[K, V]) MapFlatK(f func(K, V) Seq[any]) BiSeq[any, V] {
+    return func(c func(any, V)) {
+        t(func(k K, v V) {
+            s := f(k, v)
+            s.ForEach(func(a any) {
+                c(a, v)
+            })
+        })
+    }
+}
+
+// MapFlatV V扁平化
+func (t BiSeq[K, V]) MapFlatV(f func(K, V) Seq[any]) BiSeq[K, any] {
+    return func(c func(K, any)) {
+        t(func(k K, v V) {
+            s := f(k, v)
+            s.ForEach(func(a any) {
+                c(k, a)
+            })
+        })
+    }
+}
+
+// MapFlatVInt V扁平化
+func (t BiSeq[K, V]) MapFlatVInt(f func(K, V) Seq[int]) BiSeq[K, int] {
+    return func(c func(K, int)) {
+        t(func(k K, v V) {
+            s := f(k, v)
+            s.ForEach(func(a int) {
+                c(k, a)
+            })
+        })
+    }
+}
+
+// MapFlatVInt32 V扁平化
+func (t BiSeq[K, V]) MapFlatVInt32(f func(K, V) Seq[int32]) BiSeq[K, int32] {
+    return func(c func(K, int32)) {
+        t(func(k K, v V) {
+            s := f(k, v)
+            s.ForEach(func(a int32) {
+                c(k, a)
+            })
+        })
+    }
+}
+
+// MapFlatVInt64 V扁平化
+func (t BiSeq[K, V]) MapFlatVInt64(f func(K, V) Seq[int64]) BiSeq[K, int64] {
+    return func(c func(K, int64)) {
+        t(func(k K, v V) {
+            s := f(k, v)
+            s.ForEach(func(a int64) {
+                c(k, a)
+            })
+        })
+    }
+}
+
+// MapFlatVFloat32 V扁平化
+func (t BiSeq[K, V]) MapFlatVFloat32(f func(K, V) Seq[float32]) BiSeq[K, float32] {
+    return func(c func(K, float32)) {
+        t(func(k K, v V) {
+            s := f(k, v)
+            s.ForEach(func(a float32) {
+                c(k, a)
+            })
+        })
+    }
+}
+
+// MapFlatVFloat64 V扁平化
+func (t BiSeq[K, V]) MapFlatVFloat64(f func(K, V) Seq[float64]) BiSeq[K, float64] {
+    return func(c func(K, float64)) {
+        t(func(k K, v V) {
+            s := f(k, v)
+            s.ForEach(func(a float64) {
+                c(k, a)
+            })
+        })
+    }
+}
+
+// MapFlatVString V扁平化
+func (t BiSeq[K, V]) MapFlatVString(f func(K, V) Seq[string]) BiSeq[K, string] {
+    return func(c func(K, string)) {
+        t(func(k K, v V) {
+            s := f(k, v)
+            s.ForEach(func(a string) {
+                c(k, a)
+            })
+        })
+    }
+}
+
+// MapFlatVBytes V扁平化
+func (t BiSeq[K, V]) MapFlatVBytes(f func(K, V) Seq[[]byte]) BiSeq[K, []byte] {
+    return func(c func(K, []byte)) {
+        t(func(k K, v V) {
+            s := f(k, v)
+            s.ForEach(func(a []byte) {
+                c(k, a)
+            })
         })
     }
 }

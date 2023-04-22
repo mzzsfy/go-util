@@ -196,3 +196,20 @@ func Test_Seq_MergeBiInt(t *testing.T) {
         })
     }
 }
+
+func Test_Seq_MapFlat(t *testing.T) {
+    testI := 0
+    testRounds := 0
+    FromIntSeq().Take(100).MapFlatInt(func(i int) Seq[int] {
+        return FromIntSeq(i).Take(10)
+    }).ForEach(func(i int) {
+        if testRounds+testI != i {
+            t.FailNow()
+        }
+        testI++
+        if testI == 10 {
+            testI = 0
+            testRounds++
+        }
+    })
+}
