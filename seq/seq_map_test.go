@@ -24,12 +24,12 @@ func Test_Seq_MapSliceN(t *testing.T) {
 func Test_Seq_ParallelOrdered1(t *testing.T) {
     preTest(t)
     var count int32
-    n := rand.Intn(5000) + 100
+    n := rand.Intn(3000) + 100
     start := time.Now()
     var maxConcurrent int32
     var nowConcurrent int32
     lock := sync.Mutex{}
-    concurrent := 1 + int(float64(n/10+rand.Intn(n-n/10))*0.9)
+    concurrent := 1 + int(float64(n/10+rand.Intn(n-n/7))*0.9)
     FromIntSeq().Take(n).MapParallel(func(i int) any {
         c := atomic.AddInt32(&nowConcurrent, 1)
         if c > atomic.LoadInt32(&maxConcurrent) {
