@@ -5,7 +5,7 @@ import (
     "math/rand"
 )
 
-//参考: https://mp.weixin.qq.com/s/v-HMKBWxtz1iakxFL09PDw
+//参考来源: https://mp.weixin.qq.com/s/v-HMKBWxtz1iakxFL09PDw
 
 // Seq 一种特殊的集合,可以用于链式操作
 type Seq[T any] func(t func(T))
@@ -73,9 +73,9 @@ func FromTRepeatN[T any](limit int, ts ...T) Seq[T] {
 }
 
 // FromRandIntSeq 生成随机整数序列,可以自定义随机数范围
-// 如果不指定范围,则生成的随机数为int类型的最大值
+// 如果不指定范围,则生成的随机数为int类型的最大值[0,MaxInt)
 // 参数1: 生成数量
-// 参数2: 随机数范围
+// 参数2: 随机数范围:[0,n)
 func FromRandIntSeq(i ...int) Seq[int] {
     l := math.MaxInt
     r := 0
@@ -113,6 +113,41 @@ func FromIntSeq(Range ...int) Seq[int] {
         }()
         for {
             f(r())
+        }
+    }
+}
+
+func FromTreeT[T any](t T, getChild func(T) []T) Seq[T] {
+    return func(f func(T)) {
+        f(t)
+        for _, c := range getChild(t) {
+            FromTreeT(c, getChild).ForEach(f)
+        }
+    }
+}
+func FromTreeTV[T, V any](p T, getChild func(T) []T, getValue func(T) V) Seq[V] {
+    return func(f func(V)) {
+        f(getValue(p))
+        for _, c := range getChild(p) {
+            FromTreeTV(c, getChild, getValue)(f)
+        }
+    }
+}
+
+func FromTreeAny(o any, getChild func(any) []any) Seq[any] {
+    return func(f func(any)) {
+        f(o)
+        for _, c := range getChild(o) {
+            FromTreeAny(c, getChild)(f)
+        }
+    }
+}
+
+func FromTreeAnyTV[V any](o any, getChild func(any) []any, getValue func(any) V) Seq[V] {
+    return func(f func(V)) {
+        f(getValue(o))
+        for _, c := range getChild(o) {
+            FromTreeAnyTV(c, getChild, getValue)(f)
         }
     }
 }
