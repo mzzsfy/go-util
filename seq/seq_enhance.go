@@ -228,11 +228,18 @@ func (t Seq[T]) Cache() Seq[T] {
     }
 }
 
-// Repeat 重复该Seq n次
-func (t Seq[T]) Repeat(n int) Seq[T] {
+// Repeat 重复该Seq n次,如果不传递,则无限重复
+func (t Seq[T]) Repeat(n ...int) Seq[T] {
     return func(f func(T)) {
-        for i := 0; i < n; i++ {
-            t(f)
+        if len(n) == 0 {
+            for {
+                t(f)
+            }
+        } else {
+            l := n[0]
+            for i := 0; i < l; i++ {
+                t(f)
+            }
         }
     }
 }
