@@ -69,7 +69,7 @@ func Test_Seq_ParallelOrdered2(t *testing.T) {
     var nowIndex int32
     var maxDifference int
     lock := sync.Mutex{}
-    concurrent := 3 + int(float64(n/10+rand.Intn(n-n/10))*0.9)
+    concurrent := 3 + int(float64(n/10+rand.Intn(n-n/3))*0.9)
     //t.Logf("n:%d,concurrent:%d,n:%d", n, concurrent, n)
     FromIntSeq().Take(n).MapParallel(func(i int) any {
         atomic.AddInt32(&nowIndex, 1)
@@ -101,7 +101,7 @@ func Test_Seq_ParallelOrdered2(t *testing.T) {
             t.Log("test", i, "expect", i2)
             os.Exit(1)
         }
-        time.Sleep(time.Millisecond)
+        time.Sleep(time.Millisecond * 2)
         c := int(nowIndex) - i
         if c > maxDifference {
             maxDifference = c
