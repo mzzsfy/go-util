@@ -27,14 +27,19 @@ func (t BiSeq[K, V]) SeqVBy(f func(K, V) V) Seq[V] {
     return func(c func(V)) { t(func(k K, v V) { c(f(k, v)) }) }
 }
 
+// MapStringBy 转换为Seq[string]
+func (t BiSeq[K, V]) MapStringBy(f func(K, V) string) Seq[string] {
+    return func(c func(string)) { t(func(k K, v V) { c(f(k, v)) }) }
+}
+
+// MapIntBy 转换为Seq[int]
+func (t BiSeq[K, V]) MapIntBy(f func(K, V) int) Seq[int] {
+    return func(c func(int)) { t(func(k K, v V) { c(f(k, v)) }) }
+}
+
 // MapSliceN 每n个元素合并为[]T,由于golang泛型问题,不能使用[]BiTuple[K,V],使用 BiCastAny 进行恢复泛型[]BiTuple[K,V]
 func (t BiSeq[K, V]) MapSliceN(n int) Seq[any] {
     return t.MapSliceBy(func(k K, v V, ts any) bool { return len(ts.([]BiTuple[K, V])) == n })
-}
-
-// MapSliceAnyN 每n个元素合并为[]T,由于golang泛型问题,不能使用[]BiTuple[K,V]
-func (t BiSeq[K, V]) MapSliceAnyN(n int) Seq[[]BiTuple[any, any]] {
-    return t.MapSliceAnyBy(func(k K, v V, ts []BiTuple[any, any]) bool { return len(ts) == n })
 }
 
 //MapSliceBy 自定义元素合并为[]T,由于golang泛型问题,不能使用[]BiTuple[K,V],使用 BiCastAny 进行恢复泛型[]BiTuple[K,V]
@@ -52,31 +57,4 @@ func (t BiSeq[K, V]) MapSliceBy(f func(K, V, any) bool) Seq[any] {
             c(ts)
         }
     }
-}
-
-//MapSliceAnyBy 自定义元素合并为[]T,由于golang泛型问题,不能使用[]BiTuple[K,V]
-func (t BiSeq[K, V]) MapSliceAnyBy(f func(K, V, []BiTuple[any, any]) bool) Seq[[]BiTuple[any, any]] {
-    return func(c func([]BiTuple[any, any])) {
-        var ts []BiTuple[any, any]
-        t(func(k K, v V) {
-            ts = append(ts, BiTuple[any, any]{k, v})
-            if f(k, v, ts) {
-                c(ts)
-                ts = nil
-            }
-        })
-        if len(ts) > 0 {
-            c(ts)
-        }
-    }
-}
-
-// MapStringBy 转换为Seq[string]
-func (t BiSeq[K, V]) MapStringBy(f func(K, V) string) Seq[string] {
-    return func(c func(string)) { t(func(k K, v V) { c(f(k, v)) }) }
-}
-
-// MapIntBy 转换为Seq[int]
-func (t BiSeq[K, V]) MapIntBy(f func(K, V) int) Seq[int] {
-    return func(c func(int)) { t(func(k K, v V) { c(f(k, v)) }) }
 }

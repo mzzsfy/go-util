@@ -160,8 +160,8 @@ func (t Seq[T]) MapFlatFloat64(f func(T) Seq[float64]) Seq[float64] {
 }
 
 // MapFlatBytes 扁平化
-func (t Seq[T]) MapFlatBytes(f func(T) Seq[any]) Seq[any] {
-    return func(c func(any)) { t(func(t T) { f(t).ForEach(c) }) }
+func (t Seq[T]) MapFlatBytes(f func(T) Seq[[]byte]) Seq[[]byte] {
+    return func(c func([]byte)) { t(func(t T) { f(t).ForEach(c) }) }
 }
 
 // MapSliceN 每n个元素合并为[]T,由于golang泛型问题,不能使用Seq[[]T],使用 CastAny 转换为Seq[[]T]
@@ -169,12 +169,7 @@ func (t Seq[T]) MapSliceN(n int) Seq[any] {
     return t.MapSliceBy(func(t T, ts []T) bool { return len(ts) == n })
 }
 
-// MapSliceAnyN 每n个元素合并为[]T,由于golang泛型问题,不能使用[]Seq[T]
-func (t Seq[T]) MapSliceAnyN(n int) Seq[[]any] {
-    return t.MapSliceAnyBy(func(t T, ts []T) bool { return len(ts) == n })
-}
-
-// MapSliceBy 自定义元素合并为[]T,由于golang泛型问题,不能使用[]Seq[T] CastAny 转换为Seq[[]T]
+// MapSliceBy 自定义元素合并为[]T,由于golang泛型问题,不能返回[]Seq[T],使用 CastAny 转换为Seq[[]T]
 func (t Seq[T]) MapSliceBy(f func(T, []T) bool) Seq[any] {
     return func(c func(any)) {
         var ts []T
@@ -187,23 +182,6 @@ func (t Seq[T]) MapSliceBy(f func(T, []T) bool) Seq[any] {
         })
         if len(ts) > 0 {
             c(ts)
-        }
-    }
-}
-
-// MapSliceAnyBy 自定义元素合并为[]T,由于golang泛型问题,不能使用[]Seq[T]
-func (t Seq[T]) MapSliceAnyBy(f func(T, []T) bool) Seq[[]any] {
-    return func(c func([]any)) {
-        var ts []T
-        t(func(t T) {
-            ts = append(ts, t)
-            if f(t, ts) {
-                c(FromSlice(ts).Map(AnyT[T]).ToSlice())
-                ts = nil
-            }
-        })
-        if len(ts) > 0 {
-            c(FromSlice(ts).Map(AnyT[T]).ToSlice())
         }
     }
 }
