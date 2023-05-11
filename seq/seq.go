@@ -47,6 +47,15 @@ func FromSliceRepeat[T any](arr []T, limit ...int) Seq[T] {
     }
 }
 
+// FromChan 从Chan生成Seq
+func FromChan[T any](c <-chan T) Seq[T] {
+    return func(t func(T)) {
+        for v := range c {
+            t(v)
+        }
+    }
+}
+
 // FromIterator 从Iterator生成Seq
 func FromIterator[T any](it Iterator[T]) Seq[T] {
     return func(t func(T)) {
