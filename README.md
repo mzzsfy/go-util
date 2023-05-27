@@ -21,3 +21,8 @@
     更多例子见: [seq_test.go](./seq/seq__test.go) [biSeq_test.go](./seq/biSeq_test.go)
     
     > 参考来源: https://mp.weixin.qq.com/s/v-HMKBWxtz1iakxFL09PDw
+
+todo:
+ - 配置
+ - 日志
+ - 简单通用的util类
