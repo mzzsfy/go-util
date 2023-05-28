@@ -33,6 +33,14 @@ func (t Seq[T]) Catch(f func(any)) Seq[T] {
     }
 }
 
+// Finally defer 的简单封装
+func (t Seq[T]) Finally(f func()) Seq[T] {
+    return func(c func(T)) {
+        defer f()
+        t(func(t T) { c(t) })
+    }
+}
+
 // CatchWithValue defer recover 的简单封装,保留最后一次调用的值
 func (t Seq[T]) CatchWithValue(f func(T, any)) Seq[T] {
     return func(c func(T)) {

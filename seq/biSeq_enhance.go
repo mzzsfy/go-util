@@ -33,6 +33,14 @@ func (t BiSeq[K, V]) Catch(f func(any)) BiSeq[K, V] {
     }
 }
 
+// Finally defer 的简单封装
+func (t BiSeq[K, V]) Finally(f func()) BiSeq[K, V] {
+    return func(c func(K, V)) {
+        defer f()
+        t(func(k K, v V) { c(k, v) })
+    }
+}
+
 // CatchWithValue defer recover 的简单封装,保留最后一次调用的值
 func (t BiSeq[K, V]) CatchWithValue(f func(K, V, any)) BiSeq[K, V] {
     return func(c func(K, V)) {
