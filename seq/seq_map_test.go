@@ -82,7 +82,7 @@ func Test_Seq_ParallelOrdered2(t *testing.T) {
             }
             lock.Unlock()
         }
-        s := 3*time.Millisecond + time.Duration(rand.Intn(10000))*time.Microsecond
+        s := 6*time.Millisecond + time.Duration(rand.Intn(20000))*time.Microsecond
         //t.Log("sleep", i, s.Truncate(time.Microsecond*100).String())
         time.Sleep(s)
         atomic.AddInt32(&nowConcurrent, -1)
