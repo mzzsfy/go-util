@@ -172,3 +172,13 @@ func BiJoinBy[K1, V1, K2, V2, K, V any](seq1 BiSeq[K1, V1], cast1 func(K1, V1) (
         seq2(func(k K2, v V2) { c(cast2(k, v)) })
     }
 }
+
+//=====便捷方法======
+
+func BiToMap[K comparable, V any](seq BiSeq[K, V]) map[K]V {
+    m := make(map[K]V)
+    seq(func(k K, v V) {
+        m[k] = v
+    })
+    return m
+}
