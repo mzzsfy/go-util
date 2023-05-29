@@ -13,7 +13,7 @@ import (
 )
 
 var (
-    inited  atomic.Bool
+    inited  atomic.Value
     lock    = sync.Mutex{}
     initFns []*fn
     exitFns []*fn
@@ -30,7 +30,7 @@ func AfterInit(name string, f func()) {
     AfterInitOrder(name, f, 0)
 }
 func AfterInitOrder(name string, f func(), order int) {
-    if inited.Load() {
+    if inited.Load() != nil {
         panic("初始化完成后不允许再次注册回调")
     }
     lock.Lock()
@@ -46,7 +46,7 @@ func AfterInitOrder(name string, f func(), order int) {
 }
 
 func DoAfterInit() (success bool) {
-    if !inited.CompareAndSwap(false, true) {
+    if !inited.CompareAndSwap(nil, true) {
         panic("不允许重复执行Init")
     }
     group := sync.WaitGroup{}
