@@ -61,26 +61,6 @@ func isZero(of reflect.Value) bool {
     return false
 }
 
-func NotZero(test any) bool {
-    return !IsZero(test)
-}
-
-func Default[T any](test, defaultValue T) T {
-    if !IsZero(test) {
-        return test
-    }
-    return defaultValue
-}
-
-func Defaults[T any](defaultValue T, tests ...T) T {
-    for _, t := range tests {
-        if !IsZero(t) {
-            return t
-        }
-    }
-    return defaultValue
-}
-
 func New[T any](a T) T {
     t := reflect.TypeOf(a)
     isPtr := t.Kind() == reflect.Ptr

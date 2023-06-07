@@ -41,3 +41,23 @@ func DoMapIfNoZero[T any](t T, f func(T) T) T {
     }
     return f(t)
 }
+
+func Default[T any](test, defaultValue T) T {
+    if !IsZero(test) {
+        return test
+    }
+    return defaultValue
+}
+
+func Defaults[T any](defaultValue T, tests ...T) T {
+    for _, t := range tests {
+        if !IsZero(t) {
+            return t
+        }
+    }
+    return defaultValue
+}
+
+func NotZero(test any) bool {
+    return !IsZero(test)
+}

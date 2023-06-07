@@ -17,12 +17,27 @@ var (
     lock    = sync.Mutex{}
     initFns []*fn
     exitFns []*fn
+    funcWg  *sync.WaitGroup
 )
 
 type fn struct {
     name  string
     order int
     f     func()
+}
+
+// DoFuncWaitCallback 当初始化或者退出时,如果任务有前后依赖关系,调用此方法开始阻塞,返回一个解除阻塞的回调函数
+func DoFuncWaitCallback() func() {
+    if funcWg == nil {
+        lock.Lock()
+        if funcWg == nil {
+            funcWg = &sync.WaitGroup{}
+        }
+        lock.Unlock()
+    }
+    funcWg.Add(1)
+    once := sync.Once{}
+    return func() { once.Do(funcWg.Done) }
 }
 
 // AfterInit 注册init回调,使用DoAfterInit时被调用,默认order为0
@@ -57,6 +72,12 @@ func DoAfterInit() (success bool) {
         //分批异步进行
         if lastOrder > f.order {
             time.Sleep(time.Millisecond)
+            if funcWg != nil {
+                funcWg.Wait()
+                lock.Lock()
+                funcWg = nil
+                lock.Unlock()
+            }
         }
         lastOrder = f.order
         group.Add(1)
@@ -112,6 +133,11 @@ func doExit(code int) {
         //分批异步进行
         if lastOrder > f.order {
             time.Sleep(time.Millisecond)
+            if funcWg != nil {
+                lock.Lock()
+                funcWg = nil
+                lock.Unlock()
+            }
         }
         lastOrder = f.order
         group.Add(1)
@@ -132,6 +158,7 @@ func doExit(code int) {
     realExit(code)
 }
 
+// DoBlock 阻塞当前goroutine,直到panic
 func DoBlock() {
     if a := recover(); a != nil {
         Exit("出现错误,%v", a)

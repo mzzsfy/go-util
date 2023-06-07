@@ -78,6 +78,7 @@ func (s *StringBuilder) Append(str string) *StringBuilder {
     return s
 }
 
+// IsInteger 判断字符串是否是整数,可优化
 func IsInteger(str string) bool {
     if str == "" {
         return false
