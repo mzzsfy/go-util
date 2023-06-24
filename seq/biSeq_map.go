@@ -153,7 +153,7 @@ func (t BiSeq[K, V]) MapVParallel(f func(k K, v V) any, order ...int) BiSeq[K, a
                             atomic.AddInt32(&currentIndex, 1)
                             for _, f := range fns {
                                 if f != nil {
-                                    go fn()
+                                    DefaultParallelFunc(fn)
                                     return
                                 }
                             }
