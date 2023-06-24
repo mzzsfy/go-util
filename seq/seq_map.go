@@ -68,7 +68,7 @@ func (t Seq[T]) MapParallel(f func(T) any, order ...int) Seq[any] {
                             atomic.AddInt32(&currentIndex, 1)
                             for _, f := range fns {
                                 if f != nil {
-                                    go fn()
+                                    DefaultParallelFunc(fn)
                                     return
                                 }
                             }

@@ -26,6 +26,8 @@ type parallel struct {
     concurrent int32
     running    int32
     cond       sync.Cond
+    // ParallelFunc 自定义携程任务运行模式
+    ParallelFunc func(fn func())
 }
 
 func (p *parallel) Add(fn func()) {
@@ -35,7 +37,11 @@ func (p *parallel) Add(fn func()) {
         p.cond.Wait()
     }
     atomic.AddInt32(&p.running, 1)
-    go func() {
+    pf := DefaultParallelFunc
+    if p.ParallelFunc != nil {
+        pf = p.ParallelFunc
+    }
+    pf(func() {
         defer func() {
             p.cond.L.Lock()
             defer p.cond.L.Unlock()
@@ -43,7 +49,7 @@ func (p *parallel) Add(fn func()) {
             p.cond.Broadcast()
         }()
         fn()
-    }()
+    })
 }
 
 func (p *parallel) Wait() {

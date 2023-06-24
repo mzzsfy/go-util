@@ -195,10 +195,10 @@ func (t Seq[T]) Parallel(concurrent ...int) Seq[T] {
             wg := sync.WaitGroup{}
             t(func(t T) {
                 wg.Add(1)
-                go func() {
+                DefaultParallelFunc(func() {
                     defer wg.Done()
                     c(t)
-                }()
+                })
             })
             wg.Wait()
         }

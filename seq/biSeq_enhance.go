@@ -226,10 +226,10 @@ func (t BiSeq[K, V]) Parallel(concurrent ...int) BiSeq[K, V] {
             wg := sync.WaitGroup{}
             t(func(k K, v V) {
                 wg.Add(1)
-                go func() {
+                DefaultParallelFunc(func() {
                     defer wg.Done()
                     c(k, v)
-                }()
+                })
             })
             wg.Wait()
         }
