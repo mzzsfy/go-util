@@ -2,6 +2,8 @@
 
 [![](https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=https%3A%2F%2Fgithub.com%2Fmzzsfy%2Fgo-util&count_bg=%2379C83D&title_bg=%23555555&icon=&icon_color=%23E7E7E7&title=hits&edge_flat=false)](https://github.com/mzzsfy)
 
+本库不引入任何第三方库
+
 - [seq](./seq)  
     一个高性能的golang的泛型链式调用库,实现了类似java stream逻辑,不依赖chan和goroutine,支持任意类型的链式调用,支持并行化(可限制并行数量),排序等
 
@@ -21,6 +23,9 @@
     更多例子见: [seq_test.go](./seq/seq__test.go) [biSeq_test.go](./seq/biSeq_test.go)
     
     > 参考来源: https://mp.weixin.qq.com/s/v-HMKBWxtz1iakxFL09PDw
+
+- [pool](./pool)
+    一些池化工具,携程池,对象池
 
 todo:
  - 配置
