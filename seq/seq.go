@@ -10,7 +10,7 @@ import (
 // Seq 一种特殊的集合,可以用于链式操作
 type Seq[T any] func(t func(T))
 
-// DefaultParallelFunc 自定义携程任务运行模式,可以改用携程池方案
+// DefaultParallelFunc 自定义携程任务运行模式,可以改用携程池方案,注意携程池方案可能导致部分需要保证顺序的任务出现死锁
 var DefaultParallelFunc = func(fn func()) { go fn() }
 
 //======生成,产生新的seq========

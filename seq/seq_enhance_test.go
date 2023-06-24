@@ -9,10 +9,6 @@ import (
     "time"
 )
 
-func init() {
-    DefaultParallelFunc = func(fn func()) { pool.Go(fn) }
-}
-
 func Test_Seq_OnLast(t *testing.T) {
     exec := 0
     FromIntSeq().Take(10).OnLast(func(i *int) {
@@ -84,6 +80,7 @@ func Test_Seq_ParallelN(t *testing.T) {
 }
 
 func Test_Seq_ParallelN1(t *testing.T) {
+    DefaultParallelFunc = func(fn func()) { pool.Go(fn) }
     n := 30 + rand.Intn(1000)
     seq := FromIntSeq().Take(n)
     now := time.Now()
@@ -113,6 +110,7 @@ func Test_Seq_ParallelN1(t *testing.T) {
         t.Fail()
     }
     t.Log("ok,use ", sub.String())
+    DefaultParallelFunc = func(fn func()) { go fn() }
 }
 
 func Test_Cache(t *testing.T) {
