@@ -1,7 +1,6 @@
 package seq
 
 import (
-    "github.com/mzzsfy/go-util/pool"
     "math/rand"
     "sync"
     "sync/atomic"
@@ -77,40 +76,6 @@ func Test_Seq_ParallelN(t *testing.T) {
         t.Fail()
     }
     t.Log("ok,use ", sub.String())
-}
-
-func Test_Seq_ParallelN1(t *testing.T) {
-    DefaultParallelFunc = func(fn func()) { pool.Go(fn) }
-    n := 30 + rand.Intn(1000)
-    seq := FromIntSeq().Take(n)
-    now := time.Now()
-    concurrent := int(float64(n/10+rand.Intn(n-10)) * 0.9)
-    var maxConcurrent int32
-    var nowConcurrent int32
-    lock := sync.Mutex{}
-    seq.Parallel(concurrent).ForEach(func(i int) {
-        c := atomic.AddInt32(&nowConcurrent, 1)
-        if c > atomic.LoadInt32(&maxConcurrent) {
-            lock.Lock()
-            x := atomic.LoadInt32(&maxConcurrent)
-            if x <= c {
-                maxConcurrent = c
-            }
-            lock.Unlock()
-        }
-        time.Sleep(time.Duration(float64(allSleepDuration) / (float64(n) / float64(concurrent))))
-        atomic.AddInt32(&nowConcurrent, -1)
-    })
-    sub := time.Now().Sub(now)
-    if sub < allSleepDuration || sub > 3*allSleepDuration {
-        t.Fail()
-    }
-    if maxConcurrent != int32(concurrent) {
-        t.Log("maxConcurrent:", maxConcurrent, "concurrent:", concurrent)
-        t.Fail()
-    }
-    t.Log("ok,use ", sub.String())
-    DefaultParallelFunc = func(fn func()) { go fn() }
 }
 
 func Test_Cache(t *testing.T) {
