@@ -11,7 +11,7 @@ Go(func() {
 })
 
 //自定义携程池运行任务
-pool:=NewGopool(1, withName("pool"), withMaxSize(1000))
+pool:=NewGopool(withName("pool"), withMaxSize(1000))
 pool.Go(func() {
 //code
 }))
