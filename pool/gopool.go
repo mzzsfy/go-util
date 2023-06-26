@@ -11,7 +11,7 @@ import (
 var (
     //workerIdGen   uint64
     //taskIdGen     uint64
-    defaultGopool = NewGopool(withName("defaultGopool"), withMaxSize(uint32(runtime.NumCPU()*1000)))
+    defaultGopool = NewGopool(WithName("defaultGopool"), WithMaxSize(uint32(runtime.NumCPU()*1000)))
     workerPool    = NewObjpool[worker](func() *worker { return &worker{} }, func(i *worker) { i.p = nil })
     taskPool      = NewObjpool[task](func() *task { return &task{} }, func(i *task) { i.next = nil; i.fn = nil })
 )
@@ -196,7 +196,7 @@ func WithCoreSize(size uint32) Option {
         gopool.maxSize = size
     }
 }
-func withMaxSize(size uint32) Option {
+func WithMaxSize(size uint32) Option {
     return func(gopool *Gopool) {
         if size != 0 && gopool.coreSize > size {
             panic("maxSize must be more than coreSize")
@@ -226,7 +226,7 @@ func WithPanicHandler(handler func(any, context.Context)) Option {
     }
 }
 
-func withName(name string) Option {
+func WithName(name string) Option {
     return func(gopool *Gopool) {
         gopool.name = name
     }

@@ -63,7 +63,7 @@ func TestGopool_Go1(t *testing.T) {
     lock := sync.Mutex{}
     wg := sync.WaitGroup{}
     wg.Add(n)
-    pool := NewGopool(withMaxSize(1000))
+    pool := NewGopool(WithMaxSize(1000))
     for i := 0; i < n; i++ {
         pool.Go(func() {
             time.Sleep(getSleepTime())
