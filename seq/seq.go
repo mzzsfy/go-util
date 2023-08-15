@@ -129,38 +129,30 @@ func FromIntSeq(Range ...int) Seq[int] {
     }
 }
 
-func FromTreeT[T any](t T, getChild func(T) []T) Seq[T] {
+func FromTreeT[T any](t T, getChild func(T) Seq[T]) Seq[T] {
     return func(f func(T)) {
         f(t)
-        for _, c := range getChild(t) {
-            FromTreeT(c, getChild).ForEach(f)
-        }
+        getChild(t).ForEach(func(t T) { FromTreeT(t, getChild).ForEach(f) })
     }
 }
-func FromTreeTV[T, V any](p T, getChild func(T) []T, getValue func(T) V) Seq[V] {
+func FromTreeTV[T, V any](p T, getChild func(T) Seq[T], getValue func(T) V) Seq[V] {
     return func(f func(V)) {
         f(getValue(p))
-        for _, c := range getChild(p) {
-            FromTreeTV(c, getChild, getValue)(f)
-        }
+        getChild(p).ForEach(func(t T) { FromTreeTV(t, getChild, getValue).ForEach(f) })
     }
 }
 
-func FromTreeAny(o any, getChild func(any) []any) Seq[any] {
+func FromTreeAny(o any, getChild func(any) Seq[any]) Seq[any] {
     return func(f func(any)) {
         f(o)
-        for _, c := range getChild(o) {
-            FromTreeAny(c, getChild)(f)
-        }
+        getChild(o).ForEach(func(t any) { FromTreeAny(t, getChild).ForEach(f) })
     }
 }
 
-func FromTreeAnyTV[V any](o any, getChild func(any) []any, getValue func(any) V) Seq[V] {
+func FromTreeAnyTV[V any](o any, getChild func(any) Seq[any], getValue func(any) V) Seq[V] {
     return func(f func(V)) {
         f(getValue(o))
-        for _, c := range getChild(o) {
-            FromTreeAnyTV(c, getChild, getValue)(f)
-        }
+        getChild(o).ForEach(func(t any) { FromTreeAnyTV(t, getChild, getValue).ForEach(f) })
     }
 }
 
