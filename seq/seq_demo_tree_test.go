@@ -46,7 +46,7 @@ func TestTree(t *testing.T) {
     //遍历树
     traverseTree(tree, 1)
     //使用seq遍历树
-    FromTreeT(tree, func(node treeNode) []treeNode { return node.child }).ForEach(func(node treeNode) {
+    FromTreeT(tree, func(node treeNode) Seq[treeNode] { return FromSlice(node.child) }).ForEach(func(node treeNode) {
         fmt.Printf("seq1,Key: %s, Value: %v\n", node.key, node.value)
     })
 }
