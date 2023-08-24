@@ -15,6 +15,22 @@ func (t Seq[T]) ForEach(f func(T)) { t(f) }
 // AsyncEach 每个元素执行f,并行执行
 func (t Seq[T]) AsyncEach(f func(T)) { t.Parallel()(f) }
 
+// FindFirstBy 找到第一个满足条件的元素
+func (t Seq[T]) FindFirstBy(f func(T) bool) *T {
+    return t.Filter(f).First()
+}
+
+// FindBestBy 找到最优的元素
+func (t Seq[T]) FindBestBy(f func(previous *T, current T) (replace bool)) *T {
+    var r *T
+    t(func(t T) {
+        if f(r, t) {
+            r = &t
+        }
+    })
+    return r
+}
+
 // First 有则返回第一个元素,无则返回nil
 func (t Seq[T]) First() *T {
     var r *T
@@ -85,6 +101,11 @@ func (t Seq[T]) AllMatch(f func(T) bool) bool {
     r := true
     t.Filter(func(t T) bool { return !f(t) }).Take(1)(func(t T) { r = false })
     return r
+}
+
+// NonMatch 全部不匹配
+func (t Seq[T]) NonMatch(f func(T) bool) bool {
+    return t.AnyMatch(func(t T) bool { return !f(t) })
 }
 
 // GroupBy 元素分组,每个组保留所有元素

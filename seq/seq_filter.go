@@ -28,6 +28,23 @@ func (t Seq[T]) Take(n int) Seq[T] {
     }
 }
 
+// TakeWhile 保留表达式返回true前的所有元素
+func (t Seq[T]) TakeWhile(f func(T) bool) Seq[T] {
+    return func(c func(T)) {
+        t(func(e T) {
+            if f(e) {
+                panic(&Stop)
+            }
+            c(e)
+        })
+    }
+}
+
+// Limit 保留前n个元素,Take的别名
+func (t Seq[T]) Limit(n int) Seq[T] {
+    return t.Take(n)
+}
+
 // Drop 跳过前n个元素
 func (t Seq[T]) Drop(n int) Seq[T] {
     return func(c func(T)) {
@@ -39,6 +56,28 @@ func (t Seq[T]) Drop(n int) Seq[T] {
             }
         })
     }
+}
+
+// DropWhile 保留表达式首次返回true后的所有元素
+func (t Seq[T]) DropWhile(f func(T) bool) Seq[T] {
+    return func(c func(T)) {
+        ok := false
+        t(func(e T) {
+            if ok {
+                c(e)
+            } else {
+                ok = f(e)
+                if ok {
+                    c(e)
+                }
+            }
+        })
+    }
+}
+
+// Skip 跳过前n个元素,Drop的别名
+func (t Seq[T]) Skip(n int) Seq[T] {
+    return t.Drop(n)
 }
 
 // Distinct 去重
