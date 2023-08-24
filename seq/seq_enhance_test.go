@@ -150,10 +150,11 @@ func Test_Cache(t *testing.T) {
 
 func Test_Sort(t *testing.T) {
     //结果 "10,9,8 ... 3,2,1"
-    if "10,9,8,7,6,5,4,3,2,1" != FromIntSeq(1).Take(10).Sort(func(i, j int) bool {
+    joinString := FromIntSeq(1).Take(10).Sort(func(i, j int) bool {
         return i > j
-    }).JoinString(",") {
-        t.Fail()
+    }).JoinString(",")
+    if "10,9,8,7,6,5,4,3,2,1" != joinString {
+        t.Fatal(joinString)
     }
 }
 

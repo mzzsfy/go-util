@@ -48,6 +48,7 @@ func (t Seq[T]) Limit(n int) Seq[T] {
 // Drop 跳过前n个元素
 func (t Seq[T]) Drop(n int) Seq[T] {
     return func(c func(T)) {
+        n := n
         t(func(e T) {
             if n <= 0 {
                 c(e)
