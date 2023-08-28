@@ -95,3 +95,19 @@ func (t Seq[T]) Distinct(equals func(T, T) bool) Seq[T] {
     })
     return FromSlice(r)
 }
+
+// DistinctCustomize 自定义去重
+func (t Seq[T]) DistinctCustomize(contains func([]T, T) bool) Seq[T] {
+    var r []T
+    t(func(t T) {
+        if contains(r, t) {
+            return
+        }
+        r = append(r, t)
+    })
+    return FromSlice(r)
+}
+
+func (t Seq[T]) DistinctCustomize1(contains func(T) bool) Seq[T] {
+    return t.Filter(func(t T) bool { return !contains(t) })
+}

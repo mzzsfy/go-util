@@ -15,7 +15,7 @@ import (
 // 3:保持异步与消费同步,以消费为准,不消费完成不会开始下一个异步任务,不会消费竞争
 //
 // order.2 最大并发数,根据第一个参数决定逻辑
-func (t Seq[T]) MapParallel(f func(T) any, order ...int) Seq[any] {
+func (t Seq[T]) MapParallel(syncFn func(T) any, order ...int) Seq[any] {
     o := 0
     sl := 0
     if len(order) > 0 {
@@ -55,7 +55,7 @@ func (t Seq[T]) MapParallel(f func(T) any, order ...int) Seq[any] {
             t(func(t T) {
                 var id = atomic.AddInt32(&id, 1)
                 p.Add(func() {
-                    a := f(t)
+                    a := syncFn(t)
                     if o == 1 {
                         c(a)
                     } else if o == 2 {
@@ -90,7 +90,21 @@ func (t Seq[T]) MapParallel(f func(T) any, order ...int) Seq[any] {
             fns = nil
         }
     } else {
-        return t.Parallel(sl).Map(f)
+        return t.Parallel(sl).Map(syncFn)
+    }
+}
+
+func (t Seq[T]) MapParallelCustomize(asyncFn func(T, func(any))) Seq[any] {
+    return func(c func(any)) {
+        wg := sync.WaitGroup{}
+        t(func(t T) {
+            wg.Add(1)
+            asyncFn(t, func(r any) {
+                defer wg.Done()
+                c(r)
+            })
+        })
+        wg.Wait()
     }
 }
 
@@ -131,37 +145,37 @@ func (t Seq[T]) MapBytes(f func(T) []byte) Seq[[]byte] {
 
 // MapFlat 每个元素转换为Seq,并扁平化
 func (t Seq[T]) MapFlat(f func(T) Seq[any]) Seq[any] {
-    return func(c func(any)) { t(func(t T) { f(t).ForEach(c) }) }
+    return func(c func(any)) { t(func(t T) { f(t)(c) }) }
 }
 
 // MapFlatInt 扁平化
 func (t Seq[T]) MapFlatInt(f func(T) Seq[int]) Seq[int] {
-    return func(c func(int)) { t(func(t T) { f(t).ForEach(c) }) }
+    return func(c func(int)) { t(func(t T) { f(t)(c) }) }
 }
 
 // MapFlatInt64 扁平化
 func (t Seq[T]) MapFlatInt64(f func(T) Seq[int64]) Seq[int64] {
-    return func(c func(int64)) { t(func(t T) { f(t).ForEach(c) }) }
+    return func(c func(int64)) { t(func(t T) { f(t)(c) }) }
 }
 
 // MapFlatString 扁平化
 func (t Seq[T]) MapFlatString(f func(T) Seq[string]) Seq[string] {
-    return func(c func(string)) { t(func(t T) { f(t).ForEach(c) }) }
+    return func(c func(string)) { t(func(t T) { f(t)(c) }) }
 }
 
 // MapFlatFloat32 扁平化
 func (t Seq[T]) MapFlatFloat32(f func(T) Seq[float32]) Seq[float32] {
-    return func(c func(float32)) { t(func(t T) { f(t).ForEach(c) }) }
+    return func(c func(float32)) { t(func(t T) { f(t)(c) }) }
 }
 
 // MapFlatFloat64 扁平化
 func (t Seq[T]) MapFlatFloat64(f func(T) Seq[float64]) Seq[float64] {
-    return func(c func(float64)) { t(func(t T) { f(t).ForEach(c) }) }
+    return func(c func(float64)) { t(func(t T) { f(t)(c) }) }
 }
 
 // MapFlatBytes 扁平化
 func (t Seq[T]) MapFlatBytes(f func(T) Seq[[]byte]) Seq[[]byte] {
-    return func(c func([]byte)) { t(func(t T) { f(t).ForEach(c) }) }
+    return func(c func([]byte)) { t(func(t T) { f(t)(c) }) }
 }
 
 // MapSliceN 每n个元素合并为[]T,由于golang泛型问题,不能使用Seq[[]T],使用 CastAny 转换为Seq[[]T]
@@ -204,7 +218,7 @@ func (t Seq[T]) JoinF(seq Seq[any], cast func(any) T) Seq[T] {
     }
 }
 
-// Add 添加单个元素
+// Add 直接添加元素
 func (t Seq[T]) Add(ts ...T) Seq[T] {
     return func(c func(T)) {
         t(func(t T) { c(t) })
@@ -214,7 +228,7 @@ func (t Seq[T]) Add(ts ...T) Seq[T] {
     }
 }
 
-// AddF 添加单个元素
+// AddF 直接添加需要转换的元素
 func (t Seq[T]) AddF(cast func(any) T, ts ...any) Seq[T] {
     return func(c func(T)) {
         t(func(t T) { c(t) })
@@ -222,4 +236,36 @@ func (t Seq[T]) AddF(cast func(any) T, ts ...any) Seq[T] {
             c(cast(e))
         }
     }
+}
+
+// AddIf 满足条件才添加元素
+func (t Seq[T]) AddIf(condition bool, ts ...T) Seq[T] {
+    if !condition {
+        return t
+    }
+    return t.Add(ts...)
+}
+
+// AddIfF 满足条件才添加元素
+func (t Seq[T]) AddIfF(condition func(Seq[T]) bool, ts ...T) Seq[T] {
+    if !condition(t) {
+        return t
+    }
+    return t.Add(ts...)
+}
+
+// AddFIf 满足条件才添加需要转换的元素
+func (t Seq[T]) AddFIf(condition bool, cast func(any) T, ts ...any) Seq[T] {
+    if !condition {
+        return t
+    }
+    return t.AddF(cast, ts...)
+}
+
+// AddFIfF 满足条件才添加需要转换的元素
+func (t Seq[T]) AddFIfF(condition func(Seq[T]) bool, cast func(any) T, ts ...any) Seq[T] {
+    if !condition(t) {
+        return t
+    }
+    return t.AddF(cast, ts...)
 }

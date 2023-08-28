@@ -7,7 +7,7 @@ import (
 
 //======增强,不改变内容========
 
-// Stoppable 调用后可以 panic(&Stop) 来主动停止迭代
+// Stoppable 调用后可以使用 panic(&Stop) 来主动停止迭代,否则会导致panic
 func (t Seq[T]) Stoppable() Seq[T] {
     return func(c func(T)) {
         defer func() {
@@ -68,7 +68,24 @@ func (t Seq[T]) OnEach(f func(T)) Seq[T] {
     }
 }
 
-// OnEachN 每n个元素额外执行一次
+// OnEachF 每个元素根据f函数判断是否需要额外执行
+func (t Seq[T]) OnEachF(step func(T) bool, f func(T), skip ...int) Seq[T] {
+    return func(c func(T)) {
+        x := 0
+        if len(skip) > 0 {
+            x = -skip[0]
+        }
+        t(func(t T) {
+            x++
+            if x > 0 && step(t) {
+                f(t)
+            }
+            c(t)
+        })
+    }
+}
+
+// OnEachN 每n个元素额外执行
 func (t Seq[T]) OnEachN(step int, f func(T), skip ...int) Seq[T] {
     if step <= 0 {
         panic("step must > 0")
@@ -205,6 +222,21 @@ func (t Seq[T]) Parallel(concurrent ...int) Seq[T] {
     }
 }
 
+// ParallelCustomize 自定义并行执行策略
+func (t Seq[T]) ParallelCustomize(fn func(T, func())) Seq[T] {
+    return func(c func(T)) {
+        wg := sync.WaitGroup{}
+        t(func(t T) {
+            wg.Add(1)
+            fn(t, func() {
+                defer wg.Done()
+                c(t)
+            })
+        })
+        wg.Wait()
+    }
+}
+
 // Sort 排序
 func (t Seq[T]) Sort(less func(T, T) bool) Seq[T] {
     var r []T
@@ -212,6 +244,22 @@ func (t Seq[T]) Sort(less func(T, T) bool) Seq[T] {
     fn := func() {
         t(func(t T) { r = append(r, t) })
         sort.Slice(r, func(i, j int) bool { return less(r[i], r[j]) })
+    }
+    return func(t func(T)) {
+        once.Do(fn)
+        for _, v := range r {
+            t(v)
+        }
+    }
+}
+
+// SortCustomize 自定义排序
+func (t Seq[T]) SortCustomize(sort func([]T)) Seq[T] {
+    var r []T
+    once := sync.Once{}
+    fn := func() {
+        t(func(t T) { r = append(r, t) })
+        sort(r)
     }
     return func(t func(T)) {
         once.Do(fn)
