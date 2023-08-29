@@ -269,7 +269,7 @@ func (t Seq[T]) SortCustomize(sort func([]T)) Seq[T] {
     }
 }
 
-// Cache 缓存Seq,使该Seq可以多次重复消费,并保证前面内容不会重复执行
+// Cache 缓存Seq,使该Seq可以多次重复消费
 func (t Seq[T]) Cache() Seq[T] {
     var r []T
     once := sync.Once{}
@@ -282,6 +282,13 @@ func (t Seq[T]) Cache() Seq[T] {
             t(v)
         }
     }
+}
+
+// CacheNow 触发消费行为并立刻缓存Seq,使该Seq可以多次重复消费
+func (t Seq[T]) CacheNow() Seq[T] {
+    cache := t.Cache()
+    cache.Complete()
+    return cache
 }
 
 // Repeat 重复该Seq n次,如果不传递,则无限重复

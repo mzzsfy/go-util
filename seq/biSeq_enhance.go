@@ -184,7 +184,7 @@ func (t BiSeq[K, V]) OnLast(f func(*K, *V)) BiSeq[K, V] {
     }
 }
 
-// Cache 缓存Seq,使该Seq可以多次消费,并保证前面内容不会重复执行
+// Cache 缓存Seq,使该Seq可以多次消费
 func (t BiSeq[K, V]) Cache() BiSeq[K, V] {
     var r []BiTuple[K, V]
     once := sync.Once{}
@@ -197,6 +197,13 @@ func (t BiSeq[K, V]) Cache() BiSeq[K, V] {
             k(v.K, v.V)
         }
     }
+}
+
+// CacheNow 触发消费行为并立刻缓存Seq,使该Seq可以多次消费
+func (t BiSeq[K, V]) CacheNow() BiSeq[K, V] {
+    cache := t.Cache()
+    cache.Complete()
+    return cache
 }
 
 // Sync 串行执行
