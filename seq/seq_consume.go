@@ -214,5 +214,17 @@ func (t Seq[T]) JoinStringBy(f func(T) string, delimiter ...string) string {
 // JoinString 拼接为字符串
 func (t Seq[T]) JoinString(delimiter ...string) string {
     var x T
-    return t.JoinStringBy(getToStringFn(x), delimiter...)
+    f := getToStringFn(x)
+    sb := strings.Builder{}
+    d := ""
+    if len(delimiter) > 0 {
+        d = delimiter[0]
+    }
+    t(func(s T) {
+        if d != "" && sb.Len() > 0 {
+            sb.WriteString(d)
+        }
+        sb.WriteString(f(s))
+    })
+    return sb.String()
 }

@@ -133,11 +133,6 @@ func (t Seq[T]) MapFlatInt(f func(T) Seq[int]) Seq[int] {
     return func(c func(int)) { t(func(t T) { f(t)(c) }) }
 }
 
-// MapFlatInt64 扁平化
-func (t Seq[T]) MapFlatInt64(f func(T) Seq[int64]) Seq[int64] {
-    return func(c func(int64)) { t(func(t T) { f(t)(c) }) }
-}
-
 // MapFlatString 扁平化
 func (t Seq[T]) MapFlatString(f func(T) Seq[string]) Seq[string] {
     return func(c func(string)) { t(func(t T) { f(t)(c) }) }

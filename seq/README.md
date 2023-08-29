@@ -105,17 +105,9 @@ interface Seq[T]{
     Map(f func(T) any) Seq[any]
     MapString(f func(T) string) Seq[string]
     MapInt(f func(T) int) Seq[int]
-    MapInt64(f func(T) int64) Seq[int64]
-    MapFloat32(f func(T) float32) Seq[float32]
-    MapFloat64(f func(T) float64) Seq[float64]
-    MapBytes(f func(T) []byte) Seq[[]byte]
     MapFlat(f func(T) Seq[any]) Seq[any]
     MapFlatInt(f func(T) Seq[int]) Seq[int]
-    MapFlatInt64(f func(T) Seq[int64]) Seq[int64]
     MapFlatString(f func(T) Seq[string]) Seq[string]
-    MapFlatFloat32(f func(T) Seq[float32]) Seq[float32]
-    MapFlatFloat64(f func(T) Seq[float64]) Seq[float64]
-    MapFlatBytes(f func(T) Seq[[]byte]) Seq[[]byte]
     MapSliceN(n int) Seq[any]
     MapSliceBy(f func(T, []T) bool) Seq[any]
     Join(seqs ...Seq[T]) Seq[T]
@@ -213,9 +205,6 @@ interface BiSeq[K,V]{
     Count() int
     Count64() int64
     SumBy(f func(K, V) int) int
-    SumBy64(f func(K, V) int64) int64
-    SumByFloat32(f func(K, V) float32) float32
-    SumByFloat64(f func(K, V) float64) float64
     JoinStringBy(f func(K, V) string, delimiter ...string) string
     Reduce(f func(K, V, any) any, init any) any
     MapKParallel(f func(k K, v V) any, order ...int) BiSeq[any, V]
@@ -224,26 +213,15 @@ interface BiSeq[K,V]{
     Map(f func(K, V) (any, any)) BiSeq[any, any]
     MapK(f func(K, V) any) BiSeq[any, V]
     MapKInt(f func(K, V) int) BiSeq[int, V]
-    MapKInt64(f func(K, V) int64) BiSeq[int64, V]
     MapKString(f func(K, V) string) BiSeq[string, V]
     MapV(f func(K, V) any) BiSeq[K, any]
     MapVInt(f func(K, V) int) BiSeq[K, int]
-    MapVInt32(f func(K, V) int32) BiSeq[K, int32]
-    MapVInt64(f func(K, V) int64) BiSeq[K, int64]
-    MapVFloat32(f func(K, V) float32) BiSeq[K, float32]
-    MapVFloat64(f func(K, V) float64) BiSeq[K, float64]
     MapVString(f func(K, V) string) BiSeq[K, string]
-    MapVBytes(f func(K, V) []byte) BiSeq[K, []byte]
     MapFlat(f func(K, V) BiSeq[any, any]) BiSeq[any, any]
     MapFlatK(f func(K, V) Seq[any]) BiSeq[any, V]
     MapFlatV(f func(K, V) Seq[any]) BiSeq[K, any]
     MapFlatVInt(f func(K, V) Seq[int]) BiSeq[K, int]
-    MapFlatVInt32(f func(K, V) Seq[int32]) BiSeq[K, int32]
-    MapFlatVInt64(f func(K, V) Seq[int64]) BiSeq[K, int64]
-    MapFlatVFloat32(f func(K, V) Seq[float32]) BiSeq[K, float32]
-    MapFlatVFloat64(f func(K, V) Seq[float64]) BiSeq[K, float64]
     MapFlatVString(f func(K, V) Seq[string]) BiSeq[K, string]
-    MapFlatVBytes(f func(K, V) Seq[[]byte]) BiSeq[K, []byte]
     Join(seqs ...BiSeq[K, V]) BiSeq[K, V]
     JoinBy(seq BiSeq[any, any], cast func(any, any) (K, V)) BiSeq[K, V]
     Add(k K, v V) BiSeq[K, V]
