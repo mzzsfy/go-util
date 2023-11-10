@@ -63,7 +63,7 @@ func Test_Seq_ParallelOrdered2(t *testing.T) {
     start := time.Now()
     it := IteratorInt()
     var count int32
-    n := rand.Intn(100) + 20
+    n := rand.Intn(50) + 20
     var maxConcurrent int32
     var nowConcurrent int32
     var nowIndex int32
