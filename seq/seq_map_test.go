@@ -59,7 +59,6 @@ func Test_Seq_ParallelOrdered1(t *testing.T) {
 }
 
 func Test_Seq_ParallelOrdered2(t *testing.T) {
-    preTest(t)
     start := time.Now()
     it := IteratorInt()
     var count int32
