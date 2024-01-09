@@ -12,7 +12,7 @@ From(func(f func(i int)) {
       f(rand.Int())
   }
 }).OnEach(func(i int) {
-  fmt.t.Log("", i)
+  println(i)
 }).Filter(func(i int) bool {
   return i%2 == 0
 }).Drop(10).Take(5).ToSlice()
@@ -25,7 +25,7 @@ FromSlice([]int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}).Sort(func(i, j int) bool {
 
 // 远端下载多个文件,限制并发,限制顺序, 测试代码在 seq_download_test.go
 BiCastAnyT(FromSlice(urls).MapBiSerialNumber(1).OnEach(func(i int, s string) {
-    t.Logf("开始下载第%d个文件:%s\n", i, s)
+    fmt.Printf("开始下载第%d个文件:%s\n", i, s)
 }).MapVParallel(func(id int, s string) any {
     //下载文件,返回[]byte
     return DownloadFile(s)
@@ -43,7 +43,7 @@ OnBefore(1, func(_ i, _ []byte) {
     writer.Header().Set("Content-Disposition", `attachment; filename="`+time.Now().Format("02_15:04:05")+"_"+name+`.merge.txt"`)
 }).
 OnLast(func(i *int, i2 *[]byte) {
-    t.Logf("第%d个文件已写入\n", i)
+    fmt.Printf("第%d个文件已写入\n", i)
 }).
 ForEach(func(i int, bytes []byte) {
     writer.Write(bytes)
@@ -56,7 +56,7 @@ ForEach(func(i int, bytes []byte) {
 // a 1 b 2 c 3
 // "a,b,c"
 BiFromMap(map[string]int{"a": 1, "b": 2, "c": 3}).OnEach(func(k string, v int) {
-print(k, v)
+println(k, v)
 }).
 	//转换为单元素的Seq
 	KSeq().JoinString(func(s string){retrun s}, ",")
