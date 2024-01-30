@@ -5,7 +5,6 @@ import (
     "fmt"
     "os"
     "runtime"
-    "time"
 )
 
 var (
@@ -15,19 +14,6 @@ var (
     slash     = []byte("/")
     exiting   = false
 )
-
-func Exit(format string, o ...interface{}) {
-    exiting = true
-    time.Sleep(10 * time.Millisecond)
-    os.Stdout.Sync()
-    fmt.Fprintf(os.Stderr, "程序异常,即将退出!!! 原因: "+format+"\n", o...)
-    doExit(1)
-}
-
-func realExit(code int) {
-    println("程序已退出! 退出code", code)
-    os.Exit(code)
-}
 
 type Stack struct {
     PC   uintptr
