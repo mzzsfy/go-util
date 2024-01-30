@@ -20,8 +20,8 @@ func (t BiSeq[K, V]) Stoppable() BiSeq[K, V] {
     }
 }
 
-// Catch defer recover 的简单封装
-func (t BiSeq[K, V]) Catch(f func(any)) BiSeq[K, V] {
+// RecoverErr defer recover 的简单封装
+func (t BiSeq[K, V]) RecoverErr(f func(any)) BiSeq[K, V] {
     return func(c func(K, V)) {
         defer func() {
             a := recover()
@@ -33,16 +33,13 @@ func (t BiSeq[K, V]) Catch(f func(any)) BiSeq[K, V] {
     }
 }
 
-// Finally defer 的简单封装
-func (t BiSeq[K, V]) Finally(f func()) BiSeq[K, V] {
-    return func(c func(K, V)) {
-        defer f()
-        t(func(k K, v V) { c(k, v) })
-    }
+// Deprecated: 不要使用这个方法,方法名称有歧义,请使用 RecoverErr
+func (t BiSeq[K, V]) Catch(f func(any)) BiSeq[K, V] {
+    return t.RecoverErr(f)
 }
 
-// CatchWithValue defer recover 的简单封装,保留最后一次调用的值
-func (t BiSeq[K, V]) CatchWithValue(f func(K, V, any)) BiSeq[K, V] {
+// RecoverErrWithValue defer recover 的简单封装,保留最后一次调用的值
+func (t BiSeq[K, V]) RecoverErrWithValue(f func(K, V, any)) BiSeq[K, V] {
     return func(c func(K, V)) {
         var lastK K
         var lastV V
@@ -57,6 +54,19 @@ func (t BiSeq[K, V]) CatchWithValue(f func(K, V, any)) BiSeq[K, V] {
             lastV = v
             c(k, v)
         })
+    }
+}
+
+// Deprecated: 不要使用这个方法,方法名称有歧义,请使用 RecoverErrWithValue
+func (t BiSeq[K, V]) CatchWithValue(f func(K, V, any)) BiSeq[K, V] {
+    return t.RecoverErrWithValue(f)
+}
+
+// Finally defer 的简单封装
+func (t BiSeq[K, V]) Finally(f func()) BiSeq[K, V] {
+    return func(c func(K, V)) {
+        defer f()
+        t(func(k K, v V) { c(k, v) })
     }
 }
 
@@ -184,12 +194,15 @@ func (t BiSeq[K, V]) OnLast(f func(*K, *V)) BiSeq[K, V] {
     }
 }
 
-// Cache 缓存Seq,使该Seq可以多次消费
-func (t BiSeq[K, V]) Cache() BiSeq[K, V] {
+// Cache 缓存Seq,使该Seq可以多次消费,init为true时,会立刻触发消费行为
+func (t BiSeq[K, V]) Cache(init ...bool) BiSeq[K, V] {
     var r []BiTuple[K, V]
     once := sync.Once{}
     fn := func() {
         t(func(k K, v V) { r = append(r, BiTuple[K, V]{k, v}) })
+    }
+    if len(init) > 0 && init[0] {
+        once.Do(fn)
     }
     return func(k func(K, V)) {
         once.Do(fn)
@@ -197,13 +210,6 @@ func (t BiSeq[K, V]) Cache() BiSeq[K, V] {
             k(v.K, v.V)
         }
     }
-}
-
-// CacheNow 触发消费行为并立刻缓存Seq,使该Seq可以多次消费
-func (t BiSeq[K, V]) CacheNow() BiSeq[K, V] {
-    cache := t.Cache()
-    cache.Complete()
-    return cache
 }
 
 // Sync 串行执行
@@ -287,6 +293,21 @@ func (t BiSeq[K, V]) SortV(less func(V, V) bool) BiSeq[K, V] {
         once.Do(fn)
         for _, v := range r {
             k(v.K, v.V)
+        }
+    })
+}
+
+// Reverse 逆序
+func (t BiSeq[K, V]) Reverse() BiSeq[K, V] {
+    var r []BiTuple[K, V]
+    once := sync.Once{}
+    fn := func() {
+        t(func(k K, v V) { r = append(r, BiTuple[K, V]{k, v}) })
+    }
+    return BiFrom(func(k func(K, V)) {
+        once.Do(fn)
+        for i := len(r) - 1; i >= 0; i-- {
+            k(r[i].K, r[i].V)
         }
     })
 }

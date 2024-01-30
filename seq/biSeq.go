@@ -72,6 +72,14 @@ func BiFromTRepeat[K, V any](k K, v V, limit ...int) BiSeq[K, V] {
     }
 }
 
+// BiFromTreeT 树转BiSeq,其他的场景请使用seq的FromTree系列方法再转换为biSeq
+func BiFromTreeT[K, V any](k K, v V, getChild func(K, V) BiSeq[K, V]) BiSeq[K, V] {
+    return func(f func(K, V)) {
+        f(k, v)
+        getChild(k, v).ForEach(func(k K, v V) { BiFromTreeT(k, v, getChild).ForEach(f) })
+    }
+}
+
 // BiFromMap 从map生成BiSeq
 func BiFromMap[K comparable, V any](m map[K]V) BiSeq[K, V] {
     return func(t func(K, V)) {

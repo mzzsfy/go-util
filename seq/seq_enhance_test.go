@@ -175,3 +175,17 @@ func Test_Seq_Repeat(t *testing.T) {
         t.Fail()
     }
 }
+func Test_Seq_Catch(t *testing.T) {
+    FromIntSeq().RecoverErr(func(a any) {
+        t.Log("recover", a)
+    }).MapInt(func(i int) int {
+        if i > 10 {
+            panic("stop")
+        }
+        return i
+    }).Finally(func() {
+        t.Log("finally")
+    }).RecoverErr(func(a any) {
+        t.Fatal("recover", a)
+    }).Complete()
+}
