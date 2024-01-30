@@ -11,19 +11,19 @@ import (
 var (
     //workerIdGen   uint64
     //taskIdGen     uint64
-    defaultGopool = NewGopool(WithName("defaultGopool"), WithMaxSize(uint32(runtime.NumCPU()*1000)))
-    workerPool    = NewObjpool[worker](func() *worker { return &worker{} }, func(i *worker) { i.p = nil })
-    taskPool      = NewObjpool[task](func() *task { return &task{} }, func(i *task) { i.next = nil; i.fn = nil })
+    defaultGoPool = NewGopool(WithName("defaultGoPool"), WithMaxSize(uint32(runtime.NumCPU()*1000)))
+    workerPool    = NewObjectPool[worker](func() *worker { return &worker{} }, func(i *worker) { i.p = nil })
+    taskPool      = NewObjectPool[task](func() *task { return &task{} }, func(i *task) { i.next = nil; i.fn = nil })
 )
 
 func Go(f func()) error {
-    return defaultGopool.Go(f)
+    return defaultGoPool.Go(f)
 }
 func CtxGo(ctx context.Context, f func()) error {
-    return defaultGopool.CtxGo(ctx, f)
+    return defaultGoPool.CtxGo(ctx, f)
 }
 
-type Gopool struct {
+type GoPool struct {
     //coreSize以下的,每个goroutine负责一个任务,超过部分每1个任务由loadProbability(0.0~1.0)个goroutine负责
     loadProbability float32
     panicHandler    func(any, context.Context)
@@ -40,27 +40,27 @@ type Gopool struct {
     closeChan sync.Once
 }
 
-func (p *Gopool) Name() string {
+func (p *GoPool) Name() string {
     return p.name
 }
 
 // WorkerCount 获取当前工作中携程数量
-func (p *Gopool) WorkerCount() uint {
+func (p *GoPool) WorkerCount() uint {
     return uint(atomic.LoadUint32(&p.works))
 }
 
 // TaskCount 获取任务数量
-func (p *Gopool) TaskCount() uint {
+func (p *GoPool) TaskCount() uint {
     return uint(atomic.LoadUint32(&p.tasks))
 }
 
 // Shutdown 关闭携程池,停止接受新任务,停止运行新任务
-func (p *Gopool) Shutdown() bool {
+func (p *GoPool) Shutdown() bool {
     return atomic.CompareAndSwapInt32(&p.shutDown, 0, 1)
 }
 
 // Restart 重启携程池
-func (p *Gopool) Restart() bool {
+func (p *GoPool) Restart() bool {
     r := atomic.CompareAndSwapInt32(&p.shutDown, 1, 0)
     if r {
         for {
@@ -72,11 +72,11 @@ func (p *Gopool) Restart() bool {
     return r
 }
 
-func (p *Gopool) Go(f func()) error {
+func (p *GoPool) Go(f func()) error {
     return p.CtxGo(context.Background(), f)
 }
 
-func (p *Gopool) CtxGo(ctx context.Context, f func()) error {
+func (p *GoPool) CtxGo(ctx context.Context, f func()) error {
     if atomic.LoadInt32(&p.shutDown) == 1 {
         return errors.New("pool is shut down")
     }
@@ -101,7 +101,7 @@ func (p *Gopool) CtxGo(ctx context.Context, f func()) error {
     return nil
 }
 
-func (p *Gopool) newWorker() bool {
+func (p *GoPool) newWorker() bool {
     if p.loadProbability == 0 || atomic.LoadUint32(&p.works) == 0 || atomic.LoadUint32(&p.works) < p.coreSize {
         p.runWorker()
     } else {
@@ -115,7 +115,7 @@ func (p *Gopool) newWorker() bool {
     return true
 }
 
-func (p *Gopool) runWorker() {
+func (p *GoPool) runWorker() {
     w := workerPool.Get()
     w.p = p
     //w.id = atomic.AddUint64(&workerIdGen, 1)
@@ -124,7 +124,7 @@ func (p *Gopool) runWorker() {
 
 type worker struct {
     //id uint64
-    p *Gopool
+    p *GoPool
 }
 
 func (w *worker) run() {
@@ -178,8 +178,8 @@ type task struct {
     next *task
 }
 
-func NewGopool(options ...Option) *Gopool {
-    gopool := &Gopool{
+func NewGopool(options ...Option) *GoPool {
+    gopool := &GoPool{
         coreSize:        uint32(runtime.NumCPU() * 100),
         loadProbability: float32(0.3),
     }
@@ -189,15 +189,15 @@ func NewGopool(options ...Option) *Gopool {
     return gopool
 }
 
-type Option func(gopool *Gopool)
+type Option func(gopool *GoPool)
 
 func WithCoreSize(size uint32) Option {
-    return func(gopool *Gopool) {
+    return func(gopool *GoPool) {
         gopool.maxSize = size
     }
 }
 func WithMaxSize(size uint32) Option {
-    return func(gopool *Gopool) {
+    return func(gopool *GoPool) {
         if size != 0 && gopool.coreSize > size {
             panic("maxSize must be more than coreSize")
         }
@@ -212,22 +212,22 @@ func WithLoadProbability(probability float32) Option {
         probability = 0
     }
     if probability == 0 {
-        return func(gopool *Gopool) {
+        return func(gopool *GoPool) {
             gopool.loadProbability = probability
         }
     }
-    return func(gopool *Gopool) {
+    return func(gopool *GoPool) {
         gopool.loadProbability = probability
     }
 }
 func WithPanicHandler(handler func(any, context.Context)) Option {
-    return func(gopool *Gopool) {
+    return func(gopool *GoPool) {
         gopool.panicHandler = handler
     }
 }
 
 func WithName(name string) Option {
-    return func(gopool *Gopool) {
+    return func(gopool *GoPool) {
         gopool.name = name
     }
 }

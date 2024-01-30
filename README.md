@@ -24,10 +24,12 @@
     
     > 参考来源: https://mp.weixin.qq.com/s/v-HMKBWxtz1iakxFL09PDw
 
+- [config](./config)  
+    工作模式类似spring配置工具类
+
 - [pool](./pool)  
     一些池化工具:携程池,对象池
 
 todo:
- - 配置
  - 日志
  - 简单通用的util类

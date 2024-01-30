@@ -46,7 +46,7 @@ func TestGopool_Go(t *testing.T) {
     wg.Wait()
     pool.Shutdown()
     println("done2", n)
-    count := defaultGopool.TaskCount()
+    count := defaultGoPool.TaskCount()
     if x != 0 {
         t.Fatal("x != 0", x)
     }
@@ -84,8 +84,8 @@ func TestGopool_Go1(t *testing.T) {
     if x != 0 {
         t.Fatal("x != 0", x)
     }
-    if defaultGopool.TaskCount() != 0 {
-        t.Fatal("count != 0", defaultGopool.TaskCount())
+    if defaultGoPool.TaskCount() != 0 {
+        t.Fatal("count != 0", defaultGoPool.TaskCount())
     }
     t.Log("maxGoroutine", maxGoroutine)
 }
@@ -106,8 +106,8 @@ func Benchmark_Go(b *testing.B) {
     if x != 0 {
         b.Fatal("x != 0", x)
     }
-    if defaultGopool.TaskCount() != 0 {
-        b.Fatal("count != 0", defaultGopool.TaskCount())
+    if defaultGoPool.TaskCount() != 0 {
+        b.Fatal("count != 0", defaultGoPool.TaskCount())
     }
 }
 func BenchmarkGopool_Go(b *testing.B) {
@@ -127,8 +127,8 @@ func BenchmarkGopool_Go(b *testing.B) {
     if x != 0 {
         b.Fatal("x != 0", x)
     }
-    if defaultGopool.TaskCount() != 0 {
-        b.Fatal("count != 0", defaultGopool.TaskCount())
+    if defaultGoPool.TaskCount() != 0 {
+        b.Fatal("count != 0", defaultGoPool.TaskCount())
     }
 }
 
@@ -149,8 +149,8 @@ func BenchmarkGopool_Go1(b *testing.B) {
     if x != 0 {
         b.Fatal("x != 0", x)
     }
-    if defaultGopool.TaskCount() != 0 {
-        b.Fatal("count != 0", defaultGopool.TaskCount())
+    if defaultGoPool.TaskCount() != 0 {
+        b.Fatal("count != 0", defaultGoPool.TaskCount())
     }
 }
 
@@ -171,8 +171,8 @@ func BenchmarkGopool_Go2(b *testing.B) {
     if x != 0 {
         b.Fatal("x != 0", x)
     }
-    if defaultGopool.TaskCount() != 0 {
-        b.Fatal("count != 0", defaultGopool.TaskCount())
+    if defaultGoPool.TaskCount() != 0 {
+        b.Fatal("count != 0", defaultGoPool.TaskCount())
     }
 }
 
@@ -193,7 +193,7 @@ func BenchmarkGopool_Go3(b *testing.B) {
     if x != 0 {
         b.Fatal("x != 0", x)
     }
-    if defaultGopool.TaskCount() != 0 {
-        b.Fatal("count != 0", defaultGopool.TaskCount())
+    if defaultGoPool.TaskCount() != 0 {
+        b.Fatal("count != 0", defaultGoPool.TaskCount())
     }
 }

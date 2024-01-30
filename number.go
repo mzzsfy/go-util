@@ -29,9 +29,9 @@ func Max[N Number](n1, n2 N) N {
     }
     return n1
 }
-func MaxA[N Number](ns ...N) N {
+func MaxN[N Number](ns ...N) N {
     if len(ns) == 0 {
-        panic("Max中需要有一个值")
+        panic("Max中最少提供一个值")
     }
     r := ns[0]
     for _, n := range ns {
@@ -48,9 +48,9 @@ func Min[N Number](n1, n2 N) N {
     }
     return n1
 }
-func MinA[N Number](ns ...N) N {
+func MinN[N Number](ns ...N) N {
     if len(ns) == 0 {
-        panic("Min中需要有一个值")
+        panic("Min中最少提供一个值")
     }
     r := ns[0]
     for _, n := range ns {
