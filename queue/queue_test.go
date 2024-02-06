@@ -63,7 +63,7 @@ const num = 1000
 func f1(num int) int64 {
     queue := BlockQueueWrapper(newLinkedQueue[int]())
     wg := sync.WaitGroup{}
-    count := atomic.Int64{}
+    count := int64(0)
     for i := 0; i < consumer; i++ {
         wg.Add(1)
         go func() {
@@ -73,7 +73,7 @@ func f1(num int) int64 {
                 if !b {
                     return
                 }
-                count.Add(-1)
+                atomic.AddInt64(&count, -1)
             }
         }()
     }
@@ -83,17 +83,17 @@ func f1(num int) int64 {
             defer wg.Done()
             for i := 0; i < num; i++ {
                 queue.Enqueue(i)
-                count.Add(1)
+                atomic.AddInt64(&count, 1)
             }
         }()
     }
     wg.Wait()
-    return count.Load()
+    return atomic.LoadInt64(&count)
 }
 func f2(num int) int64 {
     queue := newLinkedQueue[int]()
     wg := sync.WaitGroup{}
-    count := atomic.Int64{}
+    count := int64(0)
     for i := 0; i < consumer; i++ {
         wg.Add(1)
         go func() {
@@ -102,7 +102,7 @@ func f2(num int) int64 {
             for {
                 _, b := queue.Dequeue()
                 if b {
-                    count.Add(-1)
+                    atomic.AddInt64(&count, -1)
                     x = 0
                 } else {
                     if atomic.AddInt32(&x, 1) > 1000 {
@@ -119,17 +119,17 @@ func f2(num int) int64 {
             defer wg.Done()
             for i := 0; i < num; i++ {
                 queue.Enqueue(i)
-                count.Add(1)
+                atomic.AddInt64(&count, 1)
             }
         }()
     }
     wg.Wait()
-    return count.Load()
+    return atomic.LoadInt64(&count)
 }
 func Benchmark_LkQueue_c(b *testing.B) {
     queue := make(chan int, 1024)
     wg := sync.WaitGroup{}
-    count := atomic.Int64{}
+    count := int64(0)
     for i := 0; i < consumer; i++ {
         wg.Add(1)
         go func() {
@@ -137,14 +137,14 @@ func Benchmark_LkQueue_c(b *testing.B) {
             for {
                 select {
                 case <-queue:
-                    count.Add(-1)
+                    atomic.AddInt64(&count, -1)
                     continue
                 default:
                     runtime.Gosched()
                 }
                 select {
                 case <-queue:
-                    count.Add(-1)
+                    atomic.AddInt64(&count, -1)
                 case <-time.After(time.Millisecond * 10):
                     return
                 }
@@ -157,12 +157,12 @@ func Benchmark_LkQueue_c(b *testing.B) {
             defer wg.Done()
             for i := 0; i < b.N; i++ {
                 queue <- i
-                count.Add(1)
+                atomic.AddInt64(&count, 1)
             }
         }()
     }
     wg.Wait()
-    if count.Load() != 0 {
+    if atomic.LoadInt64(&count) != 0 {
         b.Fatal("count is not 0")
     }
 }
