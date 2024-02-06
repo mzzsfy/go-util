@@ -30,6 +30,14 @@
 - [pool](./pool)  
     一些池化工具:携程池,对象池
 
+- [goid](./goid)  
+    获取goroutine id
+
+- [lock](./lock)  
+    一些锁的封装,包含可重入锁
+
+- [queue](./queue)  
+    简单的队列
+
 todo:
  - 日志
- - 简单通用的util类

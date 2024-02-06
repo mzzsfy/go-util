@@ -61,3 +61,7 @@ func Defaults[T any](defaultValue T, tests ...T) T {
 func NotZero(test any) bool {
     return !IsZero(test)
 }
+
+func AnyArray(vars ...any) []any {
+    return vars
+}
