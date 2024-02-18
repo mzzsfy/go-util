@@ -1,4 +1,4 @@
-package util
+package helper
 
 func MapSet[M ~map[K]V, K comparable, V any](m *M, k K, v V) *M {
     if IsZero(m) {

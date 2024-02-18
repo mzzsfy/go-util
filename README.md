@@ -27,17 +27,23 @@
 - [config](./config)  
     工作模式类似spring配置工具类
 
-- [pool](./pool)  
-    一些池化工具:携程池,对象池
-
-- [goid](./goid)  
-    获取goroutine id
+- [unsafe](./unsafe)  
+    获取goroutine id,hash等不安全操作
 
 - [lock](./lock)  
-    一些锁的封装,包含可重入锁
+    一些锁的工具,包含可重入锁
+
+- [pool](./pool)  
+  一些池化工具:携程池,对象池
 
 - [queue](./queue)  
     简单的队列
+
+- [swiss](./swiss)  
+    swissMap ,支持并发和非并发的map,相比go自带map,性能更高,内存占用更低
+
+- [helper](./helper)  
+    一些简便方法
 
 todo:
  - 日志

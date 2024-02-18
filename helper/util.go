@@ -1,4 +1,4 @@
-package util
+package helper
 
 func Ternary[T any](test bool, trueValue, falseValue T) T {
     if test {

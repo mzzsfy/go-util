@@ -1,4 +1,4 @@
-package util
+package helper
 
 type Err struct {
     Error any

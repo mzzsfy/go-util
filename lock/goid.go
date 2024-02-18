@@ -1,5 +1,7 @@
 package lock
 
-import "github.com/mzzsfy/go-util/goid"
+import (
+    "github.com/mzzsfy/go-util/unsafe"
+)
 
-var GoID = goid.GoID
+var GoID = unsafe.GoID
