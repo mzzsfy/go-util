@@ -3,8 +3,6 @@ name: go_test
 on:
   push:
     branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
   schedule:
     - cron: '0 14 * * *'
 jobs:
@@ -29,10 +27,10 @@ jobs:
           done
 
       - name: Test_ARM64
-        uses: uraimo/run-on-arch-action@v2.1.1
+        uses: uraimo/run-on-arch-action@v2
         with:
           arch: aarch64
-          go-version: ${{ matrix.go-version }}
+          base_image: golang:${{ matrix.go-version }}
           run: |
             for ((i=1; i<=3; i++))
             do
