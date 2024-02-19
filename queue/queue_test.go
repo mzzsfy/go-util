@@ -15,6 +15,7 @@ func zipAny(vars ...any) []any {
     return vars
 }
 func Test_DequeueTimeout(t *testing.T) {
+    t.Parallel()
     queue := BlockQueueWrapper[int](BlockQueueWrapper(newLinkedQueue[int]()))
     go func() {
         for {

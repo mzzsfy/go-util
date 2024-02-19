@@ -6,6 +6,7 @@ import (
 )
 
 func Test_ReentrantLock_Lock_Unlock(t *testing.T) {
+    t.Parallel()
     lock := NewReentrantLock()
     go func() {
         lock.Lock()
@@ -48,6 +49,7 @@ func Test_ReentrantLock_DoubleUnlock(t *testing.T) {
 }
 
 func Test_ReentrantLock_TryLock(t *testing.T) {
+    t.Parallel()
     lock := NewReentrantLock()
     if lock.TryLock() {
         lock.Unlock()
