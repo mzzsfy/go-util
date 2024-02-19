@@ -12,7 +12,6 @@ var (
     centerDot = []byte("·")
     dot       = []byte(".")
     slash     = []byte("/")
-    exiting   = false
 )
 
 type Stack struct {

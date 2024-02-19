@@ -1,9 +1,7 @@
 package helper
 
 import (
-    "encoding/json"
     "fmt"
-    "strings"
     "time"
 )
 
@@ -23,13 +21,16 @@ const (
     Duration1us    = time.Microsecond
     Duration01us   = time.Nanosecond * 100
     Duration001us  = time.Nanosecond * 10
-    DateTimeLayout = "2006-01-02 15:04:05"
+    DateTimeLayout = "2006-01-02 15:04:05" //time.DateTime
 )
 
 type LocalTime time.Time
 
 func (t *LocalTime) UnmarshalJSON(bytes []byte) error {
-    return t.Parse(strings.Trim(string(bytes), `"`))
+    if bytes[0] == '"' {
+        bytes = bytes[1 : len(bytes)-1]
+    }
+    return t.Parse(BytesToString(bytes))
 }
 
 func (t *LocalTime) UnmarshalBinary(b []byte) error {
@@ -41,7 +42,12 @@ func (t *LocalTime) UnmarshalText(b []byte) error {
 }
 
 func (t *LocalTime) MarshalJSON() ([]byte, error) {
-    return json.Marshal(t.String())
+    bs := StringToBytes(t.String())
+    r := make([]byte, 0, len(bs)+2)
+    copy(r[1:], bs)
+    r[0] = byte('"')
+    r[len(r)-1] = byte('"')
+    return r, nil
 }
 
 func (t *LocalTime) MarshalYAML() (any, error) {
@@ -77,10 +83,11 @@ func ParseLocalTimeWithLayout(layout, str string) (LocalTime, error) {
     return LocalTime(parse), err
 }
 
-// ParseLocalTimeAuto 自动匹配常见格式,只支持数字格式
+// ParseLocalTimeAuto 自动匹配常见格式,只支持数字格式,不支持中文
 func ParseLocalTimeAuto(str string) (LocalTime, error) {
-    str = strings.TrimSpace(str)
-    if IsInteger(str) {
+    //可优化 go对 time.RFC3339 格式有性能提升
+    //纯数字格式
+    if len(str) <= len("yyyyMMddHHmmssSSS") && AllIsNumber(str) {
         switch len(str) {
         case len("yyyyMMddHHmmss"):
             return ParseLocalTimeWithLayout(`20060102150405`, str)
@@ -103,7 +110,18 @@ func ParseLocalTimeAuto(str string) (LocalTime, error) {
         case len("yyyy-MM-dd HH:mm:ss.SSS"):
             return ParseLocalTimeWithLayout(`2006-01-02 15:04:05.000`, str)
         case len("yyyy-MM-dd HH:mm:ss"):
-            return ParseLocalTimeWithLayout(`2006`+str[4:5]+`01`+str[7:8]+`02`+str[10:11]+`15`+str[13:14]+`04`+str[16:17]+`05`, str)
+            //return ParseLocalTimeWithLayout(`2006`+str[4:5]+`01`+str[7:8]+`02`+str[10:11]+`15`+str[13:14]+`04`+str[16:17]+`05`, str)
+            if str[11] == 'T' {
+                return ParseLocalTimeWithLayout(`2006-01-02T15:04:05`, str)
+            }
+            if str[11] == ' ' {
+                if str[4] == '-' {
+                    return ParseLocalTimeWithLayout(`2006-01-02 15:04:05`, str)
+                } else if str[4] == '/' {
+                    return ParseLocalTimeWithLayout(`2006/01/02 15:04:05`, str)
+                }
+            }
+            return ParseLocalTimeWithLayout(`20060102150405`, str[0:4]+str[5:7]+str[8:10]+str[11:13]+str[14:16]+str[17:19])
         case len("yyyy-MM-dd HH:mm"):
             return ParseLocalTimeWithLayout(`2006-01-02 15:04`, str)
         case len("yyyy-MM-dd"):
