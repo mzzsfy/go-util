@@ -1,3 +1,5 @@
+# seq
+
 一个高性能的golang的泛型链式调用库,实现了类似java stream逻辑,不依赖chan和goroutine,支持任意类型的链式调用,支持并行化(可限制并行数量),排序等
 
 ```go

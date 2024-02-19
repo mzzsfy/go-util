@@ -21,27 +21,6 @@ func TernaryVF[T any, F func() T](test bool, trueValue T, falseValue F) T {
     return falseValue()
 }
 
-func DoMapIf[T any](t T, test func(T) bool, f func(T) T) T {
-    if test(t) {
-        return f(t)
-    }
-    return t
-}
-
-func DoMapIfZero[T any](t T, f func() T) T {
-    if !IsZero(t) {
-        return t
-    }
-    return f()
-}
-
-func DoMapIfNoZero[T any](t T, f func(T) T) T {
-    if IsZero(t) {
-        return t
-    }
-    return f(t)
-}
-
 func Default[T any](test, defaultValue T) T {
     if !IsZero(test) {
         return test
@@ -63,5 +42,9 @@ func NotZero(test any) bool {
 }
 
 func AnyArray(vars ...any) []any {
+    return vars
+}
+
+func AnyArrayT[T any](vars ...T) []T {
     return vars
 }

@@ -37,7 +37,7 @@ func (h hasher[K]) NewSeed() Hasher[K] {
 
 func (h hasher[K]) WithSeed(seed uintptr) Hasher[K] {
     return &hasher[K]{
-        hash: getRuntimeHasher[K](),
+        hash: h.hash,
         seed: seed,
     }
 }

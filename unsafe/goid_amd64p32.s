@@ -1,0 +1,1 @@
+#include "goid_amd64.s"

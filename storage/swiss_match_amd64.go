@@ -1,7 +1,7 @@
 //nolint:all
 //go:build amd64
 
-package swiss
+package storage
 
 // MatchMetadata performs a 16-way probe of |metadata| using SSE instructions
 // nb: |metadata| must be an aligned pointer

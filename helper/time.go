@@ -87,7 +87,7 @@ func ParseLocalTimeWithLayout(layout, str string) (LocalTime, error) {
 func ParseLocalTimeAuto(str string) (LocalTime, error) {
     //可优化 go对 time.RFC3339 格式有性能提升
     //纯数字格式
-    if len(str) <= len("yyyyMMddHHmmssSSS") && AllIsNumber(str) {
+    if len(str) <= len("yyyyMMddHHmmssSSS") && StringAllIsNumber(str) {
         switch len(str) {
         case len("yyyyMMddHHmmss"):
             return ParseLocalTimeWithLayout(`20060102150405`, str)

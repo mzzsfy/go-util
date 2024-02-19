@@ -1,7 +1,7 @@
 //nolint:all
 //go:build amd64 && !nosimd
 
-package swiss
+package storage
 
 import (
     "math/bits"

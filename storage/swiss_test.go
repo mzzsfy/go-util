@@ -1,4 +1,4 @@
-package swiss
+package storage
 
 import (
     "math"
@@ -17,7 +17,7 @@ func True(t *testing.T, a bool) {
     }
 }
 
-func TestSwissMap(t *testing.T) {
+func Test_SwissMap(t *testing.T) {
     t.Run("strings=0", func(t *testing.T) {
         testSwissMap(t, genStringData(16, 0))
     })

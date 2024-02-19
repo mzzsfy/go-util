@@ -1,4 +1,4 @@
-package swiss
+package storage
 
 type Map[K comparable, V any] interface {
     Has(key K) bool

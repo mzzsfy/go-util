@@ -11,7 +11,7 @@ import (
 
 func Test_GoID(t *testing.T) {
     var wg sync.WaitGroup
-    for i := 0; i < 5; i++ {
+    for i := 0; i < 5000; i++ {
         wg.Add(1)
         go func() {
             testGoID(t)
@@ -43,7 +43,7 @@ func stackTrace() string {
     var n int
     for n = 4096; n < 16777216; n *= 2 {
         buf := make([]byte, n)
-        ret := runtime.Stack(buf, true)
+        ret := runtime.Stack(buf, false)
         if ret != n {
             return string(buf[:ret])
         }

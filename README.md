@@ -39,8 +39,8 @@
 - [queue](./queue)  
     简单的队列
 
-- [swiss](./swiss)  
-    swissMap ,支持并发和非并发的map,相比go自带map,性能更高,内存占用更低
+- [storage](./storage)  
+    map等存储工具,swissMap,gls等
 
 - [helper](./helper)  
     一些简便方法

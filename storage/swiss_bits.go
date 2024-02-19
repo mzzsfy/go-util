@@ -2,7 +2,7 @@
 
 //nolint:all
 
-package swiss
+package storage
 
 import (
     "math/bits"
