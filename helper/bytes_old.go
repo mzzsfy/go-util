@@ -1,6 +1,6 @@
-//go:build !go1.20
+//go:build !go1.21
 
-// 代表含义为 go version not in (1.1~1.20)
+// 代表含义为 go version not in (1.1~1.21)
 
 package helper
 
@@ -13,7 +13,7 @@ func StringToBytes(s string) []byte {
     return *(*[]byte)(unsafe.Pointer(
         &struct {
             string
-            Cap int
+            int
         }{s, len(s)},
     ))
 }

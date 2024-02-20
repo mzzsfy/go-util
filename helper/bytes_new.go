@@ -1,4 +1,6 @@
-//go:build go1.20
+//go:build go1.21
+
+//这个api是go1.20版本引入的,但是go1.20中mod设置为低版本go会报错,所以这里设置为go1.21,取得更好的兼容性
 
 package helper
 
