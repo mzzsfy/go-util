@@ -119,7 +119,7 @@ func Test_check(t *testing.T) {
             GOSet("testKey", "testValue")
         }()
     }
-    for i := 0; i < 1_000_000; i++ {
+    for i := 0; i < 10_000_000; i++ {
         check()
     }
 }

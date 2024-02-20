@@ -21,6 +21,7 @@ func getSleepTime() time.Duration {
 }
 
 func TestGopool_Go(t *testing.T) {
+    t.Parallel()
     n := 200000
     x := int32(n)
     maxGoroutine := 0
@@ -56,6 +57,7 @@ func TestGopool_Go(t *testing.T) {
     t.Log("maxGoroutine", maxGoroutine)
 }
 func TestGopool_Go1(t *testing.T) {
+    t.Parallel()
     n := 20000
     x := int32(n)
     maxGoroutine := 0
