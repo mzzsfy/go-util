@@ -78,35 +78,6 @@ func Test_GOClean(t *testing.T) {
     })
 }
 
-func Test_GetMap(t *testing.T) {
-    t.Run("get map when it exists", func(t *testing.T) {
-        GOSet("testKey", "testValue")
-        m := getMap(GoID())
-        value, ok := m.Get("testKey")
-        Equal(t, true, ok)
-        Equal(t, "testValue", value)
-        GOClean()
-    })
-
-    t.Run("get map when it does not exist", func(t *testing.T) {
-        m := getMap(GoID())
-        _, ok := m.Get("testKey")
-        Equal(t, false, ok)
-        GOClean()
-    })
-
-    t.Run("get map when KnowHowToUse is false", func(t *testing.T) {
-        defer func() {
-            KnowHowToUseGls = true
-            if r := recover(); r == nil {
-                t.Errorf("The code did not panic")
-            }
-        }()
-        KnowHowToUseGls = false
-        getMap(GoID())
-    })
-}
-
 func Test_GOGet2(t *testing.T) {
     n := 1000
     wg := helper.NewWaitGroup(n)
@@ -129,4 +100,26 @@ func Test_GOGet2(t *testing.T) {
         }()
     }
     wg.Wait()
+}
+
+func Test_check(t *testing.T) {
+    defer func() {
+        r := recover()
+        if r == nil {
+            t.Errorf("check should panic")
+            return
+        } else if _, ok := r.(GlsError); !ok {
+            t.Errorf("check should panic with GlsError")
+        }
+        glsMap.Clear()
+    }()
+    for i := 0; i < 100; i++ {
+        go func() {
+            defer func() { recover() }()
+            GOSet("testKey", "testValue")
+        }()
+    }
+    for i := 0; i < 1_000_000; i++ {
+        check()
+    }
 }

@@ -9,11 +9,6 @@ type hashFn func(unsafe.Pointer, uintptr) uintptr
 
 func getRuntimeHasher[K comparable]() (h hashFn) {
     a := any(make(map[K]struct{}))
-    //offsetof := unsafe.Offsetof(maptype{}.bucket)
-    //size1 := unsafe.Sizeof(_type{})
-    //fmt.Println(size1, offsetof)
-    //hash := ***(***_type)(unsafe.Pointer(uintptr(unsafe.Pointer(&a)) + offsetof))
-    //fmt.Printf("%v\n", hash)
     h = (**(**maptype)(unsafe.Pointer(&a))).hasher
     return
 }
@@ -36,38 +31,4 @@ func newHashSeed() uintptr {
 func noescape(p unsafe.Pointer) unsafe.Pointer {
     x := uintptr(p)
     return unsafe.Pointer(x ^ 0)
-}
-
-// go/src/runtime/type.go
-type maptype struct {
-    typ    _type
-    key    *_type
-    elem   *_type
-    bucket *_type
-    // function for hashing keys (ptr to key, seed) -> hash
-    hasher     func(unsafe.Pointer, uintptr) uintptr
-    keysize    uint8
-    elemsize   uint8
-    bucketsize uint16
-    flags      uint32
-}
-
-// go/src/runtime/type.go
-type tflag uint8
-type nameOff int32
-type typeOff int32
-
-// go/src/runtime/type.go
-type _type struct {
-    size       uintptr
-    ptrdata    uintptr
-    hash       uint32
-    tflag      tflag
-    align      uint8
-    fieldAlign uint8
-    kind       uint8
-    equal      func(unsafe.Pointer, unsafe.Pointer) bool
-    gcdata     *byte
-    str        nameOff
-    ptrToThis  typeOff
 }

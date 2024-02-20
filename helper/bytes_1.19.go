@@ -1,4 +1,6 @@
-//go:build go1.19 || go1.18
+//go:build !go1.20
+
+// 代表含义为 go version not in (1.1~1.20)
 
 package helper
 
