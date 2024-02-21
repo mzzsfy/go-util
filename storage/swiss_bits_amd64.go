@@ -34,5 +34,7 @@ func nextMatch(b *bitset) (s uint32) {
     return
 }
 
-//go:linkname fastrand runtime.fastrand
-func fastrand() uint32
+//nolint:all
+// MatchMetadata performs a 16-way probe of |metadata| using SSE instructions
+// nb: |metadata| must be an aligned pointer
+func MatchMetadata(metadata *[16]int8, hash int8) uint16

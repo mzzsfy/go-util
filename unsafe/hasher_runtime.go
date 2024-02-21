@@ -13,11 +13,10 @@ func getRuntimeHasher[K comparable]() (h hashFn) {
     return
 }
 
-//nolint:gosec
-var hashSeed = rand.Int()
+var hashSeed = uintptr(rand.Int())
 
 func newHashSeed() uintptr {
-    return uintptr(hashSeed)
+    return uintptr(rand.Int())
 }
 
 // noescape hides a pointer from escape analysis. It is the identity function

@@ -19,7 +19,7 @@ type hasher[K comparable] struct {
 func NewHasher[K comparable]() Hasher[K] {
     return &hasher[K]{
         hash: getRuntimeHasher[K](),
-        seed: newHashSeed(),
+        seed: hashSeed,
     }
 }
 

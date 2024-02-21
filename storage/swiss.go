@@ -1,10 +1,16 @@
 package storage
 
-import "github.com/mzzsfy/go-util/unsafe"
+import (
+    "github.com/mzzsfy/go-util/unsafe"
+    _ "unsafe"
+)
 
 const (
     maxLoadFactor = float32(maxAvgGroupLoad) / float32(groupSize)
 )
+
+//go:linkname fastrand runtime.fastrand
+func fastrand() uint32
 
 // swissMap is an open-addressing hash map
 // based on Abseil's flat_hash_map.

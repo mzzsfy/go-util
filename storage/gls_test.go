@@ -3,7 +3,6 @@ package storage
 import (
     "github.com/mzzsfy/go-util/helper"
     "runtime"
-    "strconv"
     "testing"
 )
 
@@ -11,86 +10,93 @@ func init() {
     KnowHowToUseGls = true
 }
 
-func Test_GOGet(t *testing.T) {
+func Test_itemGet(t *testing.T) {
     t.Run("value exists", func(t *testing.T) {
-        GOSet("testKey", "testValue")
-        value, ok := GOGet("testKey")
+        item := NewGlsItem[string]()
+        item.Set("testValue")
+        value, ok := item.Get()
         Equal(t, true, ok)
         Equal(t, "testValue", value)
-        GOClean()
+        item.GlsClean()
     })
 
     t.Run("value does not exist", func(t *testing.T) {
-        _, ok := GOGet("nonexistentKey")
+        nonexistentKey := NewGlsItem[string]()
+        _, ok := nonexistentKey.Get()
         Equal(t, false, ok)
-        GOClean()
+        GlsClean()
     })
 }
 
-func Test_GOSet(t *testing.T) {
+func Test_Set(t *testing.T) {
     t.Run("set new value", func(t *testing.T) {
-        GOSet("testKey", "testValue")
-        value, ok := GOGet("testKey")
+        item := NewGlsItem[string]()
+        item.Set("testValue")
+        value, ok := item.Get()
         Equal(t, true, ok)
         Equal(t, "testValue", value)
-        GOClean()
+        GlsClean()
     })
 
     t.Run("overwrite existing value", func(t *testing.T) {
-        GOSet("testKey", "testValue")
-        GOSet("testKey", "newValue")
-        value, ok := GOGet("testKey")
+        item := NewGlsItem[string]()
+        item.Set("testValue")
+        item.Set("newValue")
+        value, ok := item.Get()
         Equal(t, true, ok)
         Equal(t, "newValue", value)
-        GOClean()
+        GlsClean()
     })
 }
 
-func Test_GODel(t *testing.T) {
+func Test_Del(t *testing.T) {
     t.Run("delete existing value", func(t *testing.T) {
-        GOSet("testKey", "testValue")
-        GODel("testKey")
-        _, ok := GOGet("testKey")
+        item := NewGlsItem[string]()
+        item.Set("testValue")
+        item.Delete()
+        _, ok := item.Get()
         Equal(t, false, ok)
-        GOClean()
+        GlsClean()
     })
 
     t.Run("delete nonexistent value", func(t *testing.T) {
-        GODel("nonexistentKey")
-        _, ok := GOGet("nonexistentKey")
+        nonexistentKey := NewGlsItem[string]()
+        _, ok := nonexistentKey.Get()
         Equal(t, false, ok)
-        GOClean()
+        GlsClean()
     })
 }
 
-func Test_GOClean(t *testing.T) {
+func Test_Clean(t *testing.T) {
     t.Run("clean existing values", func(t *testing.T) {
-        GOSet("testKey", "testValue")
-        GOClean()
-        _, ok := GOGet("testKey")
+        item := NewGlsItem[string]()
+        item.Set("testValue")
+        GlsClean()
+        _, ok := item.Get()
         Equal(t, false, ok)
     })
 
     t.Run("clean when no values exist", func(t *testing.T) {
-        GOClean()
-        _, ok := GOGet("testKey")
+        item := NewGlsItem[string]()
+        GlsClean()
+        _, ok := item.Get()
         Equal(t, false, ok)
     })
 }
 
-func Test_GOGet2(t *testing.T) {
+func Test_Get2(t *testing.T) {
     n := 1000
     wg := helper.NewWaitGroup(n)
+    item := NewGlsItem[int]()
     f := func(i int) {
-        v := strconv.Itoa(i)
-        GOSet("testKey", v)
+        item.Set(i)
         for j := 0; j < 10; j++ {
-            value, ok := GOGet("testKey")
+            value, ok := item.Get()
             Equal(t, true, ok)
-            Equal(t, v, value)
+            Equal(t, i, value)
             runtime.Gosched()
         }
-        GOClean()
+        GlsClean()
     }
     for i := 0; i < n; i++ {
         i := i
@@ -113,10 +119,11 @@ func Test_check(t *testing.T) {
         }
         glsMap.Clear()
     }()
-    for i := 0; i < 100; i++ {
+    item := NewGlsItem[string]()
+    for i := 0; i < 1000; i++ {
         go func() {
             defer func() { recover() }()
-            GOSet("testKey", "testValue")
+            item.Set("testValue")
         }()
     }
     for i := 0; i < 10_000_000; i++ {
