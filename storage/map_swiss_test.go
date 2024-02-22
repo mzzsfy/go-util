@@ -124,7 +124,7 @@ func genUint32Data(count int) (keys []uint32) {
 }
 
 func testMapPut[K comparable](t *testing.T, keys []K) {
-    m := NewMap[K, int](uint32(len(keys)))
+    m := makeSwissMap[K, int](uint32(len(keys)))
     Equal(t, 0, m.Count())
     for i, key := range keys {
         m.Put(key, i)
@@ -140,11 +140,11 @@ func testMapPut[K comparable](t *testing.T, keys []K) {
         True(t, ok)
         Equal(t, -i, act)
     }
-    Equal(t, len(keys), int(m.(*swissMap[K, int]).resident))
+    Equal(t, len(keys), int(m.resident))
 }
 
 func testMapHas[K comparable](t *testing.T, keys []K) {
-    m := NewMap[K, int](uint32(len(keys)))
+    m := makeSwissMap[K, int](uint32(len(keys)))
     for i, key := range keys {
         m.Put(key, i)
     }
@@ -155,7 +155,7 @@ func testMapHas[K comparable](t *testing.T, keys []K) {
 }
 
 func testMapGet[K comparable](t *testing.T, keys []K) {
-    m := NewMap[K, int](uint32(len(keys)))
+    m := makeSwissMap[K, int](uint32(len(keys)))
     for i, key := range keys {
         m.Put(key, i)
     }
@@ -167,7 +167,7 @@ func testMapGet[K comparable](t *testing.T, keys []K) {
 }
 
 func testMapDelete[K comparable](t *testing.T, keys []K) {
-    m := NewMap[K, int](uint32(len(keys)))
+    m := makeSwissMap[K, int](uint32(len(keys)))
     Equal(t, 0, m.Count())
     for i, key := range keys {
         m.Put(key, i)
@@ -187,7 +187,7 @@ func testMapDelete[K comparable](t *testing.T, keys []K) {
 }
 
 func testMapClear[K comparable](t *testing.T, keys []K) {
-    m := NewMap[K, int](0)
+    m := makeSwissMap[K, int](0)
     Equal(t, 0, m.Count())
     for i, key := range keys {
         m.Put(key, i)
@@ -210,7 +210,7 @@ func testMapClear[K comparable](t *testing.T, keys []K) {
 
     // Assert that the map was actually cleared...
     var k K
-    for _, g := range m.(*swissMap[K, int]).groups {
+    for _, g := range m.groups {
         for i := range g.keys {
             Equal(t, k, g.keys[i])
             Equal(t, 0, g.values[i])
@@ -219,7 +219,7 @@ func testMapClear[K comparable](t *testing.T, keys []K) {
 }
 
 func testMapIter[K comparable](t *testing.T, keys []K) {
-    m := NewMap[K, int](uint32(len(keys)))
+    m := makeSwissMap[K, int](uint32(len(keys)))
     for i, key := range keys {
         m.Put(key, i)
     }
@@ -258,7 +258,7 @@ func testMapIter[K comparable](t *testing.T, keys []K) {
 
 func testMapGrow[K comparable](t *testing.T, keys []K) {
     n := uint32(len(keys))
-    m := NewMap[K, int](n / 10)
+    m := makeSwissMap[K, int](n / 10)
     for i, key := range keys {
         m.Put(key, i)
     }
@@ -284,8 +284,8 @@ func testSwissMapCapacity[K comparable](t *testing.T, gen func(n int) []K) {
         100 * maxAvgGroupLoad,
     }
     for _, c := range caps {
-        m := NewMap[K, K](c)
-        m1 := m.(*swissMap[K, K])
+        m := makeSwissMap[K, K](c)
+        m1 := m
         Equal(t, int(c), m1.Capacity())
         keys := gen(rand.Intn(int(c)))
         for _, k := range keys {
@@ -296,7 +296,98 @@ func testSwissMapCapacity[K comparable](t *testing.T, gen func(n int) []K) {
     }
 }
 
-func TestNumGroups(t *testing.T) {
+func Test_SwissMap_IterDelete(t *testing.T) {
+    t.Run("IterDelete=0", func(t *testing.T) {
+        testIterDelete(t, 0, 0)
+        testIterDelete2(t, 0, 0)
+        testIterDelete3(t, 0, 0, 0)
+    })
+    t.Run("IterDelete=10,1", func(t *testing.T) {
+        testIterDelete(t, 10, 1)
+        testIterDelete2(t, 10, 1)
+        testIterDelete3(t, 10, 1, 3)
+    })
+    t.Run("IterDelete=100,10", func(t *testing.T) {
+        testIterDelete(t, 100, 10)
+        testIterDelete2(t, 100, 10)
+        testIterDelete3(t, 100, 10, 70)
+    })
+    t.Run("IterDelete=100,100", func(t *testing.T) {
+        testIterDelete(t, 1000, 100)
+        testIterDelete2(t, 1000, 100)
+        testIterDelete3(t, 1000, 10, 900)
+    })
+    t.Run("IterDelete=1000,1", func(t *testing.T) {
+        testIterDelete(t, 1000, 1)
+        testIterDelete2(t, 1000, 1)
+        testIterDelete3(t, 1000, 300, 100)
+    })
+    t.Run("IterDelete=1000,100", func(t *testing.T) {
+        testIterDelete(t, 1000, 100)
+        testIterDelete2(t, 1000, 100)
+        testIterDelete3(t, 1000, 500, 100)
+    })
+    t.Run("IterDelete=1000,1000", func(t *testing.T) {
+        testIterDelete(t, 1000, 1000)
+        testIterDelete2(t, 1000, 1000)
+        testIterDelete3(t, 1000, 100, 100)
+    })
+}
+
+func testIterDelete(t *testing.T, all, delete int) {
+    t.Helper()
+    m := makeSwissMap[int, int](0)
+    for i := 0; i < all; i++ {
+        m.Put(i, i)
+    }
+    var calls int
+    m.IterDelete(func(k int, v int) (del, stop bool) {
+        calls++
+        return true, calls == delete
+    })
+    Equal(t, delete, calls)
+    Equal(t, all-delete, m.Count())
+}
+
+func testIterDelete2(t *testing.T, all, delete int) {
+    t.Helper()
+    m := makeSwissMap[int, int](0)
+    for i := 0; i < all; i++ {
+        m.Put(i, i)
+    }
+    var calls int
+    m.IterDelete(func(k int, v int) (del, stop bool) {
+        if calls < delete {
+            calls++
+            return true, false
+        }
+        return false, false
+    })
+    Equal(t, delete, calls)
+    Equal(t, all-delete, m.Count())
+}
+
+func testIterDelete3(t *testing.T, all, delete, skip int) {
+    t.Helper()
+    m := makeSwissMap[int, int](0)
+    for i := 0; i < all; i++ {
+        m.Put(i, i)
+    }
+    var calls int
+    var i int
+    m.IterDelete(func(k int, v int) (del, stop bool) {
+        i++
+        if i > skip && calls < delete {
+            calls++
+            return true, false
+        }
+        return false, false
+    })
+    Equal(t, delete, calls)
+    Equal(t, all-delete, m.Count())
+}
+
+func Test_NumGroups(t *testing.T) {
     Equal(t, expected(0), numGroups(0))
     Equal(t, expected(1), numGroups(1))
     // max load factor 0.875

@@ -13,7 +13,7 @@ var GoID = unsafe.GoID
 //基于goroutine的局部存储,类似于threadLocal,必须调用GOClean清理,明确后需要设置 KnowHowToUseGls=true
 
 var (
-    glsMap          = NewMap[int64, Map[uint32, any]](0)
+    glsMap          = NewMap(MapTypeSwiss[int64, Map[uint32, any]](0))
     glsLock         = sync.RWMutex{}
     KnowHowToUseGls = false
 )
@@ -74,7 +74,7 @@ func (k Key[T]) Set(value T) {
     if !ok {
         glsLock.RUnlock()
         glsLock.Lock()
-        m = NewMap[uint32, any](0)
+        m = NewMap(MapTypeSwiss[uint32, any](2))
         glsMap.Put(id, m)
         glsLock.Unlock()
     } else {

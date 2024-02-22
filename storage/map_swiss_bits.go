@@ -19,7 +19,7 @@ const (
 
 type bitset uint64
 
-func metaMatchH2(m *metadata, h h2) bitset {
+func metaMatchH2(m *metadata, h loByte) bitset {
     // https://graphics.stanford.edu/~seander/bithacks.html##ValueInWord
     return hasZeroByte(castUint64(m) ^ (loBits * uint64(h)))
 }

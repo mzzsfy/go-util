@@ -11,12 +11,13 @@ import (
 const (
     groupSize       = 16
     maxAvgGroupLoad = 14
+    maxLoadFactor   = float32(maxAvgGroupLoad) / float32(groupSize)
 )
 
 type bitset uint16
 
 //nolint:all
-func metaMatchH2(m *metadata, h h2) bitset {
+func metaMatchH2(m *metadata, h loByte) bitset {
     b := MatchMetadata((*[16]int8)(m), int8(h))
     return bitset(b)
 }

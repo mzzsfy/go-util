@@ -5,10 +5,6 @@ import (
     _ "unsafe"
 )
 
-const (
-    maxLoadFactor = float32(maxAvgGroupLoad) / float32(groupSize)
-)
-
 //go:linkname fastrand runtime.fastrand
 func fastrand() uint32
 
@@ -23,16 +19,21 @@ type swissMap[K comparable, V any] struct {
     limit    uint32
 }
 
-func (m *swissMap[K, V]) Get(key K) (value V, ok bool) {
+func (m *swissMap[K, V]) Get(key K) (V, bool) {
     return m.GetWithHash(key, m.hash.Hash(key))
 }
 
-func (m *swissMap[K, V]) Has(key K) (ok bool) {
+func (m *swissMap[K, V]) GetSimple(key K) (value V) {
+    value, _ = m.GetWithHash(key, m.hash.Hash(key))
+    return
+}
+
+func (m *swissMap[K, V]) Has(key K) bool {
     return m.HasWithHash(key, m.hash.Hash(key))
 }
 
-func (m *swissMap[K, V]) Delete(key K) (ok bool) {
-    return m.DeleteWithHash(key, m.hash.Hash(key))
+func (m *swissMap[K, V]) Delete(key K) {
+    m.DeleteWithHash(key, m.hash.Hash(key))
 }
 
 func (m *swissMap[K, V]) IterDelete(cb func(k K, v V) (del bool, stop bool)) bool {
@@ -51,7 +52,7 @@ func (m *swissMap[K, V]) Capacity() int {
     return int(m.limit - m.resident)
 }
 
-// metadata is the h2 metadata array for a group.
+// metadata is the loByte metadata array for a group.
 // find operations first probe the controls bytes
 // to filter candidates before matching keys
 type metadata [groupSize]int8
@@ -63,21 +64,19 @@ type group[K comparable, V any] struct {
 }
 
 const (
-    h1Mask    uint64 = 0xffff_ffff_ffff_ff80
     h2Mask    uint64 = 0x0000_0000_0000_007f
     empty     int8   = -128 // 0b1000_0000
     tombstone int8   = -2   // 0b1111_1110
 )
 
-// h1 is a 57 bit hash prefix
-type h1 uint64
+// hiByte is a 57 bit hash prefix
+type hiByte uint64
 
-// h2 is a 7 bit hash suffix
-type h2 int8
+// loByte is a 7 bit hash suffix
+type loByte int8
 
-// NewMap constructs a swissMap.
-func NewMap[K comparable, V any](sz uint32) (r Map[K, V]) {
-    groups := numGroups(sz)
+func makeSwissMap[K comparable, V any](size uint32) *swissMap[K, V] {
+    groups := numGroups(size)
     m := &swissMap[K, V]{
         ctrl:   make([]metadata, groups),
         groups: make([]group[K, V], groups),
@@ -88,6 +87,10 @@ func NewMap[K comparable, V any](sz uint32) (r Map[K, V]) {
         m.ctrl[i] = newEmptyMetadata()
     }
     return m
+}
+
+func MapTypeSwiss[K comparable, V any](size uint32) MakeMap[K, V] {
+    return MapImpl[K, V](func() Map[K, V] { return makeSwissMap[K, V](size) })
 }
 
 func (m *swissMap[K, V]) HasWithHash(key K, hash uint64) (ok bool) {
@@ -144,37 +147,7 @@ func (m *swissMap[K, V]) GetWithHash(key K, hash uint64) (value V, ok bool) {
 
 // Put attempts to insert |key| and |value|
 func (m *swissMap[K, V]) Put(key K, value V) {
-    if m.resident >= m.limit {
-        m.rehash(m.nextSize())
-    }
-    hi, lo := splitHash(m.hash.Hash(key))
-    g := probeStart(hi, len(m.groups))
-    for { // inlined find loop
-        matches := metaMatchH2(&m.ctrl[g], lo)
-        for matches != 0 {
-            s := nextMatch(&matches)
-            if key == m.groups[g].keys[s] { // update
-                m.groups[g].keys[s] = key
-                m.groups[g].values[s] = value
-                return
-            }
-        }
-        // |key| is not in group |g|,
-        // stop probing if we see an empty slot
-        matches = metaMatchEmpty(&m.ctrl[g])
-        if matches != 0 { // insert
-            s := nextMatch(&matches)
-            m.groups[g].keys[s] = key
-            m.groups[g].values[s] = value
-            m.ctrl[g][s] = int8(lo)
-            m.resident++
-            return
-        }
-        g++ // linear probing
-        if g >= uint32(len(m.groups)) {
-            g = 0
-        }
-    }
+    m.PutWithHash(key, value, m.hash.Hash(key))
 }
 
 // PutWithHash attempts to insert |key| and |value|
@@ -256,7 +229,7 @@ func (m *swissMap[K, V]) DeleteWithHash(key K, hash uint64) (ok bool) {
     }
 }
 
-// Clear removes all elements from the swissMap.
+// Clear removes all elements from the swissMap1.
 func (m *swissMap[K, V]) Clear() {
     for i, c := range m.ctrl {
         for j := range c {
@@ -275,9 +248,9 @@ func (m *swissMap[K, V]) Clear() {
     m.resident, m.dead = 0, 0
 }
 
-// Iter iterates the elements of the swissMap, passing them to the callback.
-// It guarantees that any key in the swissMap will be visited only once, and
-// for un-mutated Maps, every key will be visited once. If the swissMap is
+// Iter iterates the elements of the swissMap1, passing them to the callback.
+// It guarantees that any key in the swissMap1 will be visited only once, and
+// for un-mutated Maps, every key will be visited once. If the swissMap1 is
 // Mutated during iteration, mutations will be reflected on return from
 // Iter, but the set of keys visited by Iter is non-deterministic.
 //
@@ -306,7 +279,7 @@ func (m *swissMap[K, V]) Iter(cb func(k K, v V) (stop bool)) bool {
     return false
 }
 
-// Count returns the number of elements in the swissMap.
+// Count returns the number of elements in the swissMap1.
 func (m *swissMap[K, V]) Count() int {
     return int(m.resident - m.dead)
 }
@@ -356,11 +329,11 @@ func newEmptyMetadata() (meta metadata) {
     return
 }
 
-func splitHash(h uint64) (h1, h2) {
-    return h1((h & h1Mask) >> 7), h2(h & h2Mask)
+func splitHash(h uint64) (hiByte, loByte) {
+    return hiByte(h >> 7), loByte(h & h2Mask)
 }
 
-func probeStart(hi h1, groups int) uint32 {
+func probeStart(hi hiByte, groups int) uint32 {
     return fastModN(uint32(hi), uint32(groups))
 }
 

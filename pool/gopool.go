@@ -178,6 +178,8 @@ type task struct {
     next *task
 }
 
+// NewGopool 创建一个携程池,不推荐使用(性能有待优化)
+// Deprecated
 func NewGopool(options ...Option) *GoPool {
     gopool := &GoPool{
         coreSize:        uint32(runtime.NumCPU() * 100),
