@@ -134,12 +134,12 @@ func Test_Logger_Plugin(t *testing.T) {
     log.SetLevel(nil)
 }
 
-func Test_Logger1(t *testing.T) {
+func TestLogger1(t *testing.T) {
     //f, _ := os.Create("test.pprof")
     //pprof.StartCPUProfile(f)
     //defer pprof.StopCPUProfile()
     var names []string
-    l := 100
+    l := 1000
     for i := 0; i < l; i++ {
         s := strings.Builder{}
         nameLevels := rand.Intn(5) + 1
