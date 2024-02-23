@@ -33,7 +33,7 @@ func (g GlsError) String() string {
 var keyIdGen = uint32(0)
 
 // Key 提供一个类型安全的key
-//不使用struct以提供特殊操作的可能性
+// 不使用struct以提供特殊操作的可能性
 type Key[T any] uint32
 
 func (k Key[T]) Get() (value T, exist bool) {

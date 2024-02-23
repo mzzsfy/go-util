@@ -1,4 +1,4 @@
-package lock
+package concurrent
 
 import (
     "sync"
@@ -10,7 +10,7 @@ type Locker interface {
 }
 
 type ReentrantLock struct {
-    cond      *sync.Cond
+    cond      sync.Cond
     recursion int32
     _         [7]int64
     goId      int64
@@ -61,5 +61,5 @@ func (r *ReentrantLock) Unlock() {
 }
 
 func NewReentrantLock() Locker {
-    return &ReentrantLock{cond: sync.NewCond(&sync.Mutex{}), goId: -1}
+    return &ReentrantLock{cond: *sync.NewCond(&sync.Mutex{}), goId: -1}
 }

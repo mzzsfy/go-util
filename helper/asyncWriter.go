@@ -4,6 +4,7 @@ import (
     "bytes"
     "io"
     "os"
+    "runtime"
     "strconv"
     "sync"
     "time"
@@ -49,6 +50,7 @@ func (c *AsyncWriter) Write(p []byte) (n int, err error) {
             if c.Mutex == nil {
                 c.Mutex = new(sync.Mutex)
             }
+            runtime.Gosched()
             c.Mutex.Lock()
             defer c.Mutex.Unlock()
             if cap(c.cache) != 0 {

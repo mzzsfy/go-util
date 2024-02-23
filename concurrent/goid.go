@@ -1,4 +1,4 @@
-package lock
+package concurrent
 
 import (
     "github.com/mzzsfy/go-util/unsafe"

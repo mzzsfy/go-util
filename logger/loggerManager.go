@@ -32,6 +32,19 @@ var (
     ShowNameMaxLength = 18
 )
 
+// AllLogger 获取所有的logger 名称,建议搭配 seq包使用
+// seq.From(logger.AllLogger()).XXX
+func AllLogger() func(t func(string)) {
+    return func(t func(string)) {
+        globalLock.RLock()
+        defer globalLock.RUnlock()
+        globalLog.Iter(func(key string, value *logger) bool {
+            t(key)
+            return false
+        })
+    }
+}
+
 // Logger 获取一个新的log对象,name规则xx.xx.xxx
 func Logger(name string, options ...Option) Log {
     globalLock.RLock()
@@ -51,19 +64,36 @@ func Logger(name string, options ...Option) Log {
                     newNames = append(newNames, names[j])
                 }
                 showName := fullname
-                //xxx.xxx.xxx.xxx => x.x.xxx.xxx
-                if len([]rune(showName)) > ShowNameMaxLength {
-                    for i := range newNames[:len(newNames)-1] {
-                        newNames[i] = string([]rune(newNames[i])[:1])
-                        showName = strings.Join(newNames, ".")
-                        if len(showName) <= ShowNameMaxLength {
-                            break
+                if CompressedLogName {
+                    //xxx.xxx.xxx.xxx => x.x.xxx.xxx
+                    if len([]rune(showName)) > ShowNameMaxLength {
+                        for i := range newNames[:len(newNames)-1] {
+                            newNames[i] = string([]rune(newNames[i])[:1])
+                            showName = strings.Join(newNames, ".")
+                            if len(showName) <= ShowNameMaxLength {
+                                break
+                            }
+                        }
+                        //x.x.xxx.xxx => x..xxx.xxx
+                        showName1 := []rune(showName)
+                        if len(showName1) > ShowNameMaxLength {
+                            idx := len(showName1) - ShowNameMaxLength + 3
+                            if showName[idx] == '.' {
+                                showName = string(fullname[:2]) + ".." + string(showName1[idx+1:])
+                            } else {
+                                showName = string(showName1[0]) + ".." + string(showName1[idx:])
+                            }
                         }
                     }
-                    //x.x.xxx.xxx => ..x.xxx.xxx
+                } else {
                     showName1 := []rune(showName)
                     if len(showName1) > ShowNameMaxLength {
-                        showName = ".." + string(showName1[len(showName1)-16:])
+                        idx := len(showName1) - ShowNameMaxLength + 3
+                        if showName[idx] == '.' {
+                            showName = string(showName1[:2]) + ".." + string(showName1[idx+1:])
+                        } else {
+                            showName = string(showName1[0]) + ".." + string(showName1[idx:])
+                        }
                     }
                 }
                 if len([]rune(showName)) < ShowNameMaxLength {

@@ -8,15 +8,15 @@ import (
 
 var (
     lastYear        int
-    lastYearBytes   []byte
+    lastYearBytes   [4]byte
     lastMonth       int
-    lastMonthBytes  []byte
+    lastMonthBytes  [2]byte
     lastDay         int
-    lastDayBytes    []byte
+    lastDayBytes    [2]byte
     lastHour        int
-    lastHourBytes   []byte
+    lastHourBytes   [2]byte
     lastMinute      int
-    lastMinuteBytes []byte
+    lastMinuteBytes [2]byte
 )
 
 // AppendNowTime yyyy-MM-dd HH:mm:ss.SSS格式添加现在的时间
@@ -25,52 +25,61 @@ func AppendNowTime(s *strings.Builder) {
     year, month, day := now.Date()
     if lastYear != year {
         lastYear = year
-        lastYearBytes = []byte(strconv.Itoa(year))
+        y := strconv.Itoa(year)
+        copy(lastYearBytes[:], y[len(y)-4:])
     }
     if lastMonth != int(month) {
         lastMonth = int(month)
-        lastMonthBytes = []byte(strconv.Itoa(lastMonth))
         if lastMonth < 10 {
-            lastMonthBytes = append([]byte("0"), lastMonthBytes[0])
+            lastMonthBytes[0] = _0
+            lastMonthBytes[1] = _0 + byte(lastMonth)
+        } else {
+            copy(lastMonthBytes[:], strconv.Itoa(lastMonth))
         }
     }
     if lastDay != day {
         lastDay = day
-        lastDayBytes = []byte(strconv.Itoa(day))
         if lastDay < 10 {
-            lastDayBytes = append([]byte("0"), lastDayBytes[0])
+            lastDayBytes[0] = _0
+            lastDayBytes[1] = byte(lastDay)
+        } else {
+            copy(lastDayBytes[:], strconv.Itoa(lastDay))
         }
     }
     if PrintYearInfo < 2 {
         if PrintYearInfo == 1 {
             s.Write(lastYearBytes[2:])
         } else {
-            s.Write(lastYearBytes)
+            s.Write(lastYearBytes[:])
         }
         s.WriteByte('-')
     }
-    s.Write(lastMonthBytes)
+    s.Write(lastMonthBytes[:])
     s.WriteByte('-')
-    s.Write(lastDayBytes)
+    s.Write(lastDayBytes[:])
     s.WriteByte(' ')
     hour, min, sec := now.Clock()
     if lastHour != hour {
         lastHour = hour
-        lastHourBytes = []byte(strconv.Itoa(hour))
         if lastHour < 10 {
-            lastHourBytes = append([]byte("0"), lastHourBytes[0])
+            lastHourBytes[0] = _0
+            lastHourBytes[1] = byte(lastHour)
+        } else {
+            copy(lastHourBytes[:], strconv.Itoa(lastHour))
         }
     }
     if lastMinute != min {
         lastMinute = min
-        lastMinuteBytes = []byte(strconv.Itoa(min))
         if lastMinute < 10 {
-            lastMinuteBytes = append([]byte("0"), lastMinuteBytes[0])
+            lastMinuteBytes[0] = _0
+            lastMinuteBytes[1] = byte(lastMinute)
+        } else {
+            copy(lastMinuteBytes[:], strconv.Itoa(lastMinute))
         }
     }
-    s.Write(lastHourBytes)
+    s.Write(lastHourBytes[:])
     s.WriteByte(':')
-    s.Write(lastMinuteBytes)
+    s.Write(lastMinuteBytes[:])
     s.WriteByte(':')
     append60(s, sec)
     s.WriteByte('.')

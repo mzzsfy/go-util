@@ -17,11 +17,21 @@ var (
     PrintBlankTag bool
     // PrintYearInfo 打印年份信息,0打印4位,1,打印2位,2不打印
     PrintYearInfo = 1
-    globalPlugin  []Plugin
+    // CompressedLogName 是否压缩日志名称
+    CompressedLogName = true
+    globalPlugin      []Plugin
 )
 
 func AddGlobalPlugin(plugin ...Plugin) {
     globalPlugin = append(globalPlugin, plugin...)
+}
+func GlobalPlugins() []Plugin {
+    r := make([]Plugin, len(globalPlugin))
+    copy(r, globalPlugin)
+    return r
+}
+func CleanGlobalPlugin() {
+    globalPlugin = nil
 }
 
 type logger struct {

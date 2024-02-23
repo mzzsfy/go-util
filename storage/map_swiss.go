@@ -5,6 +5,10 @@ import (
     _ "unsafe"
 )
 
+func NewDefaultHasher[K comparable]() unsafe.Hasher[K] {
+    return unsafe.NewHasher[K]()
+}
+
 //go:linkname fastrand runtime.fastrand
 func fastrand() uint32
 

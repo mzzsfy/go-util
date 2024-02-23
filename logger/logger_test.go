@@ -3,16 +3,20 @@ package logger
 import (
     "context"
     "fmt"
+    "github.com/mzzsfy/go-util/concurrent"
     "github.com/mzzsfy/go-util/helper"
     "math/rand"
-    "os"
     "strings"
     "sync"
     "testing"
+    "time"
 )
 
 func Test_Logger_1(t *testing.T) {
     info := PrintYearInfo
+    defer func() {
+        PrintYearInfo = info
+    }()
     Logger("test.test").I("test")
     PrintYearInfo = 1
     Logger("test.test").I("test")
@@ -22,7 +26,6 @@ func Test_Logger_1(t *testing.T) {
     Logger("test.test").I("test")
     PrintYearInfo = 1
     Logger("test.test").I("test")
-    PrintYearInfo = info
 }
 
 func Test_Logger_11(t *testing.T) {
@@ -134,17 +137,43 @@ func Test_Logger_Plugin(t *testing.T) {
     log.SetLevel(nil)
 }
 
+type l interface {
+    Log(args ...any)
+}
+type w struct {
+    l
+}
+
+func (w w) Write(p []byte) (n int, err error) {
+    w.l.Log(string(p))
+    return len(p), nil
+}
+
 func TestLogger1(t *testing.T) {
     //f, _ := os.Create("test.pprof")
     //pprof.StartCPUProfile(f)
     //defer pprof.StopCPUProfile()
+    info := PrintYearInfo
+    defer func() {
+        PrintYearInfo = info
+    }()
+    PrintYearInfo = 0
+    compressedLogName := CompressedLogName
+    CompressedLogName = true
+    target := DefaultWriterTarget()
+    SetDefaultWriterTarget(helper.AsyncConsole())
+    //SetDefaultWriterTarget(w{t})
+    defer func() {
+        CompressedLogName = compressedLogName
+        SetDefaultWriterTarget(target)
+    }()
     var names []string
-    l := 1000
+    l := 100000
     for i := 0; i < l; i++ {
         s := strings.Builder{}
-        nameLevels := rand.Intn(5) + 1
+        nameLevels := rand.Intn(8) + 1
         for l := 0; l < nameLevels; l++ {
-            nameLen := rand.Intn(6) + 1
+            nameLen := rand.Intn(5) + 2
             for i := 0; i < nameLen; i++ {
                 s.WriteRune('a' + rune(rand.Intn(26)))
             }
@@ -154,9 +183,20 @@ func TestLogger1(t *testing.T) {
         }
         names = append(names, s.String())
     }
-    SetDefaultWriterTarget(helper.AsyncConsole())
-    defer SetDefaultWriterTarget(os.Stdout)
     wg := sync.WaitGroup{}
+    adder := concurrent.Int64Adder{}
+    plugin1 := NewPlugin("1", func(f *pluginF) {
+        f.beforeWriteF = func(l Level, s *string, log Log, plugin Plugin) {
+            adder.IncrementSimple()
+        }
+    })
+    plugins := GlobalPlugins()
+    AddGlobalPlugin(plugin1)
+    defer func() {
+        CleanGlobalPlugin()
+        AddGlobalPlugin(plugins...)
+    }()
+    start := time.Now()
     for _, name := range names {
         wg.Add(1)
         name := name
@@ -164,14 +204,18 @@ func TestLogger1(t *testing.T) {
             defer wg.Done()
             for i := 0; i < 100; i++ {
                 i := i
-                Logger(name).T("test", i).UnUse()
-                Logger(name).D("test", i).UnUse()
-                Logger(name).I("test", i).UnUse()
-                Logger(name).W("test", i).UnUse()
+                Logger(name) /*.WithPlugin(plugin1)*/ .T("test", i).UnUse()
+                Logger(name) /*.WithPlugin(plugin1)*/ .D("test", i).UnUse()
+                Logger(name) /*.WithPlugin(plugin1)*/ .I("test", i).UnUse()
+                Logger(name) /*.WithPlugin(plugin1)*/ .W("test", i).UnUse()
             }
         }()
     }
     wg.Wait()
+    duration := time.Since(start)
+    t.Log("结束", adder.Sum(), duration, float64(adder.Sum())/duration.Seconds())
+    time.Sleep(100 * time.Millisecond)
+    t.Log("结束", adder.Sum(), duration, float64(adder.Sum())/duration.Seconds())
 }
 
 func Test_Logger_111(t *testing.T) {
