@@ -1,8 +1,8 @@
 package logger
 
 import (
+    "io"
     "strconv"
-    "strings"
     "time"
 )
 
@@ -20,7 +20,7 @@ var (
 )
 
 // AppendNowTime yyyy-MM-dd HH:mm:ss.SSS格式添加现在的时间
-func AppendNowTime(s *strings.Builder) {
+func AppendNowTime(s Buffer) {
     now := time.Now()
     year, month, day := now.Date()
     if lastYear != year {
@@ -88,12 +88,18 @@ func AppendNowTime(s *strings.Builder) {
 
 var _0 = byte('0')
 
-func append60(sb *strings.Builder, v int) {
+func append60(sb interface {
+    io.Writer
+    WriteByte(byte) error
+}, v int) {
     sb.WriteByte(_0 + byte(v/10))
     sb.WriteByte(_0 + byte(v%10))
 }
 
-func append999(sb *strings.Builder, v int) {
+func append999(sb interface {
+    io.Writer
+    WriteByte(byte) error
+}, v int) {
     sb.WriteByte(_0 + byte(v/100))
     sb.WriteByte(_0 + byte(v/10%10))
     sb.WriteByte(_0 + byte(v%10))

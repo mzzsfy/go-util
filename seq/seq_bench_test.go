@@ -147,7 +147,7 @@ func Benchmark_R_Cain_Buff_128(b *testing.B) {
 //内存消耗与原生一致,性能与原生调用性能差距已经不大了,显著优于市面上其他类似库
 //非常感谢 https://mp.weixin.qq.com/s/v-HMKBWxtz1iakxFL09PDw 如此优秀的分享
 
-//go test -v -run=Benchmark.+ -count 3 -benchmem -gcflags="-l" -bench=. ./seq  
+//go test -v -bench=Benchmark.+ -count 3 -benchmem -gcflags="-l" -bench=. ./seq  
 //goos: windows
 //goarch: amd64
 //cpu: Intel(R) Core(TM) i5-8500 CPU

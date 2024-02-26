@@ -67,7 +67,7 @@ func Test_Logger_3(t *testing.T) {
 
 type Opt func(f *pluginF)
 
-func PluginWithBeforeWrite(fn func(Level, *string, Log, Plugin)) Opt {
+func PluginWithBeforeWrite(fn func(Level, Buffer, Log, Plugin)) Opt {
     return func(f *pluginF) {
         if fn == nil {
             panic("fn 不能为nil")
@@ -79,7 +79,7 @@ func PluginWithBeforeWrite(fn func(Level, *string, Log, Plugin)) Opt {
 func NewPlugin(name string, opts ...Opt) Plugin {
     p := &pluginF{
         name:         name,
-        beforeWriteF: func(Level, *string, Log, Plugin) {},
+        beforeWriteF: func(Level, Buffer, Log, Plugin) {},
     }
     for _, o := range opts {
         o(p)
@@ -89,10 +89,10 @@ func NewPlugin(name string, opts ...Opt) Plugin {
 
 type pluginF struct {
     name         string
-    beforeWriteF func(Level, *string, Log, Plugin)
+    beforeWriteF func(Level, Buffer, Log, Plugin)
 }
 
-func (t *pluginF) BeforeWrite(l Level, s *string, log Log, plugin Plugin) {
+func (t *pluginF) BeforeWrite(l Level, s Buffer, log Log, plugin Plugin) {
     t.beforeWriteF(l, s, log, plugin)
 }
 
@@ -100,18 +100,18 @@ var _ Plugin = (*pluginF)(nil)
 
 func Test_Logger_Plugin(t *testing.T) {
     log := Logger("test.test.test.test")
-    plog := log.WithPlugin(NewPlugin("", PluginWithBeforeWrite(func(_ Level, s *string, _ Log, _ Plugin) {
-        fmt.Println(*s + "-plog")
+    plog := log.WithPlugin(NewPlugin("", PluginWithBeforeWrite(func(_ Level, s Buffer, _ Log, _ Plugin) {
+        fmt.Println(s.String() + "-plog")
     })))
-    pplog := plog.WithPlugin(NewPlugin("", PluginWithBeforeWrite(func(_ Level, s *string, _ Log, _ Plugin) {
-        fmt.Println(*s + "-pplog")
+    pplog := plog.WithPlugin(NewPlugin("", PluginWithBeforeWrite(func(_ Level, s Buffer, _ Log, _ Plugin) {
+        fmt.Println(s.String() + "-pplog")
     })))
-    log1 := log.WithPlugin(NewPlugin("", PluginWithBeforeWrite(func(_ Level, s *string, _ Log, _ Plugin) {
-        fmt.Println(*s + "-log1")
-        *s = ""
+    log1 := log.WithPlugin(NewPlugin("", PluginWithBeforeWrite(func(_ Level, s Buffer, _ Log, _ Plugin) {
+        fmt.Println(s.String() + "-log1")
+        s.Reset()
     })))
-    log2 := log.WithPlugin(NewPlugin("", PluginWithBeforeWrite(func(_ Level, s *string, _ Log, _ Plugin) {
-        *s = *s + "-log2"
+    log2 := log.WithPlugin(NewPlugin("", PluginWithBeforeWrite(func(_ Level, s Buffer, _ Log, _ Plugin) {
+        s.WriteString("-log2")
     })))
     log.I("test1")
     plog.I("test1")
@@ -186,7 +186,7 @@ func TestLogger1(t *testing.T) {
     wg := sync.WaitGroup{}
     adder := concurrent.Int64Adder{}
     plugin1 := NewPlugin("1", func(f *pluginF) {
-        f.beforeWriteF = func(l Level, s *string, log Log, plugin Plugin) {
+        f.beforeWriteF = func(l Level, s Buffer, log Log, plugin Plugin) {
             adder.IncrementSimple()
         }
     })

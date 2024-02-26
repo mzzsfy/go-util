@@ -5,6 +5,7 @@ import (
     "context"
     "fmt"
     "github.com/mzzsfy/go-util/helper"
+    "github.com/mzzsfy/go-util/pool"
     "io"
     "strings"
     "sync"
@@ -170,30 +171,33 @@ func (l *logger) Context() context.Context {
 }
 
 func (l *logger) doLog(lv Level, message string, args []any) {
-    format := message
+    format := bfPool.Get()
+    defer bfPool.Put(format)
     if len(args) != 0 {
-        if strings.Contains(message, "{}") || !strings.Contains(message, "%") {
-            format = doLogFormat1(&strings.Builder{}, message, args)
+        if strings.Contains(message, bigParenthesisString) || !strings.Contains(message, percentSignString) {
+            doLogFormat1(format, message, args)
         } else {
-            format = doLogFormat2(&strings.Builder{}, message, args)
+            doLogFormat2(format, message, args)
+        }
+    } else {
+        format.Write(helper.StringToBytes(message))
+    }
+    l.beforeWrite(lv, format)
+    for i := 0; i < len(globalPlugin); i++ {
+        if p, ok := globalPlugin[i].(PluginWrite); ok {
+            p.BeforeWrite(lv, format, l, p)
         }
     }
-    l.beforeWrite(lv, &format)
-    for _, plugin := range globalPlugin {
-        if p, ok := plugin.(PluginWrite); ok {
-            p.BeforeWrite(lv, &format, l, plugin)
-        }
-    }
-    if format != "" {
+    if format.Len() > 0 {
         start := FormatStart(l, lv)
-        start.WriteString(format)
-        start.WriteString("\n")
-        l.target().Write([]byte(start.String()))
-        start.Reset()
+        defer bfPool.Put(start)
+        start.Write(format.Bytes())
+        start.WriteByte('\n')
+        l.target().Write(start.Bytes())
     }
 }
 
-func (l *logger) beforeWrite(lv Level, format *string) {
+func (l *logger) beforeWrite(lv Level, format Buffer) {
     for _, plugin := range l.plugin {
         if p, ok := plugin.(PluginWrite); ok {
             p.BeforeWrite(lv, format, l, plugin)
@@ -204,50 +208,59 @@ func (l *logger) beforeWrite(lv Level, format *string) {
     }
 }
 
-//todo 根据log内容格式化
+var bfPool = func() *pool.BytesPool {
+    p := pool.NewBytesPool()
+    p.SetMaxCap(128)
+    return p
+}()
 
-func FormatStart(l *logger, lv Level) *strings.Builder {
-    var s strings.Builder
-    AppendNowTime(&s)
+func FormatStart(l *logger, lv Level) *pool.Bytes {
+    s := bfPool.Get()
+    AppendNowTime(s)
     s.WriteByte('[')
-    AppendLoggerName(l, &s)
+    AppendLoggerName(l, s)
     s.WriteByte(']')
-    AppendLevel(lv, &s)
+    AppendLevel(lv, s)
     {
-        var suffix string
         for _, plugin := range globalPlugin {
             if p, ok := plugin.(PluginAddSuffix); ok {
-                suffix = p.AddSuffix(l, plugin, lv, suffix)
+                p.AddSuffix(lv, s, l, plugin)
             }
-        }
-        if suffix != "" {
-            s.WriteByte(' ')
-            s.WriteString(suffix)
         }
     }
     s.WriteByte(':')
     s.WriteByte(' ')
-    return &s
+    return s
 }
 
-func AppendLevel(lv Level, s *strings.Builder) {
-    s.WriteString(lv.String())
+func AppendLevel(lv Level, s Buffer) {
+    s.Write(helper.StringToBytes(lv.String()))
 }
 
-func AppendLoggerName(l *logger, s *strings.Builder) {
+func AppendLoggerName(l *logger, s Buffer) {
     if l.tag > 0 {
-        s.WriteRune(l.tag)
+        if l.tag < 128 {
+            s.WriteByte(byte(l.tag))
+        } else {
+            s.Write(helper.StringToBytes(string(l.tag)))
+        }
     } else if PrintBlankTag {
         s.WriteByte(' ')
     }
-    s.WriteString(l.showName)
+    s.Write(helper.StringToBytes(l.showName))
 }
 
+var (
+    percentSignString    = "%"
+    bigParenthesisString = "{}"
+    bigParenthesis       = helper.StringToBytes(bigParenthesisString)
+)
+
 //{}占位符风格
-func doLogFormat1(s *strings.Builder, format string, args []any) string {
+func doLogFormat1(s Buffer, format string, args []any) {
     //todo: 修改实现,性能有较大提升空间
     l := len(args)
-    split := bytes.SplitN([]byte(format), []byte("{}"), l+1)
+    split := bytes.SplitN(helper.StringToBytes(format), bigParenthesis, -1)
     sl := len(split) - 1
     for i := 0; i < sl; i++ {
         s.Write(split[i])
@@ -259,23 +272,39 @@ func doLogFormat1(s *strings.Builder, format string, args []any) string {
             args = args[:l-1]
             l = len(args)
             for i := sl; i < l; i++ {
-                s.Write([]byte(" "))
+                s.WriteByte(' ')
                 s.Write(FormatAny(args[i]))
             }
-            s.Write([]byte(fmt.Sprintf(" %+v", e)))
+            s.Write(helper.StringToBytes(fmt.Sprintf(" %+v", e)))
         } else {
             for i := sl; i < l; i++ {
-                s.Write([]byte(" "))
+                s.WriteByte(' ')
                 s.Write(FormatAny(args[i]))
             }
         }
     }
-    return s.String()
+}
+
+//Format风格
+func doLogFormat2(s Buffer, format string, args []any) {
+    var err error
+    l := len(args)
+    if l > 0 {
+        if e, ok := args[l-1].(error); ok {
+            err = e
+            args = args[:l-1]
+        }
+    }
+    s.Write(helper.StringToBytes(fmt.Sprintf(format, args...)))
+    if err != nil {
+        s.WriteByte(' ')
+        s.Write(helper.StringToBytes(fmt.Sprintf("%+v", err)))
+    }
 }
 
 func FormatAny(arg any) []byte {
     if arg == nil {
-        return []byte("<nil>")
+        return helper.StringToBytes("<nil>")
     }
 
     // Some types can be done without reflection.
@@ -283,12 +312,12 @@ func FormatAny(arg any) []byte {
     case []byte:
         return v
     case string:
-        return []byte(v)
+        return helper.StringToBytes(v)
     case bool:
         if v {
-            return []byte("true")
+            return helper.StringToBytes("true")
         }
-        return []byte("false")
+        return helper.StringToBytes("false")
     case int:
         return formatInteger(v)
     case int8:
@@ -316,34 +345,16 @@ func FormatAny(arg any) []byte {
     }
 }
 
-//Format风格
-func doLogFormat2(s *strings.Builder, format string, args []any) string {
-    var err error
-    l := len(args)
-    if l > 0 {
-        if e, ok := args[l-1].(error); ok {
-            err = e
-            args = args[:l-1]
-        }
-    }
-    s.WriteString(fmt.Sprintf(format, args...))
-    if err != nil {
-        s.WriteString(" ")
-        s.WriteString(fmt.Sprintf("%+v", err))
-    }
-    return s.String()
-}
-
 //18446744073709551615 uint64
 //-9223372036854775808 int64
 var buf = sync.Pool{
     New: func() any {
-        return [20]byte{}
+        return &[20]byte{}
     },
 }
 
 func formatInteger[T ~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 | ~uintptr | ~int | ~int8 | ~int16 | ~int32 | ~int64](n T) []byte {
-    bs := buf.Get().([20]byte)
+    bs := buf.Get().(*[20]byte)
     defer buf.Put(bs)
     r := bs[:]
     negative := false

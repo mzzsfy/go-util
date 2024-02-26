@@ -2,6 +2,7 @@ package logger
 
 import (
     "context"
+    "io"
 )
 
 type Log interface {
@@ -32,20 +33,31 @@ type Log interface {
 
 type Plugin interface{}
 
+type Buffer interface {
+    io.Writer
+    io.StringWriter
+    io.ByteWriter
+    Bytes() []byte
+    String() string
+    Len() int
+    Cap() int
+    Reset()
+}
+
 type PluginAddSuffix interface {
     Plugin
     // AddSuffix 添加后缀
     //"2024-01-01 01:01:00.832[                test]I: test"
     // 变为
     //"2024-01-01 01:01:00.832[                test]I xxxxx: test"
-    AddSuffix(Log, Plugin, Level, string) string
+    AddSuffix(Level, Buffer, Log, Plugin)
 }
 
 type PluginWrite interface {
     Plugin
     // BeforeWrite 在实际写入日志前调用,可以修改日志内容
     // "2024-01-01 01:01:00.832[                test]I: 这是可修改部分"
-    BeforeWrite(Level, *string, Log, Plugin)
+    BeforeWrite(Level, Buffer, Log, Plugin)
 }
 
 //type PluginChangeTarget interface {
