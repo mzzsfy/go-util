@@ -1,5 +1,7 @@
 package helper
 
+import "runtime"
+
 var (
     removeStack = uintptr(0)
 )
@@ -9,26 +11,30 @@ type Err struct {
     Stack []Stack
 }
 
-func TryWithStack(f func(), catch func(err Err)) {
+func TryWithStack(f func(), callback func(recoverValue any, stack []Stack)) {
     defer func() {
         if err := recover(); err != nil {
             stack := CallerStack(2)
-            for i, s := range stack {
-                if s.PC == removeStack {
-                    stack = append(stack[:i], stack[i+1:]...)
-                    catch(Err{Error: err, Stack: stack})
-                    return
-                }
+            if cleanStack(&stack) {
+                callback(err, stack)
+                return
             }
-            removeStack = CallerStack(3, 1)[0].PC
-            for i, s := range stack {
-                if s.PC == removeStack {
-                    stack = append(stack[:i], stack[i+1:]...)
-                    catch(Err{Error: err, Stack: stack})
-                    return
-                }
-            }
+            TryWithStack(func() {
+                removeStack, _, _, _ = runtime.Caller(1)
+            }, func(err any, stack []Stack) {})
+            cleanStack(&stack)
+            callback(err, stack)
         }
     }()
     f()
+}
+
+func cleanStack(stack *[]Stack) bool {
+    for i, s := range *stack {
+        if s.PC == removeStack {
+            *stack = append((*stack)[:i], (*stack)[i+1:]...)
+            return true
+        }
+    }
+    return false
 }

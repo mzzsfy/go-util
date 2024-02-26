@@ -43,6 +43,10 @@ func (fc *FuncCaller) AddFnOrder(name string, order int, f func()) {
             return
         }
     }
+    fc.f = append(fc.f, struct {
+        order int
+        fns   []*fn
+    }{order: order, fns: []*fn{f1}})
 }
 
 // AddFn 添加一个回调函数,默认执行顺序为0
@@ -64,7 +68,7 @@ func (fc *FuncCaller) CallWithRecover() (err Err) {
         for _, f := range v.fns {
             wg.Add(1)
             go func(f *fn) {
-                TryWithStack(f.f, func(e Err) { err = e })
+                TryWithStack(f.f, func(e any, stack []Stack) { err = Err{Error: e, Stack: stack} })
                 wg.Done()
             }(f)
         }
