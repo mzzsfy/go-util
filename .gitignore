@@ -21,6 +21,7 @@
 
 # Go workspace file
 go.work
+fuzz
 
 # ---> VisualStudioCode
 .vscode/*
@@ -37,5 +38,3 @@ go.work
 
 # Built Visual Studio Code Extensions
 *.vsix
-
-data/*

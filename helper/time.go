@@ -2,6 +2,7 @@ package helper
 
 import (
     "fmt"
+    "strings"
     "time"
 )
 
@@ -43,7 +44,7 @@ func (t *LocalTime) UnmarshalText(b []byte) error {
 
 func (t *LocalTime) MarshalJSON() ([]byte, error) {
     bs := StringToBytes(t.String())
-    r := make([]byte, 0, len(bs)+2)
+    r := make([]byte, len(bs)+2)
     copy(r[1:], bs)
     r[0] = byte('"')
     r[len(r)-1] = byte('"')
@@ -76,6 +77,9 @@ func (t *LocalTime) Parse(str string) error {
 
 // ParseLocalTime 只能使用 DateTimeLayout 格式
 func ParseLocalTime(str string) (LocalTime, error) {
+    if len(str) != len(DateTimeLayout) {
+        return ParseLocalTimeAuto(str)
+    }
     return ParseLocalTimeWithLayout(DateTimeLayout, str)
 }
 func ParseLocalTimeWithLayout(layout, str string) (LocalTime, error) {
@@ -87,16 +91,21 @@ func ParseLocalTimeWithLayout(layout, str string) (LocalTime, error) {
 func ParseLocalTimeAuto(str string) (LocalTime, error) {
     //可优化 go对 time.RFC3339 格式有性能提升
     //纯数字格式
-    if len(str) <= len("yyyyMMddHHmmssSSS") && StringAllIsNumber(str) {
+    if len(str) <= len("yyyyMMddHHmmssSSSSSSSSS") && StringAllIsNumber(str) {
         switch len(str) {
         case len("yyyyMMddHHmmss"):
             return ParseLocalTimeWithLayout(`20060102150405`, str)
-        case len("yyyyMMddHHmmssSSS"):
-            return ParseLocalTimeWithLayout(`20060102150405000`, str)
+        case len("yyyyMMddHHmm"):
+            return ParseLocalTimeWithLayout(`200601021504`, str)
+        case len("yyyyMMddHH"):
+            return ParseLocalTimeWithLayout(`2006010215`, str)
         case len("yyyyMMdd"):
             return ParseLocalTimeWithLayout(`20060102`, str)
         case len("HHmmss"):
             return ParseLocalTimeWithLayout(`150405`, str)
+        }
+        if len(str) >= len("yyyyMMddHHmmssSS") {
+            return ParseLocalTimeWithLayout("20060102150405.999999999", str[:len("20060102150405")]+"."+str[len("20060102150405"):])
         }
     } else {
         switch len(str) {
@@ -105,6 +114,8 @@ func ParseLocalTimeAuto(str string) (LocalTime, error) {
             return LocalTime(parse), err
         case len("yyyy-MM-dd'T'HH:mm:ss'Z'"):
             return ParseLocalTimeWithLayout(`2006-01-02'T'15:04:05'Z'`, str)
+        case len("yyyy-MM-dd'T'HH:mm:ss"):
+            return ParseLocalTimeWithLayout(`2006-01-02'T'15:04:05`, str)
         case len("yyyy-MM-ddTHH:mm:ssZ"):
             return ParseLocalTimeWithLayout(`2006-01-02T15:04:05Z`, str)
         case len("yyyy-MM-dd HH:mm:ss.SSS"):
@@ -125,6 +136,9 @@ func ParseLocalTimeAuto(str string) (LocalTime, error) {
         case len("yyyy-MM-dd HH:mm"):
             return ParseLocalTimeWithLayout(`2006-01-02 15:04`, str)
         case len("yyyy-MM-dd"):
+            if str[4] == '/' {
+                return ParseLocalTimeWithLayout(`2006/01/02`, str)
+            }
             return ParseLocalTimeWithLayout(`2006-01-02`, str)
         case len("HH:mm:ss"):
             return ParseLocalTimeWithLayout(`15:04:05`, str)
@@ -132,7 +146,33 @@ func ParseLocalTimeAuto(str string) (LocalTime, error) {
             return ParseLocalTimeWithLayout(`15:04:05.000`, str)
         }
     }
+    if len(str) > len("yyyy-MM-dd HH:mm:ss.SS -0700 MST") {
+        i := strings.Index(str, " m=")
+        if i != -1 {
+            return ParseLocalTimeWithLayout("2006-01-02 15:04:05.999999999 -0700 MST", str[:i])
+        }
+        return ParseLocalTimeWithLayout("2006-01-02 15:04:05.999999999 -0700 MST", str)
+    }
+    if strings.Contains(str, "年") {
+        return ParseLocalTimeAuto(removeChinese(str))
+    }
+    if len(str) >= len("yyyy-MM-dd HH:mm:ss.SS") {
+        if str[4] == '-' && str[10] == ' ' && str[19] == '.' {
+            return ParseLocalTimeWithLayout(`2006-01-02 15:04:05.999999999`, str)
+        }
+    }
     return LocalTime(time.Time{}), fmt.Errorf("无法解析时间: %s", str)
+}
+
+func removeChinese(str string) string {
+    str = strings.Replace(str, "年", "-", -1)
+    str = strings.Replace(str, "月", "-", -1)
+    str = strings.Replace(str, "日", " ", -1)
+    str = strings.Replace(str, "点", ":", -1)
+    str = strings.Replace(str, "时", ":", -1)
+    str = strings.Replace(str, "分", ":", -1)
+    str = strings.Replace(str, "秒", "", -1)
+    return str
 }
 
 // FormatDuration 格式化time.Duration 使其长度尽量为7位
