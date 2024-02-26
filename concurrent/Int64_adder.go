@@ -8,12 +8,12 @@ import (
 
 var slotNumber, modNumber = func() (int, int) {
     n := runtime.NumCPU() - 1
+    //复制于java.util.HashMap
     n |= n >> 1
     n |= n >> 2
     n |= n >> 4
     n |= n >> 8
     n |= n >> 16
-    //复制于java.util.HashMap
     n = helper.Ternary(n < 0, 1, n+1)
     return n, n - 1
 }()
@@ -47,7 +47,7 @@ func (l *Int64Adder) Add(goid int64, v int64) {
             runtime.Gosched()
         }
     }
-    //不扩容,使用该工具场景时,并不会特别需要节省内存
+    //无扩容,使用该工具场景时,并不会特别需要节省内存
     atomic.AddInt64(&l.values[int(goid)&modNumber].int64, v)
 }
 

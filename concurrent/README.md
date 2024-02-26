@@ -24,6 +24,8 @@ adder.AddSimple(10)
 adder.AddSimple(20)
 ```
 
+以下为测试结果
+
 ```shell
 $ go test -bench=Benchmark1.+ ./concurrent
 goos: windows
@@ -34,18 +36,14 @@ Benchmark1Int64Adder32-6          107142             12951 ns/op
 Benchmark1Atomic32-6               54544             23898 ns/op
 Benchmark1Int64Adder128-6         165574              7406 ns/op
 Benchmark1Atomic128-6              60301             20293 ns/op
-```
 
-```shell
 $ go test -tags=concurrent_fast -bench=Benchmark1.+ ./concurrent
 ...
 Benchmark1Int64Adder32-6          117646             12306 ns/op
 Benchmark1Atomic32-6               52669             24060 ns/op
 Benchmark1Int64Adder128-6         190480              6501 ns/op
 Benchmark1Atomic128-6              60460             19921 ns/op
-```
 
-```shell
 $ go test -tags=concurrent_memory -bench=Benchmark1.+ ./concurrent
 ...
 Benchmark1Int64Adder32-6           85508             15680 ns/op
