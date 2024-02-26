@@ -171,8 +171,12 @@ func (l *logger) Context() context.Context {
 }
 
 func (l *logger) doLog(lv Level, message string, args []any) {
+    target := l.target()
+    w, aw := target.(helper.AsyncWriter)
     format := bfPool.Get()
-    defer bfPool.Put(format)
+    if !aw {
+        defer bfPool.Put(format)
+    }
     if len(args) != 0 {
         if strings.Contains(message, bigParenthesisString) || !strings.Contains(message, percentSignString) {
             doLogFormat1(format, message, args)
@@ -190,10 +194,19 @@ func (l *logger) doLog(lv Level, message string, args []any) {
     }
     if format.Len() > 0 {
         start := FormatStart(l, lv)
-        defer bfPool.Put(start)
+        if !aw {
+            defer bfPool.Put(start)
+        }
         start.Write(format.Bytes())
         start.WriteByte('\n')
-        l.target().Write(start.Bytes())
+        if aw {
+            w.WriterAsync(start.Bytes(), func() {
+                bfPool.Put(start)
+                bfPool.Put(format)
+            })
+        } else {
+            target.Write(helper.StringToBytes(start.String()))
+        }
     }
 }
 
@@ -221,11 +234,9 @@ func FormatStart(l *logger, lv Level) *pool.Bytes {
     AppendLoggerName(l, s)
     s.WriteByte(']')
     AppendLevel(lv, s)
-    {
-        for _, plugin := range globalPlugin {
-            if p, ok := plugin.(PluginAddSuffix); ok {
-                p.AddSuffix(lv, s, l, plugin)
-            }
+    for _, plugin := range globalPlugin {
+        if p, ok := plugin.(PluginAddSuffix); ok {
+            p.AddSuffix(lv, s, l, plugin)
         }
     }
     s.WriteByte(':')

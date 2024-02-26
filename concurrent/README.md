@@ -51,3 +51,17 @@ Benchmark1Atomic32-6               55555             23125 ns/op
 Benchmark1Int64Adder128-6         115384             10757 ns/op
 Benchmark1Atomic128-6              59254             19733 ns/op
 ```
+## 队列
+
+一个简单的队列,目前有待优化,大部分功能可以用chan代替
+
+```go
+q:=BlockQueueWrapper(NewQueue[int]())
+
+q.Enqueue(1)
+q.Enqueue(2)
+q.Enqueue(3)
+q.Dequeue()
+q.Dequeue()
+q.Dequeue()
+```

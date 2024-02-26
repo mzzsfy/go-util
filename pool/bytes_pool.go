@@ -86,7 +86,7 @@ func NewBytesPool() *BytesPool {
     }
     b.Pool.New = func() interface{} {
         return &Bytes{
-            buf: make([]byte, b.initCap),
+            buf: make([]byte, 0, b.initCap),
         }
     }
     return b
