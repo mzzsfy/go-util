@@ -21,6 +21,7 @@ func NewBufferPool() *BufferPool {
         maxCap: 2 * 1024,
     }
 }
+
 func (p *BufferPool) SetMaxCap(maxCap int) {
     if maxCap <= 16 {
         maxCap = 16
@@ -72,19 +73,20 @@ func (b *Bytes) Bytes() []byte {
     return b.buf
 }
 
-type BytesPool struct {
-    sync.Pool
+type BytePool struct {
+    pool    sync.Pool
     maxCap  int
     initCap int
 }
 
-func NewBytesPool() *BytesPool {
-    b := &BytesPool{
-        Pool:    sync.Pool{},
-        maxCap:  2 * 1024,
+// NewSimpleBytesPool 创建一个简单的字节池,池内的字节初始容量与最大容量相对稳定
+func NewSimpleBytesPool() *BytePool {
+    b := &BytePool{
+        pool:    sync.Pool{},
+        maxCap:  256,
         initCap: 16,
     }
-    b.Pool.New = func() interface{} {
+    b.pool.New = func() interface{} {
         return &Bytes{
             buf: make([]byte, 0, b.initCap),
         }
@@ -92,22 +94,25 @@ func NewBytesPool() *BytesPool {
     return b
 }
 
-func (p *BytesPool) SetMaxCap(maxCap int) {
+func (p *BytePool) SetMaxCap(maxCap int) {
     if maxCap <= 16 {
         maxCap = 16
     }
     p.maxCap = maxCap
 }
-func (p *BytesPool) SetInitCap(initCap int) {
+
+func (p *BytePool) SetInitCap(initCap int) {
     if initCap <= 16 {
         initCap = 16
     }
     p.initCap = initCap
 }
-func (p *BytesPool) Get() *Bytes {
-    return p.Pool.Get().(*Bytes)
+
+func (p *BytePool) Get() *Bytes {
+    return p.pool.Get().(*Bytes)
 }
-func (p *BytesPool) Put(b *Bytes) {
+
+func (p *BytePool) Put(b *Bytes) {
     if cap(b.buf) > p.maxCap {
         return
     }
@@ -115,5 +120,5 @@ func (p *BytesPool) Put(b *Bytes) {
     if cap(b.buf) < p.initCap {
         b.buf = make([]byte, 0, p.initCap)
     }
-    p.Pool.Put(b)
+    p.pool.Put(b)
 }

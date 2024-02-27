@@ -221,8 +221,8 @@ func (l *logger) beforeWrite(lv Level, format Buffer) {
     }
 }
 
-var bfPool = func() *pool.BytesPool {
-    p := pool.NewBytesPool()
+var bfPool = func() *pool.BytePool {
+    p := pool.NewSimpleBytesPool()
     p.SetMaxCap(128)
     return p
 }()
