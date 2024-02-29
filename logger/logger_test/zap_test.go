@@ -1,8 +1,8 @@
 package logger_test
 
 import (
-    "github.com/mzzsfy/go-util/helper"
     "go.uber.org/zap"
+    "math/rand"
     "os"
     "testing"
     "time"
@@ -36,15 +36,10 @@ func Benchmark_Concurrent_Zap(b *testing.B) {
         OutputPaths:      []string{"zap.log"},
         ErrorOutputPaths: []string{"zap.log"},
     }.Build(zap.WithCaller(false))
-    wg := helper.NewWaitGroup(10)
     b.ResetTimer()
-    for i := 0; i < 10; i++ {
-        go func() {
-            defer wg.Done()
-            for i := 0; i < b.N; i++ {
-                logger.Info("test", zap.Any("i", i))
-            }
-        }()
-    }
-    wg.Wait()
+    b.RunParallel(func(pb *testing.PB) {
+        for pb.Next() {
+            logger.Info("test", zap.Any("i", rand.Int()))
+        }
+    })
 }

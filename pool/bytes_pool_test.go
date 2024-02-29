@@ -4,7 +4,6 @@ import (
     "math/rand"
     "strconv"
     "strings"
-    "sync"
     "testing"
     "time"
 )
@@ -57,52 +56,38 @@ func TestMain(m *testing.M) {
 func BenchmarkBufferPool(b *testing.B) {
     bp := NewBufferPool()
     bp.SetMaxCap(1024)
-
-    wg := sync.WaitGroup{}
-    wg.Add(10)
-    for i := 0; i < 10; i++ {
-        go func() {
-            defer wg.Done()
-            for i := 0; i < b.N; i++ {
-                for z := range shortStr {
-                    buf := bp.Get()
-                    buf.WriteString(shortStr[z])
-                    bp.Put(buf)
-                    buf = bp.Get()
-                    buf.WriteString(shortStr[z])
-                    bp.Put(buf)
-                    buf = bp.Get()
-                    buf.WriteString(shortStr[z])
-                    bp.Put(buf)
-                }
+    b.RunParallel(func(pb *testing.PB) {
+        for pb.Next() {
+            for z := range shortStr {
+                buf := bp.Get()
+                buf.WriteString(shortStr[z])
+                bp.Put(buf)
+                buf = bp.Get()
+                buf.WriteString(shortStr[z])
+                bp.Put(buf)
+                buf = bp.Get()
+                buf.WriteString(shortStr[z])
+                bp.Put(buf)
             }
-        }()
-    }
-    wg.Wait()
+        }
+    })
 }
 
 func BenchmarkBytePool(b *testing.B) {
     bp := NewSimpleBytesPool()
-
-    wg := sync.WaitGroup{}
-    wg.Add(10)
-    for i := 0; i < 10; i++ {
-        go func() {
-            defer wg.Done()
-            for i := 0; i < b.N; i++ {
-                for z := range shortStr {
-                    buf := bp.Get()
-                    buf.WriteString(shortStr[z])
-                    bp.Put(buf)
-                    buf = bp.Get()
-                    buf.WriteString(shortStr[z])
-                    bp.Put(buf)
-                    buf = bp.Get()
-                    buf.WriteString(shortStr[z])
-                    bp.Put(buf)
-                }
+    b.RunParallel(func(pb *testing.PB) {
+        for pb.Next() {
+            for z := range shortStr {
+                buf := bp.Get()
+                buf.WriteString(shortStr[z])
+                bp.Put(buf)
+                buf = bp.Get()
+                buf.WriteString(shortStr[z])
+                bp.Put(buf)
+                buf = bp.Get()
+                buf.WriteString(shortStr[z])
+                bp.Put(buf)
             }
-        }()
-    }
-    wg.Wait()
+        }
+    })
 }
