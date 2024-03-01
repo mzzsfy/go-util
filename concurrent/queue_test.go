@@ -167,3 +167,32 @@ func Benchmark_LkQueue_c(b *testing.B) {
         b.Fatal("count is not 0")
     }
 }
+
+func TestDelayQueue_Dequeue(t *testing.T) {
+    t.Parallel()
+    queue := newDelayQueue[int](time.Millisecond * 100)
+    queue.Enqueue(1)
+    queue.Enqueue(2)
+    queue.Enqueue(3)
+    queue.Enqueue(4)
+    queue.Enqueue(5)
+    dequeue, b := queue.Dequeue()
+    if b {
+        t.Fatal("dequeue1", dequeue)
+    }
+    time.Sleep(time.Millisecond * 10)
+    dequeue, b = queue.Dequeue()
+    if b {
+        t.Fatal("dequeue2", dequeue)
+    }
+    time.Sleep(time.Millisecond * 100)
+    dequeue, b = queue.Dequeue()
+    if !b {
+        t.Fatal("dequeue3", dequeue)
+    }
+    t.Log(queue.Dequeue())
+    t.Log(queue.Dequeue())
+    t.Log(queue.Dequeue())
+    t.Log(queue.Dequeue())
+    t.Log(queue.Dequeue())
+}

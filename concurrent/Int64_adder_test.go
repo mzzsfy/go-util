@@ -1,8 +1,8 @@
 package concurrent
 
 import (
-    "github.com/mzzsfy/go-util/helper"
     "runtime"
+    "sync"
     "sync/atomic"
     "testing"
 )
@@ -88,7 +88,8 @@ func Test_Int64AdderReset(t *testing.T) {
 
 func Test_Int64Adder(t *testing.T) {
     adder := &Int64Adder{}
-    wg := helper.NewWaitGroup(100)
+    wg := sync.WaitGroup{}
+    wg.Add(100)
     for i := 0; i < 100; i++ {
         go func() {
             defer wg.Done()
@@ -129,13 +130,19 @@ func Benchmark1Atomic128(b *testing.B) {
     testAtomic(128, b)
 }
 
+func NewWaitGroup(init int) *sync.WaitGroup {
+    waitGroup := sync.WaitGroup{}
+    waitGroup.Add(init)
+    return &waitGroup
+}
+
 func testInt64Adder(interval int, b *testing.B) {
     adder := &Int64Adder{}
     adder.AddSimple(1)
     adder.Reset()
-    wg := helper.NewWaitGroup(b.N)
-    wg1 := helper.NewWaitGroup(b.N)
-    wg2 := helper.NewWaitGroup(1)
+    wg := NewWaitGroup(b.N)
+    wg1 := NewWaitGroup(b.N)
+    wg2 := NewWaitGroup(1)
     for i := 0; i < b.N; i++ {
         go func() {
             wg1.Done()
@@ -158,9 +165,9 @@ func testInt64Adder(interval int, b *testing.B) {
 
 func testAtomic(interval int, b *testing.B) {
     r := int64(0)
-    wg := helper.NewWaitGroup(b.N)
-    wg1 := helper.NewWaitGroup(b.N)
-    wg2 := helper.NewWaitGroup(1)
+    wg := NewWaitGroup(b.N)
+    wg1 := NewWaitGroup(b.N)
+    wg2 := NewWaitGroup(1)
     for i := 0; i < b.N; i++ {
         go func() {
             wg1.Done()

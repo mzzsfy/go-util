@@ -1,7 +1,6 @@
 package concurrent
 
 import (
-    "github.com/mzzsfy/go-util/helper"
     "runtime"
     "sync/atomic"
 )
@@ -14,7 +13,11 @@ var slotNumber, modNumber = func() (int, int) {
     n |= n >> 4
     n |= n >> 8
     n |= n >> 16
-    n = helper.Ternary(n < 0, 1, n+1)
+    if n < 0 {
+        n = 1
+    } else {
+        n = n + 1
+    }
     return n, n - 1
 }()
 
