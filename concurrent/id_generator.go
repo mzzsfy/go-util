@@ -1,6 +1,8 @@
 package concurrent
 
 import (
+    "runtime"
+    "strconv"
     "sync/atomic"
     "time"
 )
@@ -17,6 +19,7 @@ func (a *atomIdGenerator) NextId() uint64 {
     return atomic.AddUint64(&a.g, 1)
 }
 
+//cas实现的雪花算法
 type snowFlake struct {
     timestamp uint64
     sequence0 uint64 //奇数时间用
@@ -35,20 +38,29 @@ func (s *snowFlake) NextId() uint64 {
                 sequence := atomic.AddUint64(&s.sequence0, 1)
                 if sequence < 0x100000 {
                     return (timestamp)<<23 | s.workerId<<16 | sequence
+                } else {
+                    runtime.Gosched()
                 }
             } else {
                 sequence := atomic.AddUint64(&s.sequence1, 1)
                 if sequence < 0x100000 {
                     return (timestamp)<<23 | s.workerId<<16 | sequence
+                } else {
+                    runtime.Gosched()
                 }
             }
         } else {
             if timestamp < s.timestamp {
+                timestamp = uint64(time.Now().UnixMilli()) - s.timeShift
                 //时间回拨
-                if timestamp < s.timestamp-1000 {
-                    panic("time error")
+                x := timestamp - atomic.LoadUint64(&s.timestamp)
+                if x > 200 {
+                    panic("时钟回退: " + strconv.Itoa(int(atomic.LoadUint64(&s.timestamp))) + "->" + strconv.Itoa(int(timestamp)))
                 } else {
-                    time.Sleep(time.Duration(s.timestamp-timestamp)*time.Millisecond - time.Millisecond)
+                    if x > 10 {
+                        time.Sleep(time.Millisecond*time.Duration(x) - time.Millisecond*10)
+                    }
+                    runtime.Gosched()
                 }
                 continue
             }

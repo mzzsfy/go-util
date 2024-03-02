@@ -58,7 +58,17 @@ func (s *snowFlakeLock) NextId() uint64 {
     }
 }
 
-func BenchmarkSnowFlake_NextId(b *testing.B) {
+func BenchmarkAtomIdGenerator(b *testing.B) {
+    s := atomIdGenerator{}
+    b.SetParallelism(128)
+    b.RunParallel(func(pb *testing.PB) {
+        for pb.Next() {
+            s.NextId()
+        }
+    })
+}
+
+func BenchmarkSnowFlake(b *testing.B) {
     s := snowFlake{}
     b.SetParallelism(128)
     b.RunParallel(func(pb *testing.PB) {
@@ -68,7 +78,7 @@ func BenchmarkSnowFlake_NextId(b *testing.B) {
     })
 }
 
-func BenchmarkSnowFlake_lock_NextId(b *testing.B) {
+func BenchmarkSnowFlake_lock(b *testing.B) {
     s := snowFlakeLock{}
     b.SetParallelism(128)
     b.RunParallel(func(pb *testing.PB) {
