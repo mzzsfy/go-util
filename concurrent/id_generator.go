@@ -19,14 +19,31 @@ func (a *atomIdGenerator) NextId() uint64 {
     return atomic.AddUint64(&a.g, 1)
 }
 
-//cas实现的雪花算法
+//cas实现的雪花算法,高并发时比原生雪花算法性能更好
 type snowFlake struct {
     timestamp uint64
+    _         [120]byte
     sequence0 uint64 //奇数时间用
+    _         [120]byte
     sequence1 uint64 //偶数时间用
+    _         [120]byte
     workerId  uint64
     timeShift uint64
     lastId    uint64
+
+    seqBit uint64
+    seqMax uint64
+}
+
+func (s *snowFlake) gen(time, sequence uint64) uint64 {
+    return (time << 23) | (s.workerId << s.seqBit) | sequence
+}
+
+func (s *snowFlake) init() {
+    if s.seqBit == 0 {
+        s.seqBit = 16 //约为普通机器极限值
+    }
+    s.seqMax = 1 << s.seqBit
 }
 
 func (s *snowFlake) NextId() uint64 {
@@ -36,28 +53,33 @@ func (s *snowFlake) NextId() uint64 {
         if atomic.CompareAndSwapUint64(&s.timestamp, timestamp, timestamp) {
             if timestamp&1 == 0 {
                 sequence := atomic.AddUint64(&s.sequence0, 1)
-                if sequence < 0x100000 {
-                    return (timestamp)<<23 | s.workerId<<16 | sequence
+                if sequence < s.seqMax {
+                    return s.gen(timestamp, sequence)
                 } else {
+                    if s.seqMax == 0 {
+                        s.init()
+                    }
                     runtime.Gosched()
                 }
             } else {
                 sequence := atomic.AddUint64(&s.sequence1, 1)
-                if sequence < 0x100000 {
-                    return (timestamp)<<23 | s.workerId<<16 | sequence
+                if sequence < s.seqMax {
+                    return s.gen(timestamp, sequence)
                 } else {
+                    if s.seqMax == 0 {
+                        s.init()
+                    }
                     runtime.Gosched()
                 }
             }
         } else {
             if timestamp < s.timestamp {
                 timestamp = uint64(time.Now().UnixMilli()) - s.timeShift
-                //时间回拨
-                x := timestamp - atomic.LoadUint64(&s.timestamp)
-                if x > 200 {
-                    panic("时钟回退: " + strconv.Itoa(int(atomic.LoadUint64(&s.timestamp))) + "->" + strconv.Itoa(int(timestamp)))
-                } else {
-                    if x > 10 {
+                x := atomic.LoadUint64(&s.timestamp) - timestamp
+                if x > 0 {
+                    if x > 200 {
+                        panic("时钟回退: " + strconv.Itoa(int(atomic.LoadUint64(&s.timestamp))) + "->" + strconv.Itoa(int(timestamp)))
+                    } else if x > 10 {
                         time.Sleep(time.Millisecond*time.Duration(x) - time.Millisecond*10)
                     }
                     runtime.Gosched()
@@ -66,11 +88,12 @@ func (s *snowFlake) NextId() uint64 {
             }
             if atomic.CompareAndSwapUint64(&s.timestamp, s.timestamp, timestamp) {
                 if timestamp&1 == 0 {
-                    atomic.StoreUint64(&s.sequence0, 0)
+                    atomic.StoreUint64(&s.sequence0, 1)
+                    return s.gen(timestamp, 1)
                 } else {
                     atomic.StoreUint64(&s.sequence1, 0)
+                    return s.gen(timestamp, 0)
                 }
-                return timestamp<<23 | s.workerId<<16
             }
         }
     }
