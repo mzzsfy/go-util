@@ -27,6 +27,7 @@ func (e *joinError) Error() string {
 func (e *joinError) Unwrap() []error {
     return e.errs
 }
+
 func joinErrs(errs ...error) error {
     n := 0
     for _, err := range errs {
