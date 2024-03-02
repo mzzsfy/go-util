@@ -49,7 +49,7 @@ func joinErrs(errs ...error) error {
 }
 
 type Task interface {
-    cancel()
+    Cancel()
 }
 
 type CustomSchedulerTime interface {
@@ -63,7 +63,7 @@ type schedulerTask struct {
     time     int64
 }
 
-func (s schedulerTask) cancel() {
+func (s schedulerTask) Cancel() {
     s.fn = nil
     s.nextTime = nil
 }
