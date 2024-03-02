@@ -13,6 +13,10 @@ type Task interface {
     cancel()
 }
 
+type CustomSchedulerTime interface {
+    NextTime(time.Time) time.Time
+}
+
 type schedulerTask struct {
     fn func()
     //返回下一次运行的时间,小于等于当前时间则不再运行
@@ -226,15 +230,31 @@ func (s *Scheduler) AddIntervalTask(task func(), interval time.Duration) {
     s.AddCustomizeTask(task, func(t time.Time) time.Time { return t.Add(interval) })
 }
 
-func (s *Scheduler) AddCustomizeTask(task func(), next func(time.Time) time.Time) {
+func (s *Scheduler) AddCustomizeTask(task func(), customizeTime func(time.Time) time.Time) {
     s.taskLayers[0].addTask(s, schedulerTask{
         fn:       task,
-        nextTime: next,
-        time:     next(time.Now()).UnixMilli(),
+        nextTime: customizeTime,
+        time:     customizeTime(time.Now()).UnixMilli(),
     })
 }
 
+func (s *Scheduler) AddCronTask(cron string, task func()) error {
+    sc, err := parseCron(cron)
+    if err != nil {
+        return err
+    }
+    s.taskLayers[0].addTask(s, schedulerTask{
+        fn:       task,
+        nextTime: sc.NextTime,
+        time:     sc.NextTime(time.Now()).UnixMilli(),
+    })
+    return nil
+}
+
 func (s *Scheduler) Stop() {
+    if s.stopped {
+        return
+    }
     s.stopped = true
     close(s.stop)
 }
@@ -272,11 +292,16 @@ func (s *Scheduler) expansion() {
 }
 
 // NewScheduler 创建一个调度器
-func NewScheduler(checkInterval time.Duration) *Scheduler {
-    if checkInterval < time.Millisecond {
-        panic("interval must be greater than 1ms")
+func NewScheduler(checkInterval ...time.Duration) *Scheduler {
+    interval := time.Millisecond * 100
+    if len(checkInterval) > 0 {
+        interval = checkInterval[0]
     }
-    if checkInterval > time.Second*10 {
+    //最小间隔,再小精度无法保证
+    if interval < time.Millisecond*5 {
+        panic("interval must be greater than 10ms")
+    }
+    if interval > time.Second*10 {
         panic("interval must be less than 10s")
     }
     level := int(math.Log10(float64(time.Hour.Milliseconds()))) + 1
@@ -284,7 +309,7 @@ func NewScheduler(checkInterval time.Duration) *Scheduler {
         level = 5
     }
     s := &Scheduler{
-        interval:   checkInterval.Milliseconds(),
+        interval:   interval.Milliseconds(),
         taskLayers: make([]schedulerLayer, 3),
         maxLevel:   level,
         stop:       make(chan struct{}),
@@ -293,14 +318,14 @@ func NewScheduler(checkInterval time.Duration) *Scheduler {
     for i := range s.taskLayers {
         layer := schedulerLayer{
             level:           i,
-            ceilInterval:    checkInterval.Milliseconds(),
-            allCeilInterval: checkInterval.Milliseconds() * 10,
+            ceilInterval:    interval.Milliseconds(),
+            allCeilInterval: interval.Milliseconds() * 10,
         }
         for j := 0; j < 10; j++ {
             layer.cells[j] = concurrent.NewQueue[schedulerTask]()
         }
         s.taskLayers[i] = layer
-        checkInterval *= 10
+        interval *= 10
     }
     go func() {
         s.lastTime = time.Now().UnixMilli()

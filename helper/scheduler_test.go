@@ -8,7 +8,8 @@ import (
 )
 
 func TestAddDelayTask(t *testing.T) {
-    interval := time.Millisecond
+    t.Parallel()
+    interval := time.Millisecond * 10
     s := NewScheduler(interval)
     start := time.Now()
     maxTime := time.Millisecond
@@ -22,10 +23,10 @@ func TestAddDelayTask(t *testing.T) {
         s.AddDelayTask(func() {
             if duration > time.Millisecond {
                 if time.Since(start) < duration {
-                    t.Error("Task ran too early", time.Since(start))
+                    t.Error("Task ran too early", duration.String(), time.Since(start))
                 }
                 if time.Since(start) > duration+interval*10 {
-                    t.Error("Task ran too late", time.Since(start))
+                    t.Error("Task ran too late", duration.String(), time.Since(start))
                 }
             }
             t.Log("task", i, time.Since(start).String())
@@ -37,15 +38,14 @@ func TestAddDelayTask(t *testing.T) {
 }
 
 func TestAddIntervalTask(t *testing.T) {
-    s := NewScheduler(time.Millisecond * 10)
-
+    t.Parallel()
+    s := NewScheduler()
     counter := 0
     s.AddIntervalTask(func() {
         counter++
-        if counter > 5 {
+        if counter >= 5 {
             s.Stop()
         }
-        s.Stop()
     }, time.Millisecond*200)
 
     time.Sleep(time.Second * 2)
@@ -53,5 +53,4 @@ func TestAddIntervalTask(t *testing.T) {
     if counter != 5 {
         t.Errorf("Expected counter to be 5, got %d", counter)
     }
-    s.WaitStop()
 }
