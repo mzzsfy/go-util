@@ -41,7 +41,7 @@ func AppendNowTime(s Buffer) {
         lastDay = day
         if lastDay < 10 {
             lastDayBytes[0] = _0
-            lastDayBytes[1] = byte(lastDay)
+            lastDayBytes[1] = _0 + byte(lastDay)
         } else {
             copy(lastDayBytes[:], strconv.Itoa(lastDay))
         }
