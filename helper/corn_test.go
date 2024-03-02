@@ -427,7 +427,7 @@ func Test_Cron_nextTime(t *testing.T) {
         next := c.NextTime(time.Date(2020, 1, 1, 0, 0, 0, 0, time.Local))
         expect := time.Date(2020, 1, 1, 0, 0, 5, 0, time.Local)
         if next != expect {
-            t.Errorf("expected: %v, got: %v", expect.Format(time.DateTime), next.Format(time.DateTime))
+            t.Errorf("expected: %v, got: %v", expect.Format(DateTimeLayout), next.Format(DateTimeLayout))
         }
     })
     t.Run("Cron_nextTime_month", func(t *testing.T) {
@@ -435,7 +435,7 @@ func Test_Cron_nextTime(t *testing.T) {
         next := c.NextTime(time.Date(2020, 1, 1, 0, 0, 0, 0, time.Local))
         expect := time.Date(2020, 1, 2, 0, 0, 0, 0, time.Local)
         if next != expect {
-            t.Errorf("expected: %v, got: %v", expect.Format(time.DateTime), next.Format(time.DateTime))
+            t.Errorf("expected: %v, got: %v", expect.Format(DateTimeLayout), next.Format(DateTimeLayout))
         }
     })
     t.Run("Cron_nextTime_yearly", func(t *testing.T) {
@@ -443,7 +443,7 @@ func Test_Cron_nextTime(t *testing.T) {
         next := c.NextTime(time.Date(2020, 1, 1, 0, 0, 0, 0, time.Local))
         expect := time.Date(2021, 1, 1, 0, 0, 0, 0, time.Local)
         if next != expect {
-            t.Errorf("expected: %v, got: %v", expect.Format(time.DateTime), next.Format(time.DateTime))
+            t.Errorf("expected: %v, got: %v", expect.Format(DateTimeLayout), next.Format(DateTimeLayout))
         }
     })
     t.Run("Cron_nextTime_every", func(t *testing.T) {
@@ -455,7 +455,7 @@ func Test_Cron_nextTime(t *testing.T) {
         next := c.NextTime(time.Date(2020, 1, 1, 0, 0, 0, 0, time.Local))
         expect := time.Date(2020, 1, 1, 0, 0, 1, 0, time.Local)
         if next != expect {
-            t.Errorf("expected: %v, got: %v", expect.Format(time.DateTime), next.Format(time.DateTime))
+            t.Errorf("expected: %v, got: %v", expect.Format(DateTimeLayout), next.Format(DateTimeLayout))
         }
     })
     t.Run("Cron_nextTime_week", func(t *testing.T) {
@@ -464,7 +464,7 @@ func Test_Cron_nextTime(t *testing.T) {
         expect := time.Date(2020, 1, 5, 0, 0, 0, 0, time.Local)
         next := c.NextTime(date)
         if next != expect {
-            t.Errorf("expected: %v, got: %v", expect.Format(time.DateTime), next.Format(time.DateTime))
+            t.Errorf("expected: %v, got: %v", expect.Format(DateTimeLayout), next.Format(DateTimeLayout))
         }
     })
     t.Run("Cron_nextTime_month_week", func(t *testing.T) {
@@ -472,7 +472,7 @@ func Test_Cron_nextTime(t *testing.T) {
         next := c.NextTime(time.Date(2020, 1, 5, 0, 0, 0, 0, time.Local))
         expect := time.Date(2020, 3, 12, 0, 0, 0, 0, time.Local)
         if next != expect {
-            t.Errorf("expected: %v, got: %v", expect.Format(time.DateTime), next.Format(time.DateTime))
+            t.Errorf("expected: %v, got: %v", expect.Format(DateTimeLayout), next.Format(DateTimeLayout))
         }
     })
     t.Run("Cron_nextTime_month_week1", func(t *testing.T) {
@@ -484,7 +484,7 @@ func Test_Cron_nextTime(t *testing.T) {
         next := c.NextTime(time.Date(2020, 3, 5, 0, 0, 0, 0, time.Local))
         expect := time.Date(2020, 6, 6, 0, 0, 0, 0, time.Local)
         if next != expect {
-            t.Errorf("expected: %v, got: %v", expect.Format(time.DateTime), next.Format(time.DateTime))
+            t.Errorf("expected: %v, got: %v", expect.Format(DateTimeLayout), next.Format(DateTimeLayout))
         }
     })
     t.Run("Cron_nextTime_year_month_week1", func(t *testing.T) {
@@ -496,7 +496,7 @@ func Test_Cron_nextTime(t *testing.T) {
         next := c.NextTime(time.Date(2020, 12, 1, 0, 0, 0, 0, time.Local))
         expect := time.Date(2021, 6, 5, 0, 0, 0, 0, time.Local)
         if next != expect {
-            t.Errorf("expected: %v, got: %v", expect.Format(time.DateTime), next.Format(time.DateTime))
+            t.Errorf("expected: %v, got: %v", expect.Format(DateTimeLayout), next.Format(DateTimeLayout))
         }
     })
     t.Run("Cron_nextTime_year", func(t *testing.T) {
@@ -508,17 +508,17 @@ func Test_Cron_nextTime(t *testing.T) {
         next := c.NextTime(time.Date(2021, 12, 5, 0, 0, 0, 0, time.Local))
         expect := time.Date(2024, 1, 1, 0, 0, 0, 0, time.Local)
         if next != expect {
-            t.Errorf("expected: %v, got: %v", expect.Format(time.DateTime), next.Format(time.DateTime))
+            t.Errorf("expected: %v, got: %v", expect.Format(DateTimeLayout), next.Format(DateTimeLayout))
         }
         next = c.NextTime(time.Date(2022, 12, 5, 0, 0, 0, 0, time.Local))
         expect = time.Date(2024, 1, 1, 0, 0, 0, 0, time.Local)
         if next != expect {
-            t.Errorf("expected: %v, got: %v", expect.Format(time.DateTime), next.Format(time.DateTime))
+            t.Errorf("expected: %v, got: %v", expect.Format(DateTimeLayout), next.Format(DateTimeLayout))
         }
         next = c.NextTime(time.Date(2023, 12, 5, 0, 0, 0, 0, time.Local))
         expect = time.Date(2024, 1, 1, 0, 0, 0, 0, time.Local)
         if next != expect {
-            t.Errorf("expected: %v, got: %v", expect.Format(time.DateTime), next.Format(time.DateTime))
+            t.Errorf("expected: %v, got: %v", expect.Format(DateTimeLayout), next.Format(DateTimeLayout))
         }
     })
 }

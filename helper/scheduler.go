@@ -9,6 +9,45 @@ import (
     "time"
 )
 
+type joinError struct {
+    errs []error
+}
+
+func (e *joinError) Error() string {
+    var b []byte
+    for i, err := range e.errs {
+        if i > 0 {
+            b = append(b, '\n')
+        }
+        b = append(b, err.Error()...)
+    }
+    return string(b)
+}
+
+func (e *joinError) Unwrap() []error {
+    return e.errs
+}
+func joinErrs(errs ...error) error {
+    n := 0
+    for _, err := range errs {
+        if err != nil {
+            n++
+        }
+    }
+    if n == 0 {
+        return nil
+    }
+    e := &joinError{
+        errs: make([]error, 0, n),
+    }
+    for _, err := range errs {
+        if err != nil {
+            e.errs = append(e.errs, err)
+        }
+    }
+    return e
+}
+
 type Task interface {
     cancel()
 }
@@ -238,6 +277,7 @@ func (s *Scheduler) AddCustomizeTask(task func(), customizeTime func(time.Time) 
     })
 }
 
+// AddCronTask 添加一个cron任务,支持5位到7位的cron表达式
 func (s *Scheduler) AddCronTask(cron string, task func()) error {
     sc, err := parseCron(cron)
     if err != nil {

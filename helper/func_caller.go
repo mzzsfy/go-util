@@ -85,14 +85,17 @@ var (
     exitCall = &FuncCaller{}
 )
 
+// AfterInit 注册一个初始化后的回调函数
 func AfterInit(name string, f func()) {
     AfterInitOrder(name, f, 0)
 }
 
+// AfterInitOrder 注册一个初始化后的回调函数,并指定执行顺序
 func AfterInitOrder(name string, f func(), order int) {
     initCall.AddFnOrder(name, order, f)
 }
 
+// DoAfterInit 开始运行所有注册的初始化后回调函数
 func DoAfterInit() (success bool) {
     err := DoAfterInitWithErr()
     if err.Error != nil {
@@ -101,6 +104,7 @@ func DoAfterInit() (success bool) {
     return true
 }
 
+// DoAfterInitWithErr 开始运行所有注册的初始化后回调函数
 func DoAfterInitWithErr() (err Err) {
     if inited {
         panic("不允许重复执行Init")
@@ -109,10 +113,12 @@ func DoAfterInitWithErr() (err Err) {
     return initCall.CallWithRecover()
 }
 
+// BeforeExit 注册一个退出前的回调函数
 func BeforeExit(name string, f func()) {
     BeforeExitOrder(name, f, 0)
 }
 
+// BeforeExitOrder 注册一个退出前的回调函数,并指定执行顺序
 func BeforeExitOrder(name string, f func(), order int) {
     initExit.Do(func() {
         go func() {

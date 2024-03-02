@@ -86,7 +86,7 @@ func parseSingle(item string, min uint64, max uint64) (r []uint64, e error) {
     for _, str := range items {
         i, err := strconv.ParseInt(str, 10, 64)
         if err != nil {
-            e = errors.Join(errors.New(item+"无法解析为数字"), err)
+            e = joinErrs(errors.New(item+"无法解析为数字"), err)
             return
         }
         if i < int64(min) || i > int64(max) {
@@ -125,7 +125,7 @@ func parseStep(item string, min, max uint64) (start, end, step uint64, e error) 
     } else if stepItem[0] != "*" {
         start1, err := strconv.ParseInt(stepItem[0], 10, 64)
         if err != nil {
-            e = errors.Join(errors.New(stepItem[0]+"无法解析为数字"), err)
+            e = joinErrs(errors.New(stepItem[0]+"无法解析为数字"), err)
             return
         }
         start = uint64(start1)
@@ -144,7 +144,7 @@ func parseStep(item string, min, max uint64) (start, end, step uint64, e error) 
     }
     step1, err := strconv.ParseInt(stepItem[1], 10, 64)
     if err != nil {
-        e = errors.Join(errors.New(stepItem[1]+"无法解析为数字"), err)
+        e = joinErrs(errors.New(stepItem[1]+"无法解析为数字"), err)
         return
     }
     step = uint64(step1)
@@ -167,12 +167,12 @@ func parseRange(item string, min, max uint64) (start int64, end int64, e error) 
     }
     start, err := strconv.ParseInt(rangeItem[0], 10, 64)
     if err != nil {
-        e = errors.Join(errors.New(rangeItem[0]+"无法解析为数字"), err)
+        e = joinErrs(errors.New(rangeItem[0]+"无法解析为数字"), err)
         return
     }
     end, err = strconv.ParseInt(rangeItem[1], 10, 64)
     if err != nil {
-        e = errors.Join(errors.New(rangeItem[1]+"无法解析为数字"), err)
+        e = joinErrs(errors.New(rangeItem[1]+"无法解析为数字"), err)
         return
     }
     if start > end {
@@ -339,7 +339,7 @@ func parseCron(cron string) (CustomSchedulerTime, error) {
             cron = cron[7:]
             task, err := time.ParseDuration(cron)
             if err != nil {
-                return nil, errors.Join(errors.New("时间间隔格式不正确,支持格式为:@every 1h1s,你的表达式为:"+cron), err)
+                return nil, joinErrs(errors.New("时间间隔格式不正确,支持格式为:@every 1h1s,你的表达式为:"+cron), err)
             }
             if task < time.Second {
                 return nil, errors.New("时间间隔最少为1s,你的表达式为:" + cron)
@@ -373,7 +373,7 @@ func parseCron(cron string) (CustomSchedulerTime, error) {
             } else if strings.Contains(item, "/") {
                 start, end, step, err := parseStep(item, 2000, 2099)
                 if err != nil {
-                    return nil, errors.Join(errors.New("解析错误,"+item), err)
+                    return nil, joinErrs(errors.New("解析错误,"+item), err)
                 }
                 for i := start; i <= end; i += step {
                     s.year = append(s.year, int(i))
@@ -381,7 +381,7 @@ func parseCron(cron string) (CustomSchedulerTime, error) {
             } else if strings.Contains(item, "-") {
                 start, end, err := parseRange(item, 2000, 2099)
                 if err != nil {
-                    return nil, errors.Join(errors.New("解析错误,"+item), err)
+                    return nil, joinErrs(errors.New("解析错误,"+item), err)
                 }
                 for i := start; i <= end; i++ {
                     s.year = append(s.year, int(i))
@@ -390,7 +390,7 @@ func parseCron(cron string) (CustomSchedulerTime, error) {
                 //手动指定允许指定到9999年
                 r, err := parseSingle(item, 0, 9999)
                 if err != nil {
-                    return nil, errors.Join(errors.New("解析错误,"+item), err)
+                    return nil, joinErrs(errors.New("解析错误,"+item), err)
                 }
                 for _, i := range r {
                     s.year = append(s.year, int(i))
@@ -422,7 +422,7 @@ func parseCron(cron string) (CustomSchedulerTime, error) {
                 }
                 v, err = parseCronItem(item1, cronRules[i][0], cronRules[i][1])
                 if err != nil {
-                    return nil, errors.Join(errors.New("解析错误,"+item), err)
+                    return nil, joinErrs(errors.New("解析错误,"+item), err)
                 }
             }
             //非*或者?号,则与day of month互斥
@@ -434,7 +434,7 @@ func parseCron(cron string) (CustomSchedulerTime, error) {
         }
         v, err := parseCronItem(item, cronRules[i][0], cronRules[i][1])
         if err != nil {
-            return nil, errors.Join(errors.New("解析错误,"+item), err)
+            return nil, joinErrs(errors.New("解析错误,"+item), err)
         }
         switch i {
         case 0:

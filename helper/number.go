@@ -1,5 +1,7 @@
 package helper
 
+import "sync"
+
 type Signed interface {
     ~int | ~int8 | ~int16 | ~int32 | ~int64
 }
@@ -63,7 +65,52 @@ func MinN[N Number](ns ...N) N {
 
 func Abs[N Number](n N) N {
     if n < 0 {
-        return -n
+        n = -n
+        if n < 0 {
+            n += 1
+            n = -n
+        }
     }
     return n
+}
+
+var buf = sync.Pool{
+    New: func() any {
+        return &[20]byte{}
+    },
+}
+
+func NumberToString[T ~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 | ~uintptr | ~int | ~int8 | ~int16 | ~int32 | ~int64](n T) string {
+    bs := buf.Get().(*[20]byte)
+    defer buf.Put(bs)
+    r := bs[:]
+    negative := false
+    i := len(r) - 1
+    if n < 0 {
+        n = -n
+        //溢出,特殊处理
+        // math.MinInt8
+        // math.MinInt16
+        // math.MinInt32
+        // math.MinInt64
+        if n < 0 {
+            next := n / 10
+            r[i] = byte('0' + -(n - next*10))
+            n = -next
+            i--
+        }
+        negative = true
+    }
+    for n > 9 {
+        next := n / 10
+        r[i] = byte('0' + n - next*10)
+        n = next
+        i--
+    }
+    r[i] = byte('0' + n)
+    if negative {
+        i--
+        r[i] = '-'
+    }
+    return string(r[i:])
 }

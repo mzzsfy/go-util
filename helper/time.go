@@ -22,7 +22,7 @@ const (
     Duration1us    = time.Microsecond
     Duration01us   = time.Nanosecond * 100
     Duration001us  = time.Nanosecond * 10
-    DateTimeLayout = "2006-01-02 15:04:05" //time.DateTime
+    DateTimeLayout = "2006-01-02 15:04:05" //DateTimeLayout
 )
 
 type LocalTime time.Time
@@ -87,7 +87,7 @@ func ParseLocalTimeWithLayout(layout, str string) (LocalTime, error) {
     return LocalTime(parse), err
 }
 
-// ParseLocalTimeAuto 自动匹配常见格式,只支持数字格式,不支持中文
+// ParseLocalTimeAuto 自动匹配常见格式,只支持数字格式,支持常见中文
 func ParseLocalTimeAuto(str string) (LocalTime, error) {
     //可优化 go对 time.RFC3339 格式有性能提升
     //纯数字格式
