@@ -24,11 +24,7 @@ func (b *ByteNode[T]) Next(bytes []byte) Node[T] {
         if !b1 {
             return nil
         }
-        node := node1.Next(nil)
-        if node != nil {
-            return node1
-        }
-        return nil
+        return node1.Next(nil)
     }
     node1, b1 := b.next[BytesToString(bytes[:b.l])]
     if !b1 {
@@ -54,7 +50,6 @@ func (b *ByteNode[T]) AddNext(bytes []byte, v T) {
             b2 := &ByteNode[T]{
                 l:    b.l,
                 next: make(map[string]Node[T]),
-                v:    v,
             }
             b2.AddNext(nil, v)
             b.next[s] = b2
@@ -108,16 +103,20 @@ type Dfa[T any] struct {
 func (d *Dfa[T]) Add(data []byte, v T) {
     d.lock.Lock()
     defer d.lock.Unlock()
+    if len(data) == 0 {
+        panic("data length must be greater than 0")
+    }
     d.root.AddNext(data, v)
 }
 func (d *Dfa[T]) AddSimple(data []byte) {
-    d.lock.Lock()
-    defer d.lock.Unlock()
     var v T
-    d.root.AddNext(data, v)
+    d.Add(data, v)
 }
 
 func (d *Dfa[T]) Test(data []byte) Node[T] {
+    if len(data) == 0 {
+        return d.root
+    }
     return d.root.Next(data)
 }
 
