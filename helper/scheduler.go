@@ -187,7 +187,7 @@ func (s *schedulerLayer) callTask(scheduler *Scheduler, now time.Time, task sche
                     return
                 }
                 err := scheduler.addTask(task)
-                if err != nil {
+                if err != nil && !scheduler.stopped {
                     s.callTask(scheduler, now, task)
                 }
                 return
@@ -333,13 +333,13 @@ func (s *Scheduler) WaitStop() {
 
 func (s *Scheduler) log() string {
     var b []byte
-    b = fmt.Appendln(b, "taskCount:", s.taskCount)
-    b = fmt.Appendln(b, "pendingTasks:", len(s.pendingTasks))
+    b = append(b, fmt.Sprintln("taskCount:", s.taskCount)...)
+    b = append(b, fmt.Sprintln("pendingTasks:", len(s.pendingTasks))...)
     for _, layer := range s.taskLayers {
-        b = fmt.Appendln(b, "level:", layer.level, (time.Millisecond * time.Duration(layer.ceilInterval)).String())
+        b = append(b, fmt.Sprintln("level:", layer.level, (time.Millisecond*time.Duration(layer.ceilInterval)).String())...)
         for i := range layer.cells {
             cell := layer.cells[(i+layer.idx)%10]
-            b = fmt.Appendln(b, "cell:", (time.Duration(i+1) * time.Millisecond * time.Duration(layer.ceilInterval)).String(), cell.Size())
+            b = append(b, fmt.Sprintln("cell:", (time.Duration(i+1)*time.Millisecond*time.Duration(layer.ceilInterval)).String(), cell.Size())...)
         }
     }
     return string(b)

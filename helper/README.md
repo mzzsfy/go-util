@@ -70,6 +70,18 @@ ParseLocalTimeAuto(str string) (LocalTime, error)
 FormatDuration(duration time.Duration) time.Duration 
 ```
 
+## 布隆过滤器
+
+todo
+
+## dfa查找
+
+```go
+dfa:=NewDfa(MakeNewDfsNode[bool](i))
+dfa.Add([]byte("aaa"), true) //可以存储这个词对应的信息
+dfa.Test([]byte("aaa"))
+```
+
 ## 栈获取
 
 ```go

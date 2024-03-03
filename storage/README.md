@@ -21,4 +21,4 @@ m := NewMap(MapTypeSwiss[int, int](uint32(len(keys))))
 m.Put(key, i)
 ```
 
-todo: 支持并发
+## 缓存
