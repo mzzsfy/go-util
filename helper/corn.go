@@ -219,9 +219,60 @@ func checkNumber(b int8, Range uint64) bool {
 func (s *schedulerCron) NextTime(t time.Time) time.Time {
     year, month, day := t.Date()
     hour, minu, sec := t.Clock()
-    var circulate bool
+    var fixed bool
 
-    //1. 检测给的时间是否需要修正
+    //修正原始时间
+    if !checkNumber(int8(sec), s.second) {
+        sec1, _ := getNextNumber(int8(sec+1), s.second)
+        if sec1 < sec {
+            fixed = true
+            minu++
+        }
+        sec = sec1
+    }
+    if !checkNumber(int8(minu), s.minute) {
+        minu1, _ := getNextNumber(int8(minu+1), s.minute)
+        if minu1 < minu {
+            fixed = true
+            hour++
+            sec, _ = getNextNumber(int8(0), s.second)
+        }
+        minu = minu1
+    }
+    if !checkNumber(int8(hour), uint64(s.hour)) {
+        hour1, _ := getNextNumber(int8(hour+1), uint64(s.hour))
+        if hour1 < hour {
+            fixed = true
+            day++
+            minu, _ = getNextNumber(int8(0), s.minute)
+            sec, _ = getNextNumber(int8(0), s.second)
+        }
+        hour = hour1
+    }
+    if !checkNumber(int8(day), uint64(s.day)) {
+        day1, _ := getNextNumber(int8(day+1), uint64(s.day))
+        if day1 < day {
+            fixed = true
+            month++
+            hour, _ = getNextNumber(int8(0), s.second)
+            minu, _ = getNextNumber(int8(0), s.minute)
+            sec, _ = getNextNumber(int8(0), s.second)
+        }
+        day = day1
+    }
+    if !checkNumber(int8(month), uint64(s.month)) {
+        month1, _ := getNextNumber(int8(month+1), uint64(s.month))
+        if month1 < int(month) {
+            fixed = true
+            year++
+            month = time.Month(month1)
+            day, _ = getNextNumber(int8(0), uint64(s.day))
+            sec, _ = getNextNumber(int8(0), s.second)
+            minu, _ = getNextNumber(int8(0), s.minute)
+            hour, _ = getNextNumber(int8(0), s.second)
+        }
+        month = time.Month(month1)
+    }
 
     if len(s.year) > 0 {
         for _, y := range s.year {
@@ -232,59 +283,49 @@ func (s *schedulerCron) NextTime(t time.Time) time.Time {
                 sec, _ = getNextNumber(int8(0), s.second)
                 minu, _ = getNextNumber(int8(0), s.minute)
                 hour, _ = getNextNumber(int8(0), s.second)
-                goto noCheck
+                fixed = true
+                break
             }
             if y == year {
                 year = y
+                break
             }
         }
     }
-    if !checkNumber(int8(minu), s.minute) {
-        minu, _ = getNextNumber(int8(0), s.minute)
-    }
-    if !checkNumber(int8(hour), uint64(s.hour)) {
-        hour, _ = getNextNumber(int8(0), uint64(s.hour))
-    }
-    if !checkNumber(int8(day), uint64(s.day)) {
-        day1, _ := getNextNumber(int8(0), uint64(s.day))
-        if day1 < day {
-            month++
+    if !fixed {
+        var circulate bool
+        if sec, circulate = getNextNumber(int8(sec+1), s.second); !circulate {
+            goto ok
         }
-        day = day1
-    }
-    if !checkNumber(int8(month), uint64(s.month)) {
-        month1, _ := getNextNumber(int8(month), uint64(s.month))
-        if month1 < int(month) {
-            year++
-            day, _ = getNextNumber(int8(0), uint64(s.day))
+        if minu, circulate = getNextNumber(int8(minu+1), s.minute); !circulate {
+            goto ok
+        }
+        if hour, circulate = getNextNumber(int8(hour+1), uint64(s.hour)); circulate {
+            var month1 int
+            day, month1, year = s.nextDay(day, int(month), year)
             month = time.Month(month1)
-            sec, _ = getNextNumber(int8(0), s.second)
-            minu, _ = getNextNumber(int8(0), s.minute)
-            hour, _ = getNextNumber(int8(0), s.second)
-            goto noCheck
         }
-        month = time.Month(month1)
+    ok:
     }
-    if sec, circulate = getNextNumber(int8(sec+1), s.second); !circulate {
-        goto ok
-    }
-    if minu, circulate = getNextNumber(int8(minu+1), s.minute); !circulate {
-        goto ok
-    }
-    if hour, circulate = getNextNumber(int8(hour+1), s.second); !circulate {
-        goto ok
-    }
-noCheck:
     {
-        var month1 int
-        day, month1, year = s.nextDay(day, int(month), year)
-        month = time.Month(month1)
+        if day == 0 {
+            var month1 int
+            day, month1, year = s.nextDay(day, int(month), year)
+            month = time.Month(month1)
+        } else {
+            t1 := time.Date(year, month, day, 0, 0, 0, 0, time.Local)
+            weekday := t1.Weekday() + 1
+            if (s.week>>uint8(weekday))&1 != 1 {
+                var month1 int
+                day, month1, year = s.nextDay(day, int(month), year)
+                month = time.Month(month1)
+            }
+        }
     }
 
     if year == 0 {
         return time.Time{}
     }
-ok:
     return time.Date(year, month, day, hour, minu, sec, 0, t.Location())
 }
 
@@ -333,7 +374,7 @@ func (e everyTask) NextTime(t time.Time) time.Time {
     return t.Add(time.Duration(e))
 }
 
-func parseCron(cron string) (CustomSchedulerTime, error) {
+func ParseCron(cron string) (CustomSchedulerTime, error) {
     if cron[0] == '@' {
         if strings.HasPrefix(cron, "@every ") {
             cron = cron[7:]

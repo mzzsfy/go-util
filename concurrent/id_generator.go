@@ -22,11 +22,10 @@ func (a *atomIdGenerator) NextId() uint64 {
 //cas实现的雪花算法,高并发时比原生雪花算法性能更好
 type snowFlake struct {
     timestamp uint64
-    _         [120]byte
-    sequence0 uint64 //奇数时间用
-    _         [120]byte
-    sequence1 uint64 //偶数时间用
-    _         [120]byte
+    _         [56]byte //优化伪共享
+    sequence0 uint64
+    sequence1 uint64
+    _         [56]byte
     workerId  uint64
     timeShift uint64
     lastId    uint64
@@ -41,7 +40,7 @@ func (s *snowFlake) gen(time, sequence uint64) uint64 {
 
 func (s *snowFlake) init() {
     if s.seqBit == 0 {
-        s.seqBit = 16 //约为普通机器极限值
+        s.seqBit = 16 //约为普通机器极限值,每秒最多能产生65w(65535*1000)个id
     }
     s.seqMax = 1 << s.seqBit
 }

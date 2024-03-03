@@ -124,7 +124,10 @@ func (s *schedulerLayer) next(scheduler *Scheduler, now int64) {
         if scheduler.stopped {
             return
         }
-        scheduler.addTask(task)
+        err := scheduler.addTask(task)
+        if err != nil {
+            s.callTask(scheduler, time.UnixMilli(now), task)
+        }
     }
     s.idx++
     if s.idx == 9 {
@@ -158,7 +161,10 @@ func (s *schedulerLayer) disposePending(scheduler *Scheduler) {
                 if scheduler.stopped {
                     return
                 }
-                scheduler.addTask(task)
+                err := scheduler.addTask(task)
+                if err != nil {
+                    s.callTask(scheduler, time.Now(), task)
+                }
             } else {
                 scheduler.pendingTasks = append(scheduler.pendingTasks, task)
             }
@@ -180,18 +186,22 @@ func (s *schedulerLayer) callTask(scheduler *Scheduler, now time.Time, task sche
                 if scheduler.stopped {
                     return
                 }
-                scheduler.addTask(task)
+                err := scheduler.addTask(task)
+                if err != nil {
+                    s.callTask(scheduler, now, task)
+                }
+                return
             }
         }
     }
     atomic.AddInt32(&scheduler.taskCount, -1)
 }
 
-func (s *schedulerLayer) addTask(scheduler *Scheduler, task schedulerTask) {
+func (s *schedulerLayer) addTask(scheduler *Scheduler, task schedulerTask) (err error) {
     delay := task.time - scheduler.lastTime
     if s.level == 0 {
         if delay < 0 {
-            panic(fmt.Sprintf("you can't add a expired task,lastTime:%d,task:%d", scheduler.lastTime, task.time))
+            return fmt.Errorf("you can't add a expired task,lastTime:%d,task:%d", scheduler.lastTime, task.time)
         }
         if delay == 0 {
             s.callTask(scheduler, time.Now(), task)
@@ -203,12 +213,23 @@ func (s *schedulerLayer) addTask(scheduler *Scheduler, task schedulerTask) {
         if s.level < len(scheduler.taskLayers)-1 {
             scheduler.taskLayers[s.level+1].addTask(scheduler, task)
         } else {
+            level := len(scheduler.taskLayers)
             scheduler.pendingLock.Lock()
-            scheduler.pendingTasks = append(scheduler.pendingTasks, task)
-            scheduler.pendingLock.Unlock()
-            //尝试扩容
-            if len(scheduler.taskLayers) < scheduler.maxLevel && scheduler.taskCount > 100 && float32(len(scheduler.pendingTasks))/float32(scheduler.taskCount) > 0.15 {
-                scheduler.expansion()
+            if len(scheduler.taskLayers) == level {
+                //未扩容
+                scheduler.pendingTasks = append(scheduler.pendingTasks, task)
+                //尝试扩容
+                if len(scheduler.taskLayers) < scheduler.maxLevel && scheduler.taskCount > 100 && float32(len(scheduler.pendingTasks))/float32(scheduler.taskCount) > 0.15 {
+                    scheduler.expansion()
+                } else {
+                    scheduler.pendingLock.Unlock()
+                }
+                atomic.AddInt32(&scheduler.taskCount, 1)
+                return
+            } else {
+                //已扩容
+                scheduler.pendingLock.Unlock()
+                scheduler.taskLayers[s.level+1].addTask(scheduler, task)
             }
         }
         return
@@ -226,6 +247,7 @@ func (s *schedulerLayer) addTask(scheduler *Scheduler, task schedulerTask) {
         return
     }
     s.cells[i].Enqueue(task)
+    return
 }
 
 type Scheduler struct {
@@ -249,29 +271,35 @@ type Scheduler struct {
     stopped  bool
 }
 
-func (s *Scheduler) addTask(task schedulerTask) {
+func (s *Scheduler) addTask(task schedulerTask) error {
     if s.stopped {
-        panic("scheduler has been stopped")
+        return fmt.Errorf("scheduler has been stopped")
     }
     if task.fn == nil {
-        panic("task.fn can't be nil")
+        return fmt.Errorf("task.fn can't be nil")
     }
-    s.taskLayers[0].addTask(s, task)
+    return s.taskLayers[0].addTask(s, task)
 }
 
-func (s *Scheduler) AddDelayTask(task func(), delay time.Duration) {
-    s.addTask(schedulerTask{
+func (s *Scheduler) AddDelayTask(delay time.Duration, task func()) error {
+    if delay < 0 {
+        return fmt.Errorf("delay must be greater than 0")
+    }
+    return s.addTask(schedulerTask{
         fn:   task,
         time: time.Now().Add(delay).UnixMilli(),
     })
 }
 
-func (s *Scheduler) AddIntervalTask(task func(), interval time.Duration) {
-    s.AddCustomizeTask(task, func(t time.Time) time.Time { return t.Add(interval) })
+func (s *Scheduler) AddIntervalTask(interval time.Duration, task func()) error {
+    if interval.Milliseconds() < s.interval {
+        return fmt.Errorf("interval must be greater than scheduler interval")
+    }
+    return s.AddCustomizeTask(func(t time.Time) time.Time { return t.Add(interval) }, task)
 }
 
-func (s *Scheduler) AddCustomizeTask(task func(), customizeTime func(time.Time) time.Time) {
-    s.taskLayers[0].addTask(s, schedulerTask{
+func (s *Scheduler) AddCustomizeTask(customizeTime func(time.Time) time.Time, task func()) error {
+    return s.addTask(schedulerTask{
         fn:       task,
         nextTime: customizeTime,
         time:     customizeTime(time.Now()).UnixMilli(),
@@ -280,16 +308,15 @@ func (s *Scheduler) AddCustomizeTask(task func(), customizeTime func(time.Time) 
 
 // AddCronTask 添加一个cron任务,支持5位到7位的cron表达式
 func (s *Scheduler) AddCronTask(cron string, task func()) error {
-    sc, err := parseCron(cron)
+    sc, err := ParseCron(cron)
     if err != nil {
         return err
     }
-    s.taskLayers[0].addTask(s, schedulerTask{
+    return s.taskLayers[0].addTask(s, schedulerTask{
         fn:       task,
         nextTime: sc.NextTime,
         time:     sc.NextTime(time.Now()).UnixMilli(),
     })
-    return nil
 }
 
 func (s *Scheduler) Stop() {
@@ -304,10 +331,23 @@ func (s *Scheduler) WaitStop() {
     <-s.stop
 }
 
+func (s *Scheduler) log() string {
+    var b []byte
+    b = fmt.Appendln(b, "taskCount:", s.taskCount)
+    b = fmt.Appendln(b, "pendingTasks:", len(s.pendingTasks))
+    for _, layer := range s.taskLayers {
+        b = fmt.Appendln(b, "level:", layer.level, (time.Millisecond * time.Duration(layer.ceilInterval)).String())
+        for i := range layer.cells {
+            cell := layer.cells[(i+layer.idx)%10]
+            b = fmt.Appendln(b, "cell:", (time.Duration(i+1) * time.Millisecond * time.Duration(layer.ceilInterval)).String(), cell.Size())
+        }
+    }
+    return string(b)
+}
+
 //todo:cron表达式支持
 
 func (s *Scheduler) expansion() {
-    s.pendingLock.Lock()
     defer s.pendingLock.Unlock()
     ceilInterval := s.taskLayers[len(s.taskLayers)-1].ceilInterval * 10
     now := time.Now().UnixMilli()
@@ -377,7 +417,7 @@ func NewScheduler(checkInterval ...time.Duration) *Scheduler {
             case <-s.stop:
                 return
             case <-tick.C:
-                go s.taskLayers[0].doNext(s)
+                s.taskLayers[0].doNext(s)
             }
         }
     }()

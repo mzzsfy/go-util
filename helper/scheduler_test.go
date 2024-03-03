@@ -20,7 +20,7 @@ func TestAddDelayTask(t *testing.T) {
             duration = -duration
         }
         maxTime = duration
-        s.AddDelayTask(func() {
+        s.AddDelayTask(duration, func() {
             if duration > time.Millisecond {
                 if time.Since(start) < duration {
                     t.Error("Task ran too early", duration.String(), time.Since(start))
@@ -30,7 +30,7 @@ func TestAddDelayTask(t *testing.T) {
                 }
             }
             t.Log("task", i, time.Since(start).String())
-        }, duration)
+        })
     }
     defer s.Stop()
     t.Log("maxTime", maxTime.String())
@@ -41,16 +41,38 @@ func TestAddIntervalTask(t *testing.T) {
     t.Parallel()
     s := NewScheduler()
     counter := 0
-    s.AddIntervalTask(func() {
+    s.AddIntervalTask(time.Millisecond*200, func() {
         counter++
         if counter >= 5 {
             s.Stop()
         }
-    }, time.Millisecond*200)
+    })
 
     time.Sleep(time.Second * 2)
 
     if counter != 5 {
         t.Errorf("Expected counter to be 5, got %d", counter)
     }
+}
+
+func BenchmarkScheduler_AddCronTask(b *testing.B) {
+    s := NewScheduler(time.Millisecond * 10)
+    b.RunParallel(func(pb *testing.PB) {
+        for pb.Next() {
+            s.AddDelayTask(time.Millisecond, func() {})
+            s.AddDelayTask(time.Millisecond*10, func() {})
+            s.AddDelayTask(time.Millisecond*100, func() {})
+            s.AddDelayTask(time.Second, func() {})
+            s.AddDelayTask(time.Second*10, func() {})
+            s.AddDelayTask(time.Minute, func() {})
+            s.AddDelayTask(time.Minute*10, func() {})
+            s.AddDelayTask(time.Hour, func() {})
+        }
+    })
+    b.Cleanup(func() {
+        if b.N > 1000000 {
+            b.Log(s.log())
+        }
+        s.Stop()
+    })
 }

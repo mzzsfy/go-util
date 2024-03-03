@@ -272,7 +272,7 @@ func Test_ParseCronItem_WithBlurRange(t *testing.T) {
 
 func Test_ParseCron(t *testing.T) {
     t.Run("parseCron_len_6", func(t *testing.T) {
-        v1, err := parseCron("*/5 * * * * ?")
+        v1, err := ParseCron("*/5 * * * * ?")
         if err != nil {
             t.Errorf("unexpected error: %v", err)
         }
@@ -301,7 +301,7 @@ func Test_ParseCron(t *testing.T) {
         }
     })
     t.Run("parseCron_len_7", func(t *testing.T) {
-        v1, err := parseCron("0 0 0 * * ? *")
+        v1, err := ParseCron("0 0 0 * * ? *")
         if err != nil {
             t.Errorf("unexpected error: %v", err)
         }
@@ -326,25 +326,25 @@ func Test_ParseCron(t *testing.T) {
         }
     })
     t.Run("parseCron_fixed_yearly", func(t *testing.T) {
-        _, err := parseCron("@yearly")
+        _, err := ParseCron("@yearly")
         if err != nil {
             t.Errorf("unexpected error: %v", err)
         }
     })
     t.Run("parseCron_fixed_every_1s", func(t *testing.T) {
-        _, err := parseCron("@every 1s")
+        _, err := ParseCron("@every 1s")
         if err != nil {
             t.Errorf("unexpected error: %v", err)
         }
     })
     t.Run("parseCron_fixed_every_1h", func(t *testing.T) {
-        _, err := parseCron("@every 1h")
+        _, err := ParseCron("@every 1h")
         if err != nil {
             t.Errorf("unexpected error: %v", err)
         }
     })
     t.Run("parseCron_fixed_every_1h1m1s1ms", func(t *testing.T) {
-        _, err := parseCron("@every 1h1m1s1ms")
+        _, err := ParseCron("@every 1h1m1s1ms")
         if err != nil {
             t.Errorf("unexpected error: %v", err)
         }
@@ -353,67 +353,67 @@ func Test_ParseCron(t *testing.T) {
 
 func Test_ParseCron_WithInvalidExpression(t *testing.T) {
     t.Run("parseCron_WithInvalidExpression_string", func(t *testing.T) {
-        _, err := parseCron("abc")
+        _, err := ParseCron("abc")
         if err == nil {
             t.Errorf("expected error, got nil")
         }
     })
     t.Run("parseCron_WithInvalidExpression_step_0", func(t *testing.T) {
-        _, err := parseCron("*/0 * * * * ?")
+        _, err := ParseCron("*/0 * * * * ?")
         if err == nil {
             t.Errorf("expected error, got nil")
         }
     })
     t.Run("parseCron_WithInvalidExpression_step_-1", func(t *testing.T) {
-        _, err := parseCron("*/-1 * * * * ?")
+        _, err := ParseCron("*/-1 * * * * ?")
         if err == nil {
             t.Errorf("expected error, got nil")
         }
     })
     t.Run("parseCron_WithInvalidExpression_step_60", func(t *testing.T) {
-        _, err := parseCron("*/60 * * * * ?")
+        _, err := ParseCron("*/60 * * * * ?")
         if err == nil {
             t.Errorf("expected error, got nil")
         }
     })
     t.Run("parseCron_WithInvalidExpression_range_0-60", func(t *testing.T) {
-        _, err := parseCron("0-60 * * * * ?")
+        _, err := ParseCron("0-60 * * * * ?")
         if err == nil {
             t.Errorf("expected error, got nil")
         }
     })
     t.Run("parseCron_WithInvalidExpression_range_6-99", func(t *testing.T) {
-        _, err := parseCron("6-99 * * * * ?")
+        _, err := ParseCron("6-99 * * * * ?")
         if err == nil {
             t.Errorf("expected error, got nil")
         }
     })
     t.Run("parseCron_WithInvalidExpression_single_60", func(t *testing.T) {
-        _, err := parseCron("60 * * * * ?")
+        _, err := ParseCron("60 * * * * ?")
         if err == nil {
             t.Errorf("expected error, got nil")
         }
     })
     t.Run("parseCron_WithInvalidExpression_single_-1", func(t *testing.T) {
-        _, err := parseCron("-1 * * * * ?")
+        _, err := ParseCron("-1 * * * * ?")
         if err == nil {
             t.Errorf("expected error, got nil")
         }
     })
     t.Run("parseCron_WithInvalidExpression_len_4", func(t *testing.T) {
-        _, err := parseCron("* * * ?")
+        _, err := ParseCron("* * * ?")
         if err == nil {
             t.Errorf("expected error, got nil")
         }
     })
     t.Run("parseCron_WithInvalidExpression_len_8", func(t *testing.T) {
-        _, err := parseCron("* * * * * * * *")
+        _, err := ParseCron("* * * * * * * *")
         if err == nil {
             t.Errorf("expected error, got nil")
         }
     })
     t.Run("parseCron_WithInvalidExpression_setDayAndWeek", func(t *testing.T) {
-        _, err := parseCron("0 0 0 1 6 5")
+        _, err := ParseCron("0 0 0 1 6 5")
         if err == nil {
             t.Errorf("expected error, got nil")
         }
@@ -422,24 +422,87 @@ func Test_ParseCron_WithInvalidExpression(t *testing.T) {
 }
 
 func Test_Cron_nextTime(t *testing.T) {
-    t.Run("Cron_nextTime_sec", func(t *testing.T) {
-        c, _ := parseCron("*/5 * * * * ?")
+    t.Run("Cron_nextTime_step_sec", func(t *testing.T) {
+        c, _ := ParseCron("*/5 * * * * ?")
         next := c.NextTime(time.Date(2020, 1, 1, 0, 0, 0, 0, time.Local))
         expect := time.Date(2020, 1, 1, 0, 0, 5, 0, time.Local)
         if next != expect {
             t.Errorf("expected: %v, got: %v", expect.Format(DateTimeLayout), next.Format(DateTimeLayout))
         }
+        next = c.NextTime(expect)
+        expect = time.Date(2020, 1, 1, 0, 0, 10, 0, time.Local)
+        if next != expect {
+            t.Errorf("expected: %v, got: %v", expect.Format(DateTimeLayout), next.Format(DateTimeLayout))
+        }
     })
-    t.Run("Cron_nextTime_month", func(t *testing.T) {
-        c, _ := parseCron("0 0 0 * * ? *")
-        next := c.NextTime(time.Date(2020, 1, 1, 0, 0, 0, 0, time.Local))
+    t.Run("Cron_nextTime_step_day", func(t *testing.T) {
+        c, _ := ParseCron("0 0 0 */5 * ?")
+        next := c.NextTime(time.Date(2020, 1, 1, 1, 1, 1, 0, time.Local))
+        expect := time.Date(2020, 1, 6, 0, 0, 0, 0, time.Local)
+        if next != expect {
+            t.Errorf("expected: %v, got: %v", expect.Format(DateTimeLayout), next.Format(DateTimeLayout))
+        }
+        next = c.NextTime(expect)
+        expect = time.Date(2020, 1, 11, 0, 0, 0, 0, time.Local)
+        if next != expect {
+            t.Errorf("expected: %v, got: %v", expect.Format(DateTimeLayout), next.Format(DateTimeLayout))
+        }
+    })
+    t.Run("Cron_nextTime_sec", func(t *testing.T) {
+        c, _ := ParseCron("* * * * * ? *")
+        next := c.NextTime(time.Date(2020, 1, 1, 1, 1, 1, 0, time.Local))
+        expect := time.Date(2020, 1, 1, 1, 1, 2, 0, time.Local)
+        if next != expect {
+            t.Errorf("expected: %v, got: %v", expect.Format(DateTimeLayout), next.Format(DateTimeLayout))
+        }
+    })
+    t.Run("Cron_nextTime_min", func(t *testing.T) {
+        c, _ := ParseCron("0 * * * * ? *")
+        next := c.NextTime(time.Date(2020, 1, 1, 1, 1, 1, 0, time.Local))
+        expect := time.Date(2020, 1, 1, 1, 2, 0, 0, time.Local)
+        if next != expect {
+            t.Errorf("expected: %v, got: %v", expect.Format(DateTimeLayout), next.Format(DateTimeLayout))
+        }
+    })
+    t.Run("Cron_nextTime_hour", func(t *testing.T) {
+        c, _ := ParseCron("0 0 * * * ? *")
+        next := c.NextTime(time.Date(2020, 1, 1, 1, 1, 1, 0, time.Local))
+        expect := time.Date(2020, 1, 1, 2, 0, 0, 0, time.Local)
+        if next != expect {
+            t.Errorf("expected: %v, got: %v", expect.Format(DateTimeLayout), next.Format(DateTimeLayout))
+        }
+    })
+    t.Run("Cron_nextTime_day", func(t *testing.T) {
+        c, _ := ParseCron("0 0 0 * * ? *")
+        next := c.NextTime(time.Date(2020, 1, 1, 1, 1, 1, 0, time.Local))
         expect := time.Date(2020, 1, 2, 0, 0, 0, 0, time.Local)
         if next != expect {
             t.Errorf("expected: %v, got: %v", expect.Format(DateTimeLayout), next.Format(DateTimeLayout))
         }
     })
+    t.Run("Cron_nextTime_month", func(t *testing.T) {
+        c, _ := ParseCron("0 0 0 1 * ? *")
+        next := c.NextTime(time.Date(2020, 1, 1, 0, 0, 0, 0, time.Local))
+        expect := time.Date(2020, 2, 1, 0, 0, 0, 0, time.Local)
+        if next != expect {
+            t.Errorf("expected: %v, got: %v", expect.Format(DateTimeLayout), next.Format(DateTimeLayout))
+        }
+    })
+    t.Run("Cron_nextTime_week", func(t *testing.T) {
+        c, _ := ParseCron("0 0 0 * * 3")
+        next := c.NextTime(time.Date(2020, 1, 1, 0, 0, 0, 0, time.Local))
+        expect := time.Date(2020, 1, 7, 0, 0, 0, 0, time.Local)
+        if next != expect {
+            t.Errorf("expected: %v, got: %v", expect.Format(DateTimeLayout), next.Format(DateTimeLayout))
+        }
+        next = c.NextTime(expect)
+        expect = time.Date(2020, 1, 14, 0, 0, 0, 0, time.Local)
+        if next != expect {
+            t.Errorf("expected: %v, got: %v", expect.Format(DateTimeLayout), next.Format(DateTimeLayout))
+        }
+    })
     t.Run("Cron_nextTime_yearly", func(t *testing.T) {
-        c, _ := parseCron("@yearly")
+        c, _ := ParseCron("@yearly")
         next := c.NextTime(time.Date(2020, 1, 1, 0, 0, 0, 0, time.Local))
         expect := time.Date(2021, 1, 1, 0, 0, 0, 0, time.Local)
         if next != expect {
@@ -447,7 +510,7 @@ func Test_Cron_nextTime(t *testing.T) {
         }
     })
     t.Run("Cron_nextTime_every", func(t *testing.T) {
-        c, err := parseCron("@every 1s")
+        c, err := ParseCron("@every 1s")
         if err != nil {
             t.Errorf("unexpected error: %v", err)
             return
@@ -459,7 +522,7 @@ func Test_Cron_nextTime(t *testing.T) {
         }
     })
     t.Run("Cron_nextTime_week", func(t *testing.T) {
-        c, _ := parseCron("0 0 0 * * 1")
+        c, _ := ParseCron("0 0 0 * * 1")
         date := time.Date(2020, 1, 1, 0, 0, 0, 0, time.Local)
         expect := time.Date(2020, 1, 5, 0, 0, 0, 0, time.Local)
         next := c.NextTime(date)
@@ -468,27 +531,27 @@ func Test_Cron_nextTime(t *testing.T) {
         }
     })
     t.Run("Cron_nextTime_month_week", func(t *testing.T) {
-        c, _ := parseCron("0 0 0 * 3 5")
-        next := c.NextTime(time.Date(2020, 1, 5, 0, 0, 0, 0, time.Local))
+        c, _ := ParseCron("0 0 0 * 3 5")
+        next := c.NextTime(time.Date(2020, 1, 5, 1, 1, 1, 0, time.Local))
         expect := time.Date(2020, 3, 12, 0, 0, 0, 0, time.Local)
         if next != expect {
             t.Errorf("expected: %v, got: %v", expect.Format(DateTimeLayout), next.Format(DateTimeLayout))
         }
     })
     t.Run("Cron_nextTime_month_week1", func(t *testing.T) {
-        c, err := parseCron("0 0 0 * 6 7")
+        c, err := ParseCron("0 0 0 * 6 7")
         if err != nil {
             t.Errorf("unexpected error: %v", err)
             return
         }
-        next := c.NextTime(time.Date(2020, 3, 5, 0, 0, 0, 0, time.Local))
+        next := c.NextTime(time.Date(2020, 3, 5, 1, 1, 1, 1, time.Local))
         expect := time.Date(2020, 6, 6, 0, 0, 0, 0, time.Local)
         if next != expect {
             t.Errorf("expected: %v, got: %v", expect.Format(DateTimeLayout), next.Format(DateTimeLayout))
         }
     })
     t.Run("Cron_nextTime_year_month_week1", func(t *testing.T) {
-        c, err := parseCron("0 0 0 * 6 7")
+        c, err := ParseCron("0 0 0 * 6 7")
         if err != nil {
             t.Errorf("unexpected error: %v", err)
             return
@@ -500,7 +563,7 @@ func Test_Cron_nextTime(t *testing.T) {
         }
     })
     t.Run("Cron_nextTime_year", func(t *testing.T) {
-        c, err := parseCron("0 0 0 * * * 2024")
+        c, err := ParseCron("0 0 0 * * * 2024")
         if err != nil {
             t.Errorf("unexpected error: %v", err)
             return
