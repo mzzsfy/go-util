@@ -234,7 +234,7 @@ func (m *swissMap[K, V]) DeleteWithHash(key K, hash uint64) (ok bool) {
 }
 
 // Clear removes all elements from the swissMap1.
-func (m *swissMap[K, V]) Clear() {
+func (m *swissMap[K, V]) Clean() {
     for i, c := range m.ctrl {
         for j := range c {
             m.ctrl[i][j] = empty

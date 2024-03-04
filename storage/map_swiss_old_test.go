@@ -186,7 +186,7 @@ package storage
 //    }
 //}
 //
-//func (m *swissMap1[K, V]) Clear() {
+//func (m *swissMap1[K, V]) Clean() {
 //    for i, c := range m.ctrl {
 //        for j := range c {
 //            m.ctrl[i][j] = empty

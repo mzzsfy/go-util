@@ -48,7 +48,7 @@ func (g *goMap[K, V]) IterDelete(cb func(k K, v V) (del bool, stop bool)) bool {
     return false
 }
 
-func (g *goMap[K, V]) Clear() {
+func (g *goMap[K, V]) Clean() {
     g.m = make(map[K]V)
 }
 

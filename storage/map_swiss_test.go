@@ -193,7 +193,7 @@ func testMapClear[K comparable](t *testing.T, keys []K) {
         m.Put(key, i)
     }
     Equal(t, len(keys), m.Count())
-    m.Clear()
+    m.Clean()
     Equal(t, 0, m.Count())
     for _, key := range keys {
         ok := m.Has(key)

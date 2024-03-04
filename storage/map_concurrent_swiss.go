@@ -65,11 +65,11 @@ func (m *concurrentSwissMap[K, V]) Put(key K, value V) {
     defer m.locks[shard].Unlock()
     m.shards[shard].PutWithHash(key, value, hash)
 }
-func (m *concurrentSwissMap[K, V]) Clear() {
+func (m *concurrentSwissMap[K, V]) Clean() {
     for i := 0; i < slotNumber; i++ {
         m.locks[i].Lock()
         if m.shards[i] != nil {
-            m.shards[i].Clear()
+            m.shards[i].Clean()
         }
         m.locks[i].Unlock()
     }

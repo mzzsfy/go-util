@@ -8,7 +8,7 @@ type Map[K comparable, V any] interface {
     Delete(key K)
     // Iter 尽量不要在回调中删除元素,部分map可能不支持
     Iter(cb func(k K, v V) (stop bool)) bool
-    Clear()
+    Clean()
     Count() int
 }
 

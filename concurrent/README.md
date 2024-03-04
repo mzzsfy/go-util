@@ -32,24 +32,25 @@ goos: windows
 goarch: amd64                               
 pkg: github.com/mzzsfy/go-util/concurrent   
 cpu: Intel(R) Core(TM) i5-8500 CPU @ 3.00GHz
-Benchmark1Int64Adder32-6          107142             12951 ns/op
-Benchmark1Atomic32-6               54544             23898 ns/op
-Benchmark1Int64Adder128-6         165574              7406 ns/op
-Benchmark1Atomic128-6              60301             20293 ns/op
+...
+Benchmark1Int64Adder/Int64Adder_32-6        	  137929	      9034 ns/op
+Benchmark1Int64Adder/Atomic_32-6            	   51117	     34734 ns/op
+Benchmark1Int64Adder/Int64Adder_128-6       	  182433	      6676 ns/op
+Benchmark1Int64Adder/Atomic_128-6           	   60130	     31813 ns/op
 
 $ go test -tags=concurrent_fast -bench=Benchmark1.+ ./concurrent
 ...
-Benchmark1Int64Adder32-6          117646             12306 ns/op
-Benchmark1Atomic32-6               52669             24060 ns/op
-Benchmark1Int64Adder128-6         190480              6501 ns/op
-Benchmark1Atomic128-6              60460             19921 ns/op
+Benchmark1Int64Adder/Int64Adder_32-6        	  144579	      7944 ns/op
+Benchmark1Int64Adder/Atomic_32-6            	   35713	     34461 ns/op
+Benchmark1Int64Adder/Int64Adder_128-6       	  214286	      5586 ns/op
+Benchmark1Int64Adder/Atomic_128-6           	   38584	     31026 ns/op
 
 $ go test -tags=concurrent_memory -bench=Benchmark1.+ ./concurrent
 ...
-Benchmark1Int64Adder32-6           85508             15680 ns/op
-Benchmark1Atomic32-6               55555             23125 ns/op
-Benchmark1Int64Adder128-6         115384             10757 ns/op
-Benchmark1Atomic128-6              59254             19733 ns/op
+Benchmark1Int64Adder/Int64Adder_32-6        	   97975	     11300 ns/op
+Benchmark1Int64Adder/Atomic_32-6            	   50070	     33834 ns/op
+Benchmark1Int64Adder/Int64Adder_128-6       	  123711	      9588 ns/op
+Benchmark1Int64Adder/Atomic_128-6           	   58536	     30516 ns/op
 ```
 ## 队列
 

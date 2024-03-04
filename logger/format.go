@@ -1,8 +1,10 @@
 package logger
 
 import (
-    "io"
+    "fmt"
+    "github.com/mzzsfy/go-util/helper"
     "strconv"
+    "sync"
     "time"
 )
 
@@ -88,19 +90,99 @@ func AppendNowTime(s Buffer) {
 
 var _0 = byte('0')
 
-func append60(sb interface {
-    io.Writer
-    WriteByte(byte) error
-}, v int) {
+func append60(sb Buffer, v int) {
     sb.WriteByte(_0 + byte(v/10))
     sb.WriteByte(_0 + byte(v%10))
 }
 
-func append999(sb interface {
-    io.Writer
-    WriteByte(byte) error
-}, v int) {
+func append999(sb Buffer, v int) {
     sb.WriteByte(_0 + byte(v/100))
     sb.WriteByte(_0 + byte(v/10%10))
     sb.WriteByte(_0 + byte(v%10))
+}
+
+func appendAny(sb Buffer, arg any) {
+    if arg == nil {
+        sb.Write(helper.StringToBytes("<nil>"))
+        return
+    }
+    switch v := arg.(type) {
+    case []byte:
+        sb.Write(v)
+    case string:
+        sb.Write(helper.StringToBytes(v))
+    case bool:
+        if v {
+            sb.Write(helper.StringToBytes("true"))
+        }
+        sb.Write(helper.StringToBytes("false"))
+    case int:
+        appendInteger(sb, v)
+    case int8:
+        appendInteger(sb, v)
+    case int16:
+        appendInteger(sb, v)
+    case int32:
+        appendInteger(sb, v)
+    case int64:
+        appendInteger(sb, v)
+    case uint:
+        appendInteger(sb, v)
+    case uint8:
+        appendInteger(sb, v)
+    case uint16:
+        appendInteger(sb, v)
+    case uint32:
+        appendInteger(sb, v)
+    case uint64:
+        appendInteger(sb, v)
+    case uintptr:
+        appendInteger(sb, v)
+    default:
+        sb.Write(helper.StringToBytes(fmt.Sprint(v)))
+    }
+
+}
+
+//18446744073709551615 uint64
+//-9223372036854775808 int64
+var buf = sync.Pool{
+    New: func() any {
+        return &[20]byte{}
+    },
+}
+
+func appendInteger[T ~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 | ~uintptr | ~int | ~int8 | ~int16 | ~int32 | ~int64](sb Buffer, n T) {
+    bs := buf.Get().(*[20]byte)
+    defer buf.Put(bs)
+    r := bs[:]
+    negative := false
+    i := len(r) - 1
+    if n < 0 {
+        n = -n
+        //溢出,特殊处理
+        // math.MinInt8
+        // math.MinInt16
+        // math.MinInt32
+        // math.MinInt64
+        if n < 0 {
+            next := n / 10
+            r[i] = byte('0' + -(n - next*10))
+            n = -next
+            i--
+        }
+        negative = true
+    }
+    for n > 9 {
+        next := n / 10
+        r[i] = byte('0' + n - next*10)
+        n = next
+        i--
+    }
+    r[i] = byte('0' + n)
+    if negative {
+        i--
+        r[i] = '-'
+    }
+    sb.Write(r[i:])
 }
