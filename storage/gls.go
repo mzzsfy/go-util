@@ -1,33 +1,53 @@
 package storage
 
 import (
+    "github.com/mzzsfy/go-util/concurrent"
     "github.com/mzzsfy/go-util/unsafe"
     "math"
     "runtime"
+    "strconv"
     "sync"
     "sync/atomic"
 )
 
 var GoID = unsafe.GoID
 
-//基于goroutine的局部存储,类似于threadLocal,必须调用GOClean清理,明确后需要设置 KnowHowToUseGls=true
+//基于goroutine的局部存储,类似于threadLocal,必须调用GOClean清理,明确后需要调用 KnowHowToUseGls()
 
 var (
-    glsMap          = NewMap(MapTypeSwiss[int64, Map[uint32, any]](0))
-    glsLock         = sync.RWMutex{}
-    KnowHowToUseGls = false
+    knowHowToUseGls = false
+
+    //glsMap = NewMap(MapTypeSwiss[int64, Map[uint32, any]](0))
+    //glsMap = NewMap(MapTypeGo[int64, Map[uint32, any]](0))
+    //glsMap          = NewMap(MapTypeConcurrentWrapper(MapTypeGo[int64, Map[uint32, any]](0)))
+    glsMap = NewMap(MapTypeSwissConcurrent[int64, Map[uint32, any]]())
+    //glsLock         concurrent.RwLocker = &sync.RWMutex{}
+    glsLock concurrent.RwLocker = noLock{}
+    //glsSubMapPool                       = sync.Pool{New: func() any { return NewMap(MapTypeSwiss[uint32, any](1)) }}
+    glsSubMapPool = sync.Pool{New: func() any { return NewMap(MapTypeArray[uint32, any](2)) }}
 )
 
+type noLock struct{}
+
+func (l noLock) Lock()         {}
+func (l noLock) Unlock()       {}
+func (l noLock) TryLock() bool { return true }
+
+func (l noLock) RLock()         {}
+func (l noLock) RUnlock()       {}
+func (l noLock) TryRLock() bool { return true }
+
 type GlsError struct {
-    GoIds []int64
+    NumGoroutine int
+    GlsGoIds     []int64
 }
 
 func (g GlsError) Error() string {
-    return "gls发生泄露,请检查!"
+    return g.String()
 }
 
 func (g GlsError) String() string {
-    return "gls发生泄露,请检查!"
+    return "gls发生泄露,请检查!goroutine数量:" + strconv.Itoa(g.NumGoroutine) + ", gls数量:" + strconv.Itoa(len(g.GlsGoIds))
 }
 
 var keyIdGen = uint32(0)
@@ -65,16 +85,16 @@ func (k Key[T]) MustGet() (value T) {
 }
 
 func (k Key[T]) Set(value T) {
-    if !KnowHowToUseGls {
-        panic("Set `KnowHowToUseGls=true` after you know how to use it.You must call GlsClean!")
+    if !knowHowToUseGls {
+        panic("call `KnowHowToUseGls()` after you know how to use it! (You must call GlsClean() after code)")
     }
     glsLock.RLock()
     id := GoID()
     m, ok := glsMap.Get(id)
     if !ok {
         glsLock.RUnlock()
+        m = glsSubMapPool.Get().(Map[uint32, any])
         glsLock.Lock()
-        m = NewMap(MapTypeSwiss[uint32, any](2))
         glsMap.Put(id, m)
         glsLock.Unlock()
     } else {
@@ -95,18 +115,22 @@ func (k Key[T]) Delete() {
 }
 
 func (k Key[T]) GlsClean() { GlsClean() }
-
+func KnowHowToUseGls() {
+    knowHowToUseGls = true
+}
 func GlsClean() {
     check()
     glsLock.RLock()
     id := GoID()
-    _, ok := glsMap.Get(id)
+    m, ok := glsMap.Get(id)
     glsLock.RUnlock()
     if !ok {
         return
     }
     glsLock.Lock()
     glsMap.Delete(id)
+    m.Clean()
+    glsSubMapPool.Put(m)
     glsLock.Unlock()
 }
 
@@ -121,7 +145,7 @@ func NewGlsItem[T any]() Key[T] {
 
         // 使用全局定义key不可能超过2^32个
         // 2^32 keys should be enough for everyone
-        panic("key too much, overflow! You should define keys in global, not in functions")
+        panic("gls key too much, overflow! You should define keys in global, not in functions")
     }
     return Key[T](id)
 }
@@ -133,15 +157,27 @@ var testInterval = 10
 func check() {
     testI++
     if testI > testInterval {
-        if runtime.NumGoroutine() < glsMap.Count() {
-            var ids []int64
-            glsLock.RLock()
-            glsMap.Iter(func(k int64, v Map[uint32, any]) (stop bool) {
-                ids = append(ids, k)
-                return false
-            })
-            glsLock.RUnlock()
-            panic(GlsError{GoIds: ids})
+        if testI == testInterval {
+            if runtime.NumGoroutine() < glsMap.Count() {
+                runtime.Gosched()
+                if runtime.NumGoroutine() < glsMap.Count() {
+                    glsLock.Lock()
+                    if testI > testInterval && runtime.NumGoroutine() < glsMap.Count() {
+                        var ids []int64
+                        glsMap.Iter(func(k int64, v Map[uint32, any]) (stop bool) {
+                            ids = append(ids, k)
+                            return false
+                        })
+                        glsLock.Unlock()
+                        panic(GlsError{
+                            NumGoroutine: runtime.NumGoroutine(),
+                            GlsGoIds:     ids,
+                        })
+                    } else {
+                        glsLock.Unlock()
+                    }
+                }
+            }
         }
         testI = 0
         if testInterval > 1_000_000 {

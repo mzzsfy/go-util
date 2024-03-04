@@ -2,6 +2,7 @@ package concurrent
 
 import (
     "runtime"
+    "sync"
     "sync/atomic"
     "testing"
     "unsafe"
@@ -37,219 +38,229 @@ func TestSize(t *testing.T) {
     }{}))
 }
 
-func Benchmark_bitInt64Adder_0Bit(b *testing.B) {
-    adder := &struct {
-        int32
-        int64
-        values []struct {
-            int64
-        }
-    }{
-        values: make([]struct{ int64 }, slotNumber),
-    }
-    wg := NewWaitGroup(b.N)
-    wg1 := NewWaitGroup(b.N)
-    wg2 := NewWaitGroup(1)
-    for i := 0; i < b.N; i++ {
-        go func() {
-            wg1.Done()
-            defer wg.Done()
-            wg2.Wait()
-            id := GoID()
-            for i := 0; i < 1000; i++ {
-                atomic.AddInt64(&adder.values[int(id)&modNumber].int64, 1)
-                if i%128 == 0 {
-                    runtime.Gosched()
-                }
-            }
-        }()
-    }
-    wg1.Wait()
-    b.ResetTimer()
-    wg2.Done()
-    wg.Wait()
+func NewWaitGroup(init int) *sync.WaitGroup {
+    waitGroup := sync.WaitGroup{}
+    waitGroup.Add(init)
+    return &waitGroup
 }
 
-func Benchmark_bitInt64Adder_8Bit(b *testing.B) {
-    adder := &struct {
-        int32
-        int64
-        values []struct {
+func Benchmark_bitInt64Adder_Bit(b *testing.B) {
+    goroutineNum := 1000
+    b.Run("Benchmark_bitInt64Adder_0Bit", func(b *testing.B) {
+        adder := &struct {
+            int32
             int64
-            _ [8]byte
-        }
-    }{
-        values: make([]struct {
-            int64
-            _ [8]byte
-        }, slotNumber),
-    }
-    wg := NewWaitGroup(b.N)
-    wg1 := NewWaitGroup(b.N)
-    wg2 := NewWaitGroup(1)
-    for i := 0; i < b.N; i++ {
-        go func() {
-            wg1.Done()
-            defer wg.Done()
-            wg2.Wait()
-            id := GoID()
-            for i := 0; i < 1000; i++ {
-                atomic.AddInt64(&adder.values[int(id)&modNumber].int64, 1)
-                if i%128 == 0 {
-                    runtime.Gosched()
-                }
+            values []struct {
+                int64
             }
-        }()
-    }
-    wg1.Wait()
-    b.ResetTimer()
-    wg2.Done()
-    wg.Wait()
-}
+        }{
+            values: make([]struct{ int64 }, slotNumber),
+        }
+        wg := NewWaitGroup(goroutineNum)
+        wg1 := NewWaitGroup(goroutineNum)
+        wg2 := NewWaitGroup(1)
+        for i := 0; i < goroutineNum; i++ {
+            go func() {
+                wg1.Done()
+                defer wg.Done()
+                wg2.Wait()
+                id := GoID()
+                for i := 0; i < b.N; i++ {
+                    atomic.AddInt64(&adder.values[int(id)&modNumber].int64, 1)
+                    if i%128 == 0 {
+                        runtime.Gosched()
+                    }
+                }
+            }()
+        }
+        wg1.Wait()
+        b.ResetTimer()
+        wg2.Done()
+        wg.Wait()
+    })
+    b.Run("Benchmark_bitInt64Adder_8Bit", func(b *testing.B) {
 
-func Benchmark_bitInt64Adder_16Bit(b *testing.B) {
-    adder := &struct {
-        int32
-        int64
-        values []struct {
+        adder := &struct {
+            int32
             int64
-            _ [16]byte
-        }
-    }{
-        values: make([]struct {
-            int64
-            _ [16]byte
-        }, slotNumber),
-    }
-    wg := NewWaitGroup(b.N)
-    wg1 := NewWaitGroup(b.N)
-    wg2 := NewWaitGroup(1)
-    for i := 0; i < b.N; i++ {
-        go func() {
-            wg1.Done()
-            defer wg.Done()
-            wg2.Wait()
-            id := GoID()
-            for i := 0; i < 1000; i++ {
-                atomic.AddInt64(&adder.values[int(id)&modNumber].int64, 1)
-                if i%128 == 0 {
-                    runtime.Gosched()
-                }
+            values []struct {
+                int64
+                _ [8]byte
             }
-        }()
-    }
-    wg1.Wait()
-    b.ResetTimer()
-    wg2.Done()
-    wg.Wait()
-}
+        }{
+            values: make([]struct {
+                int64
+                _ [8]byte
+            }, slotNumber),
+        }
+        wg := NewWaitGroup(goroutineNum)
+        wg1 := NewWaitGroup(goroutineNum)
+        wg2 := NewWaitGroup(1)
+        for i := 0; i < goroutineNum; i++ {
+            go func() {
+                wg1.Done()
+                defer wg.Done()
+                wg2.Wait()
+                id := GoID()
+                for i := 0; i < b.N; i++ {
+                    atomic.AddInt64(&adder.values[int(id)&modNumber].int64, 1)
+                    if i%128 == 0 {
+                        runtime.Gosched()
+                    }
+                }
+            }()
+        }
+        wg1.Wait()
+        b.ResetTimer()
+        wg2.Done()
+        wg.Wait()
+    })
+    b.Run("Benchmark_bitInt64Adder_16Bit", func(b *testing.B) {
 
-func Benchmark_bitInt64Adder_24Bit(b *testing.B) {
-    adder := &struct {
-        int32
-        int64
-        values []struct {
+        adder := &struct {
+            int32
             int64
-            _ [24]byte
-        }
-    }{
-        values: make([]struct {
-            int64
-            _ [24]byte
-        }, slotNumber),
-    }
-    wg := NewWaitGroup(b.N)
-    wg1 := NewWaitGroup(b.N)
-    wg2 := NewWaitGroup(1)
-    for i := 0; i < b.N; i++ {
-        go func() {
-            wg1.Done()
-            defer wg.Done()
-            wg2.Wait()
-            id := GoID()
-            for i := 0; i < 1000; i++ {
-                atomic.AddInt64(&adder.values[int(id)&modNumber].int64, 1)
-                if i%128 == 0 {
-                    runtime.Gosched()
-                }
+            values []struct {
+                int64
+                _ [16]byte
             }
-        }()
-    }
-    wg1.Wait()
-    b.ResetTimer()
-    wg2.Done()
-    wg.Wait()
-}
+        }{
+            values: make([]struct {
+                int64
+                _ [16]byte
+            }, slotNumber),
+        }
+        wg := NewWaitGroup(goroutineNum)
+        wg1 := NewWaitGroup(goroutineNum)
+        wg2 := NewWaitGroup(1)
+        for i := 0; i < goroutineNum; i++ {
+            go func() {
+                wg1.Done()
+                defer wg.Done()
+                wg2.Wait()
+                id := GoID()
+                for i := 0; i < b.N; i++ {
+                    atomic.AddInt64(&adder.values[int(id)&modNumber].int64, 1)
+                    if i%128 == 0 {
+                        runtime.Gosched()
+                    }
+                }
+            }()
+        }
+        wg1.Wait()
+        b.ResetTimer()
+        wg2.Done()
+        wg.Wait()
+    })
+    b.Run("Benchmark_bitInt64Adder_24Bit", func(b *testing.B) {
 
-func Benchmark_bitInt64Adder_56Bit(b *testing.B) {
-    adder := &struct {
-        int32
-        int64
-        values []struct {
+        adder := &struct {
+            int32
             int64
-            _ [56]byte
-        }
-    }{
-        values: make([]struct {
-            int64
-            _ [56]byte
-        }, slotNumber),
-    }
-    wg := NewWaitGroup(b.N)
-    wg1 := NewWaitGroup(b.N)
-    wg2 := NewWaitGroup(1)
-    for i := 0; i < b.N; i++ {
-        go func() {
-            wg1.Done()
-            defer wg.Done()
-            wg2.Wait()
-            id := GoID()
-            for i := 0; i < 1000; i++ {
-                atomic.AddInt64(&adder.values[int(id)&modNumber].int64, 1)
-                if i%128 == 0 {
-                    runtime.Gosched()
-                }
+            values []struct {
+                int64
+                _ [24]byte
             }
-        }()
-    }
-    wg1.Wait()
-    b.ResetTimer()
-    wg2.Done()
-    wg.Wait()
-}
-func Benchmark_bitInt64Adder_120Bit(b *testing.B) {
-    adder := &struct {
-        int32
-        int64
-        values []struct {
-            int64
-            _ [120]byte
+        }{
+            values: make([]struct {
+                int64
+                _ [24]byte
+            }, slotNumber),
         }
-    }{
-        values: make([]struct {
-            int64
-            _ [120]byte
-        }, slotNumber),
-    }
-    wg := NewWaitGroup(b.N)
-    wg1 := NewWaitGroup(b.N)
-    wg2 := NewWaitGroup(1)
-    for i := 0; i < b.N; i++ {
-        go func() {
-            wg1.Done()
-            defer wg.Done()
-            wg2.Wait()
-            id := GoID()
-            for i := 0; i < 1000; i++ {
-                atomic.AddInt64(&adder.values[int(id)&modNumber].int64, 1)
-                if i%128 == 0 {
-                    runtime.Gosched()
+        wg := NewWaitGroup(goroutineNum)
+        wg1 := NewWaitGroup(goroutineNum)
+        wg2 := NewWaitGroup(1)
+        for i := 0; i < goroutineNum; i++ {
+            go func() {
+                wg1.Done()
+                defer wg.Done()
+                wg2.Wait()
+                id := GoID()
+                for i := 0; i < b.N; i++ {
+                    atomic.AddInt64(&adder.values[int(id)&modNumber].int64, 1)
+                    if i%128 == 0 {
+                        runtime.Gosched()
+                    }
                 }
+            }()
+        }
+        wg1.Wait()
+        b.ResetTimer()
+        wg2.Done()
+        wg.Wait()
+    })
+    b.Run("Benchmark_bitInt64Adder_56Bit", func(b *testing.B) {
+
+        adder := &struct {
+            int32
+            int64
+            values []struct {
+                int64
+                _ [56]byte
             }
-        }()
-    }
-    wg1.Wait()
-    b.ResetTimer()
-    wg2.Done()
-    wg.Wait()
+        }{
+            values: make([]struct {
+                int64
+                _ [56]byte
+            }, slotNumber),
+        }
+        wg := NewWaitGroup(goroutineNum)
+        wg1 := NewWaitGroup(goroutineNum)
+        wg2 := NewWaitGroup(1)
+        for i := 0; i < goroutineNum; i++ {
+            go func() {
+                wg1.Done()
+                defer wg.Done()
+                wg2.Wait()
+                id := GoID()
+                for i := 0; i < b.N; i++ {
+                    atomic.AddInt64(&adder.values[int(id)&modNumber].int64, 1)
+                    if i%128 == 0 {
+                        runtime.Gosched()
+                    }
+                }
+            }()
+        }
+        wg1.Wait()
+        b.ResetTimer()
+        wg2.Done()
+        wg.Wait()
+    })
+    b.Run("Benchmark_bitInt64Adder_120Bit", func(b *testing.B) {
+
+        adder := &struct {
+            int32
+            int64
+            values []struct {
+                int64
+                _ [120]byte
+            }
+        }{
+            values: make([]struct {
+                int64
+                _ [120]byte
+            }, slotNumber),
+        }
+        wg := NewWaitGroup(goroutineNum)
+        wg1 := NewWaitGroup(goroutineNum)
+        wg2 := NewWaitGroup(1)
+        for i := 0; i < goroutineNum; i++ {
+            go func() {
+                wg1.Done()
+                defer wg.Done()
+                wg2.Wait()
+                id := GoID()
+                for i := 0; i < b.N; i++ {
+                    atomic.AddInt64(&adder.values[int(id)&modNumber].int64, 1)
+                    if i%128 == 0 {
+                        runtime.Gosched()
+                    }
+                }
+            }()
+        }
+        wg1.Wait()
+        b.ResetTimer()
+        wg2.Done()
+        wg.Wait()
+    })
 }

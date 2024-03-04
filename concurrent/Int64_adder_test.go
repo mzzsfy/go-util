@@ -2,6 +2,7 @@ package concurrent
 
 import (
     "runtime"
+    "strconv"
     "sync"
     "sync/atomic"
     "testing"
@@ -105,84 +106,57 @@ func Test_Int64Adder(t *testing.T) {
     }
 }
 
-//go test -bench=Benchmark1.+ -count=3 ./concurrent
-func Benchmark1Int64Adder4(b *testing.B) {
-    testInt64Adder(8, b)
-}
-
-func Benchmark1Atomic4(b *testing.B) {
-    testAtomic(8, b)
-}
-
-func Benchmark1Int64Adder32(b *testing.B) {
-    testInt64Adder(32, b)
-}
-
-func Benchmark1Atomic32(b *testing.B) {
-    testAtomic(32, b)
-}
-
-func Benchmark1Int64Adder128(b *testing.B) {
-    testInt64Adder(128, b)
-}
-
-func Benchmark1Atomic128(b *testing.B) {
-    testAtomic(128, b)
-}
-
-func NewWaitGroup(init int) *sync.WaitGroup {
-    waitGroup := sync.WaitGroup{}
-    waitGroup.Add(init)
-    return &waitGroup
-}
-
-func testInt64Adder(interval int, b *testing.B) {
-    adder := &Int64Adder{}
-    adder.AddSimple(1)
-    adder.Reset()
-    wg := NewWaitGroup(b.N)
-    wg1 := NewWaitGroup(b.N)
-    wg2 := NewWaitGroup(1)
-    for i := 0; i < b.N; i++ {
-        go func() {
-            wg1.Done()
-            defer wg.Done()
-            wg2.Wait()
-            id := GoID()
-            for i := 0; i < 1000; i++ {
-                adder.Increment(id)
-                if i%interval == 0 {
-                    runtime.Gosched()
-                }
+func Benchmark1Int64Adder(b *testing.B) {
+    goroutineNum := 1000
+    for _, i := range []int{2, 4, 8, 32, 64, 128} {
+        b.Run("Int64Adder_"+strconv.Itoa(i), func(b *testing.B) {
+            adder := &Int64Adder{}
+            wg := NewWaitGroup(goroutineNum)
+            wg1 := NewWaitGroup(goroutineNum)
+            wg2 := NewWaitGroup(1)
+            //使用 waitGroup 保证所有的 goroutine 都已经启动
+            for x := 0; x < goroutineNum; x++ {
+                go func() {
+                    wg1.Done()
+                    defer wg.Done()
+                    wg2.Wait()
+                    id := GoID()
+                    for j := 0; j < b.N; j++ {
+                        adder.Add(id, 1)
+                        if j%i == 0 {
+                            runtime.Gosched()
+                        }
+                    }
+                }()
             }
-        }()
-    }
-    wg1.Wait()
-    b.ResetTimer()
-    wg2.Done()
-    wg.Wait()
-}
-
-func testAtomic(interval int, b *testing.B) {
-    r := int64(0)
-    wg := NewWaitGroup(b.N)
-    wg1 := NewWaitGroup(b.N)
-    wg2 := NewWaitGroup(1)
-    for i := 0; i < b.N; i++ {
-        go func() {
-            wg1.Done()
-            defer wg.Done()
-            wg2.Wait()
-            for i := 0; i < 1000; i++ {
-                atomic.AddInt64(&r, 1)
-                if i%interval == 0 {
-                    runtime.Gosched()
-                }
+            wg1.Wait()
+            b.ResetTimer()
+            wg2.Done()
+            wg.Wait()
+        })
+        b.Run("Atomic_"+strconv.Itoa(i), func(b *testing.B) {
+            r := int64(0)
+            wg := NewWaitGroup(b.N)
+            wg1 := NewWaitGroup(b.N)
+            wg2 := NewWaitGroup(1)
+            //使用 waitGroup 保证所有的 goroutine 都已经启动
+            for x := 0; x < b.N; x++ {
+                go func() {
+                    wg1.Done()
+                    defer wg.Done()
+                    wg2.Wait()
+                    for j := 0; j < 1000; j++ {
+                        atomic.AddInt64(&r, 1)
+                        if j%i == 0 {
+                            runtime.Gosched()
+                        }
+                    }
+                }()
             }
-        }()
+            wg1.Wait()
+            b.ResetTimer()
+            wg2.Done()
+            wg.Wait()
+        })
     }
-    wg1.Wait()
-    b.ResetTimer()
-    wg2.Done()
-    wg.Wait()
 }

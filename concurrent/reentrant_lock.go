@@ -12,7 +12,7 @@ type Locker interface {
 type ReentrantLock struct {
     cond      sync.Cond
     recursion int32
-    _         [7]int64
+    _         [56]byte
     goId      int64
 }
 
