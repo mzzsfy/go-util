@@ -76,9 +76,9 @@ func Test_Del(t *testing.T) {
 
 func Test_Clean(t *testing.T) {
     t.Run("clean existing values", func(t *testing.T) {
-        defer GlsClean()
         item := NewGlsItem[string]()
         item.Set("testValue")
+        GlsClean()
         _, ok := item.Get()
         Equal(t, false, ok)
     })

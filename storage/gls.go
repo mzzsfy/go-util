@@ -156,26 +156,25 @@ var testInterval = 10
 //检查gls是否泄露,每次检查都会增加检查间隔,直到检查间隔大于1000000,所以对性能几乎没影响
 func check() {
     testI++
-    if testI > testInterval {
-        if testI == testInterval {
+    if testI >= testInterval {
+        if runtime.NumGoroutine() < glsMap.Count() {
+            runtime.Gosched()
             if runtime.NumGoroutine() < glsMap.Count() {
-                runtime.Gosched()
+                glsLock.Lock()
+                runtime.GC()
                 if runtime.NumGoroutine() < glsMap.Count() {
-                    glsLock.Lock()
-                    if testI > testInterval && runtime.NumGoroutine() < glsMap.Count() {
-                        var ids []int64
-                        glsMap.Iter(func(k int64, v Map[uint32, any]) (stop bool) {
-                            ids = append(ids, k)
-                            return false
-                        })
-                        glsLock.Unlock()
-                        panic(GlsError{
-                            NumGoroutine: runtime.NumGoroutine(),
-                            GlsGoIds:     ids,
-                        })
-                    } else {
-                        glsLock.Unlock()
-                    }
+                    var ids []int64
+                    glsMap.Iter(func(k int64, v Map[uint32, any]) (stop bool) {
+                        ids = append(ids, k)
+                        return false
+                    })
+                    glsLock.Unlock()
+                    panic(GlsError{
+                        NumGoroutine: runtime.NumGoroutine(),
+                        GlsGoIds:     ids,
+                    })
+                } else {
+                    glsLock.Unlock()
                 }
             }
         }
