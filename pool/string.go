@@ -25,6 +25,14 @@ type StringPool struct {
     }]
 }
 
+func (p *StringPool) Peek(s string) uint32 {
+    p.lock.RLock()
+    defer p.lock.RUnlock()
+    if v, ok := p.m.Get(s); ok {
+        return v.id
+    }
+    return 0
+}
 func (p *StringPool) Use(s string) uint32 {
     p.lock.RLock()
     if v, ok := p.m.Get(s); ok {
