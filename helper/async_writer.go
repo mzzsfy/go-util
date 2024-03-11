@@ -2,7 +2,6 @@ package helper
 
 import (
     "bytes"
-    "github.com/mzzsfy/go-util/pool"
     "io"
     "os"
     "runtime"
@@ -34,10 +33,9 @@ func NewAsyncWriter(writer io.Writer) *AsyncWrite {
         target:    writer,
         FlushSize: 1024 * 2, //2k
         CacheSize: 128,
-        pool: pool.NewObjectPool[cell](func() *cell { return &cell{} }, func(c *cell) {
-            c.bs = nil
-            c.callback = nil
-        }),
+        pool: sync.Pool{
+            New: func() any { return &cell{} },
+        },
     }
     a.cache = make(chan *cell)
     close(a.cache)
@@ -56,7 +54,7 @@ type AsyncWrite struct {
     BusySize  int //待写入数据超过这个数字,开始丢弃数据
     cache     chan *cell
     bf        bytes.Buffer
-    pool      *pool.ObjectPool[cell]
+    pool      sync.Pool
     *sync.Mutex
 }
 
@@ -65,7 +63,7 @@ func (c *AsyncWrite) Write(p []byte) (n int, err error) {
 }
 
 func (c *AsyncWrite) WriterAsync(p []byte, callback func()) (err error) {
-    b := c.pool.Get()
+    b := c.pool.Get().(*cell)
     b.bs = p
     b.callback = callback
     defer func() {
@@ -106,6 +104,8 @@ func (c *AsyncWrite) WriterAsync(p []byte, callback func()) (err error) {
                         if ce.callback != nil {
                             ce.callback()
                         }
+                        ce.callback = nil
+                        ce.bs = nil
                         c.pool.Put(ce)
                         if c.bf.Len() > c.FlushSize {
                             c.sync()
@@ -119,6 +119,8 @@ func (c *AsyncWrite) WriterAsync(p []byte, callback func()) (err error) {
                                 if ce.callback != nil {
                                     ce.callback()
                                 }
+                                ce.callback = nil
+                                ce.bs = nil
                                 c.pool.Put(ce)
                             }
                         }
