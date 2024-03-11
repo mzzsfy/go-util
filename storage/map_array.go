@@ -90,8 +90,8 @@ func (m *arrayMap[K, V]) Count() int {
 func MapTypeArray[K comparable, V any](size int) MakeMap[K, V] {
     return MapImpl[K, V](func() Map[K, V] {
         return &arrayMap[K, V]{
-            keys:   make([]K, size, 0),
-            values: make([]V, size, 0),
+            keys:   make([]K, 0, size),
+            values: make([]V, 0, size),
         }
     })
 }
