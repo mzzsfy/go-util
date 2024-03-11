@@ -26,11 +26,19 @@ var (
         l.plugin = nil
         l.context = nil
     })
-    globalLog  = storage.NewMap[string, *logger]()
+    globalLog  = storage.NewMap(storage.MapTypeSwiss[string, *logger](32))
     globalLock = sync.RWMutex{}
-    // ShowNameMaxLength 默认日志名称的最大长度
-    ShowNameMaxLength = 18
+    // showNameMaxLength 默认日志名称的最大长度
+    showNameMaxLength = 18
 )
+
+// SetLogNameMaxLength 设置日志名称的最大长度,默认18
+func SetLogNameMaxLength(length int) {
+    globalLock.Lock()
+    globalLock.Unlock()
+    showNameMaxLength = length
+    globalLog.Clean()
+}
 
 // AllLogger 获取所有的logger 名称,建议搭配 seq包使用
 // seq.From(logger.AllLogger()).XXX
@@ -66,18 +74,18 @@ func Logger(name string, options ...Option) Log {
                 showName := fullname
                 if CompressedLogName {
                     //xxx.xxx.xxx.xxx => x.x.xxx.xxx
-                    if len([]rune(showName)) > ShowNameMaxLength {
+                    if len([]rune(showName)) > showNameMaxLength {
                         for i := range newNames[:len(newNames)-1] {
                             newNames[i] = string([]rune(newNames[i])[:1])
                             showName = strings.Join(newNames, ".")
-                            if len(showName) <= ShowNameMaxLength {
+                            if len(showName) <= showNameMaxLength {
                                 break
                             }
                         }
                         //x.x.xxx.xxx => x..xxx.xxx
                         showName1 := []rune(showName)
-                        if len(showName1) > ShowNameMaxLength {
-                            idx := len(showName1) - ShowNameMaxLength + 3
+                        if len(showName1) > showNameMaxLength {
+                            idx := len(showName1) - showNameMaxLength + 3
                             if showName[idx] == '.' {
                                 showName = string(fullname[:2]) + ".." + string(showName1[idx+1:])
                             } else {
@@ -87,8 +95,8 @@ func Logger(name string, options ...Option) Log {
                     }
                 } else {
                     showName1 := []rune(showName)
-                    if len(showName1) > ShowNameMaxLength {
-                        idx := len(showName1) - ShowNameMaxLength + 3
+                    if len(showName1) > showNameMaxLength {
+                        idx := len(showName1) - showNameMaxLength + 3
                         if showName[idx] == '.' {
                             showName = string(showName1[:2]) + ".." + string(showName1[idx+1:])
                         } else {
@@ -96,8 +104,8 @@ func Logger(name string, options ...Option) Log {
                         }
                     }
                 }
-                if len([]rune(showName)) < ShowNameMaxLength {
-                    showName = strings.Repeat(" ", ShowNameMaxLength-len([]rune(showName))) + showName
+                if len([]rune(showName)) < showNameMaxLength {
+                    showName = strings.Repeat(" ", showNameMaxLength-len([]rune(showName))) + showName
                 }
                 l1 := logPool.Get()
                 l1.showName = showName

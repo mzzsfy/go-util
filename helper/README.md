@@ -76,6 +76,8 @@ todo
 
 ## dfa查找
 
+支持字符串等基于 []byte 的类型
+
 ```go
 dfa:=NewDfa(MakeNewDfsNode[bool](i))
 dfa.Add([]byte("aaa"), true) //可以存储这个词对应的信息

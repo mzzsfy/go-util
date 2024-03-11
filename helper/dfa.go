@@ -113,11 +113,27 @@ func (d *Dfa[T]) AddSimple(data []byte) {
     d.Add(data, v)
 }
 
+func (d *Dfa[T]) AddStr(data string, v T) {
+    d.Add(StringToBytes(data), v)
+}
+
+func (d *Dfa[T]) AddStrSimple(data string) {
+    var v T
+    d.AddStr(data, v)
+}
+
 func (d *Dfa[T]) Test(data []byte) Node[T] {
     if len(data) == 0 {
         return d.root
     }
     return d.root.Next(data)
+}
+
+func (d *Dfa[T]) TestStr(data string) Node[T] {
+    if len(data) == 0 {
+        return d.root
+    }
+    return d.root.Next(StringToBytes(data))
 }
 
 // NewDfa 创建一个Dfa,配合 MakeNewDfsNode 使用
