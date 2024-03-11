@@ -89,14 +89,17 @@ func (m *concurrentSwissMap[K, V]) Count() int {
 
 func (m *concurrentSwissMap[K, V]) Iter(cb func(k K, v V) (stop bool)) bool {
     for i := 0; i < slotNumber; i++ {
-        m.locks[i].Lock()
-        if m.shards[i] != nil {
-            if m.shards[i].Iter(cb) {
-                m.locks[i].Unlock()
-                return true
-            }
+        m.locks[i].RLock()
+        if m.shards[i] == nil {
+            m.locks[i].RUnlock()
+            continue
         }
-        m.locks[i].Unlock()
+        if func() bool {
+            defer m.locks[i].RUnlock()
+            return m.shards[i].Iter(cb)
+        }() {
+            return true
+        }
     }
     return false
 }

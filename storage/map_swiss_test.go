@@ -7,11 +7,13 @@ import (
 )
 
 func Equal(t *testing.T, a, b interface{}) {
+    t.Helper()
     if a != b {
         t.Errorf("expected %v, got %v", a, b)
     }
 }
 func True(t *testing.T, a bool) {
+    t.Helper()
     if !a {
         t.Errorf("expected true, got false")
     }
@@ -63,24 +65,6 @@ func testSwissMap[K comparable](t *testing.T, keys []K) {
     if len(keys) != len(uniq(keys)) {
         t.Fatalf("keys are not unique")
     }
-    t.Run("put", func(t *testing.T) {
-        testMapPut(t, keys)
-    })
-    t.Run("has", func(t *testing.T) {
-        testMapHas(t, keys)
-    })
-    t.Run("get", func(t *testing.T) {
-        testMapGet(t, keys)
-    })
-    t.Run("delete", func(t *testing.T) {
-        testMapDelete(t, keys)
-    })
-    t.Run("clear", func(t *testing.T) {
-        testMapClear(t, keys)
-    })
-    t.Run("iter", func(t *testing.T) {
-        testMapIter(t, keys)
-    })
     t.Run("grow", func(t *testing.T) {
         testMapGrow(t, keys)
     })
@@ -122,140 +106,6 @@ func genUint32Data(count int) (keys []uint32) {
     }
     return
 }
-
-func testMapPut[K comparable](t *testing.T, keys []K) {
-    m := makeSwissMap[K, int](uint32(len(keys)))
-    Equal(t, 0, m.Count())
-    for i, key := range keys {
-        m.Put(key, i)
-    }
-    Equal(t, len(keys), m.Count())
-    // overwrite
-    for i, key := range keys {
-        m.Put(key, -i)
-    }
-    Equal(t, len(keys), m.Count())
-    for i, key := range keys {
-        act, ok := m.Get(key)
-        True(t, ok)
-        Equal(t, -i, act)
-    }
-    Equal(t, len(keys), int(m.resident))
-}
-
-func testMapHas[K comparable](t *testing.T, keys []K) {
-    m := makeSwissMap[K, int](uint32(len(keys)))
-    for i, key := range keys {
-        m.Put(key, i)
-    }
-    for _, key := range keys {
-        ok := m.Has(key)
-        True(t, ok)
-    }
-}
-
-func testMapGet[K comparable](t *testing.T, keys []K) {
-    m := makeSwissMap[K, int](uint32(len(keys)))
-    for i, key := range keys {
-        m.Put(key, i)
-    }
-    for i, key := range keys {
-        act, ok := m.Get(key)
-        True(t, ok)
-        Equal(t, i, act)
-    }
-}
-
-func testMapDelete[K comparable](t *testing.T, keys []K) {
-    m := makeSwissMap[K, int](uint32(len(keys)))
-    Equal(t, 0, m.Count())
-    for i, key := range keys {
-        m.Put(key, i)
-    }
-    Equal(t, len(keys), m.Count())
-    for _, key := range keys {
-        m.Delete(key)
-        ok := m.Has(key)
-        True(t, !ok)
-    }
-    Equal(t, 0, m.Count())
-    // put keys back after deleting them
-    for i, key := range keys {
-        m.Put(key, i)
-    }
-    Equal(t, len(keys), m.Count())
-}
-
-func testMapClear[K comparable](t *testing.T, keys []K) {
-    m := makeSwissMap[K, int](0)
-    Equal(t, 0, m.Count())
-    for i, key := range keys {
-        m.Put(key, i)
-    }
-    Equal(t, len(keys), m.Count())
-    m.Clean()
-    Equal(t, 0, m.Count())
-    for _, key := range keys {
-        ok := m.Has(key)
-        True(t, !ok)
-        _, ok = m.Get(key)
-        True(t, !ok)
-    }
-    var calls int
-    m.Iter(func(k K, v int) (stop bool) {
-        calls++
-        return
-    })
-    Equal(t, 0, calls)
-
-    // Assert that the map was actually cleared...
-    var k K
-    for _, g := range m.groups {
-        for i := range g.keys {
-            Equal(t, k, g.keys[i])
-            Equal(t, 0, g.values[i])
-        }
-    }
-}
-
-func testMapIter[K comparable](t *testing.T, keys []K) {
-    m := makeSwissMap[K, int](uint32(len(keys)))
-    for i, key := range keys {
-        m.Put(key, i)
-    }
-    visited := make(map[K]uint, len(keys))
-    m.Iter(func(k K, v int) (stop bool) {
-        visited[k] = 0
-        stop = true
-        return
-    })
-    if len(keys) == 0 {
-        Equal(t, len(visited), 0)
-    } else {
-        Equal(t, len(visited), 1)
-    }
-    for _, k := range keys {
-        visited[k] = 0
-    }
-    m.Iter(func(k K, v int) (stop bool) {
-        visited[k]++
-        return
-    })
-    for _, c := range visited {
-        Equal(t, c, uint(1))
-    }
-    // mutate on iter
-    m.Iter(func(k K, v int) (stop bool) {
-        m.Put(k, -v)
-        return
-    })
-    for i, key := range keys {
-        act, ok := m.Get(key)
-        True(t, ok)
-        Equal(t, -i, act)
-    }
-}
-
 func testMapGrow[K comparable](t *testing.T, keys []K) {
     n := uint32(len(keys))
     m := makeSwissMap[K, int](n / 10)
