@@ -74,7 +74,7 @@ func AppendNowTime(s Buffer) {
         lastMinute = min
         if lastMinute < 10 {
             lastMinuteBytes[0] = _0
-            lastMinuteBytes[1] = byte(lastMinute)
+            lastMinuteBytes[1] = _0 + byte(lastMinute)
         } else {
             copy(lastMinuteBytes[:], strconv.Itoa(lastMinute))
         }
