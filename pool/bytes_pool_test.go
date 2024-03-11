@@ -8,7 +8,7 @@ import (
     "time"
 )
 
-func TestBufferPool(t *testing.T) {
+func Test_bufferPool(t *testing.T) {
     bp := NewBufferPool()
     bp.SetMaxCap(1024)
 
@@ -22,7 +22,7 @@ func TestBufferPool(t *testing.T) {
     }
 }
 
-func TestBytePool(t *testing.T) {
+func Test_bytePool(t *testing.T) {
     bp := NewSimpleBytesPool()
     bp.SetMaxCap(1024)
     bp.SetInitCap(512)
