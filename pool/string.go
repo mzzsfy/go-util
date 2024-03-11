@@ -6,6 +6,15 @@ import (
     "sync/atomic"
 )
 
+func NewStringPool() *StringPool {
+    return &StringPool{
+        m: storage.NewMap[string, struct {
+            id    uint32
+            using uint32
+        }](),
+    }
+}
+
 // StringPool 字符串池,用数字代替字符串,用于Map的Key场景
 type StringPool struct {
     idGen uint32
