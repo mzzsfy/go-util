@@ -10,15 +10,15 @@ import (
 
 var (
     lastYear        int
-    lastYearBytes   [4]byte
+    lastYearBytes   = [4]byte{'0', '0', '0', '0'}
     lastMonth       int
-    lastMonthBytes  [2]byte
+    lastMonthBytes  = [2]byte{'0', '0'}
     lastDay         int
-    lastDayBytes    [2]byte
+    lastDayBytes    = [2]byte{'0', '0'}
     lastHour        int
-    lastHourBytes   [2]byte
+    lastHourBytes   = [2]byte{'0', '0'}
     lastMinute      int
-    lastMinuteBytes [2]byte
+    lastMinuteBytes = [2]byte{'0', '0'}
 )
 
 // AppendNowTime yyyy-MM-dd HH:mm:ss.SSS格式添加现在的时间
