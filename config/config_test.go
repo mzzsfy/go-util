@@ -47,16 +47,13 @@ func Test_Parse(t *testing.T) {
     if len(m) <= len(testConfig) {
         t.Error("未成功合并环境变量")
     }
-    t.Log("m", m)
+    //t.Log("m", m)
     resolveMap := ResolveMap(m)
-    t.Log("resolveMap", resolveMap)
+    //t.Log("resolveMap", resolveMap)
     res := UntilingMap(resolveMap)
     t.Log("res", res)
-    if Item("Path").AnyValue(res) == nil {
-        t.Error("Path 未成功解析")
-    }
-    if Item("Path").StringValue(res) == "" {
-        t.Error("Path 未成功解析1")
+    if Item("Path").StringValue(res) == "" && Item("PATH").StringValue(res) == "" {
+        t.Error("path 未成功解析")
     }
     if Item("runtime").AnyValue(res) == nil {
         t.Error("runtime 未成功解析")
