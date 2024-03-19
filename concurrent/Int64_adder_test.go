@@ -119,9 +119,10 @@ func Test_Int64Adder(t *testing.T) {
     if adder.Sum() != 500000 {
         t.Errorf("Expected sum to be 500000, got %d", adder.Sum())
     }
-    if adder.init == 0 {
-        t.Errorf("Expected init to be 1, got %d", adder.init)
-    }
+    //单核机器上,并不一定有竞争导致init
+    //if adder.init == 0 {
+    //    t.Errorf("Expected init to be not 0, got %d", adder.init)
+    //}
     //if adder.base == 0 {
     //    t.Errorf("Expected base to be 0, got %d", adder.base)
     //}
