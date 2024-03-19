@@ -2,7 +2,4 @@
 
 package concurrent
 
-type c struct {
-    int64
-    _ [120]byte
-}
+const cCacheKillerPaddingLength = 120

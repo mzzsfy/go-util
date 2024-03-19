@@ -21,6 +21,24 @@ var slotNumber, modNumber = func() (int, int) {
     return n, n - 1
 }()
 
+type c struct {
+    int64
+    // 对齐字节,cpu缓存一般为128字节,默认设置为性价比最高的配置,如果你有其他需求,可以使用 tag:concurrent_128bit 或者 tag:concurrent_32bit 减少内存占用
+    // 详细说明参考README.md
+    // $ go test -bench=Benchmark_bit.+ ./concurrent
+    // goos: windows
+    // goarch: amd64
+    // pkg: github.com/mzzsfy/go-util/concurrent
+    // cpu: Intel(R) Core(TM) i5-8500 CPU @ 3.00GHz
+    // Benchmark_bitInt64Adder_0Bit-6             61538             19522 ns/op
+    // Benchmark_bitInt64Adder_8Bit-6             85107             13847 ns/op
+    // Benchmark_bitInt64Adder_16Bit-6           111110              9855 ns/op
+    // Benchmark_bitInt64Adder_24Bit-6           154597              8164 ns/op
+    // Benchmark_bitInt64Adder_56Bit-6           239994              5650 ns/op
+    // Benchmark_bitInt64Adder_120Bit-6          272733              5006 ns/op
+    _ [cCacheKillerPaddingLength]byte
+}
+
 // Int64Adder 用于统计int64类型的数据
 // 作用类似于java.util.concurrent.atomic.LongAdder,并参考了部分代码
 type Int64Adder struct {
@@ -50,7 +68,7 @@ func (l *Int64Adder) Add(goid int64, v int64) {
             runtime.Gosched()
         }
     }
-    //无扩容,使用该工具场景时,并不会特别需要节省内存
+    //无扩容功能,使用该工具场景,并不会特别需要节省内存
     atomic.AddInt64(&l.values[int(goid)&modNumber].int64, v)
 }
 
