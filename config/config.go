@@ -2,6 +2,7 @@ package config
 
 import (
     "fmt"
+    "os"
     "reflect"
     "sort"
     "strconv"
@@ -11,6 +12,14 @@ import (
 var (
     // Parser 需要手动注册解析工具
     Parser = map[string]func(data []byte) map[string]any{
+        //"json": func(data []byte) map[string]any {
+        //    r := make(map[string]any)
+        //    err := json.Unmarshal(data, &r)
+        //    if err != nil {
+        //        return nil
+        //    }
+        //    return r
+        //},
         //"yaml": func(data []byte) map[string]any {
         //    r := make(map[string]any)
         //    err := yaml.Unmarshal(data, r)
@@ -22,14 +31,14 @@ var (
     }
     FileTypeHandler = []func(string) string{
         func(name string) string {
-            if strings.HasSuffix(name, ".json") {
-                return "json"
-            } else if strings.HasSuffix(name, ".toml") {
-                return "toml"
-            } else if strings.HasSuffix(name, ".yml") || strings.HasSuffix(name, ".yaml") {
+            if strings.HasSuffix(name, ".yml") {
                 return "yaml"
             }
-            return ""
+            i := strings.LastIndexByte(name, '.')
+            if i < 0 {
+                return ""
+            }
+            return name[i+1:]
         },
     }
 )
@@ -40,6 +49,7 @@ type File struct {
     Order int
 }
 
+// ParseConfigs2Map 解析多个配置文件为并合并为单个map
 func ParseConfigs2Map(files ...*File) (map[string]any, error) {
     ds := ParseConfigs(files)
     l := len(ds)
@@ -48,6 +58,8 @@ func ParseConfigs2Map(files ...*File) (map[string]any, error) {
     }
     return UntilingMap(ResolveMap(ds[l-1])), nil
 }
+
+// ParseConfigs 解析多个配置文件
 func ParseConfigs(files []*File) []map[string]any {
     sort.Slice(files, func(i, j int) bool {
         return files[i].Order > files[j].Order
@@ -59,15 +71,16 @@ func ParseConfigs(files []*File) []map[string]any {
     return r
 }
 
+// ParseConfig 解析单个配置文件
 func ParseConfig(file *File) map[string]any {
-    f := Parser[FileType(file.Name)]
+    f := Parser[fileType(file.Name)]
     if f == nil {
         return nil
     }
     return f(file.Data)
 }
 
-func FileType(name string) string {
+func fileType(name string) string {
     for _, f := range FileTypeHandler {
         s := f(name)
         if s != "" {
@@ -77,7 +90,7 @@ func FileType(name string) string {
     panic("无法解析文件类型:" + name)
 }
 
-// ResolveMap 只支持单层map,处理${xxx:default}占位符,无法处理的保留原始值
+// ResolveMap 处理${xxx:default}占位符,无法处理的保留原始值,只支持单层结构的map,使用 TilingMap 转换为单层结构
 func ResolveMap(data map[string]any) map[string]any {
     for k, v := range data {
         vv := reflect.Indirect(reflect.ValueOf(v))
@@ -133,7 +146,7 @@ x:
     return r1
 }
 
-// MergeAndTilingMap 合并多个map的属性
+// MergeAndTilingMap 平铺并合并2个map
 func MergeAndTilingMap(highOrder, lowOrder map[string]any) map[string]any {
     hm := TilingMap(highOrder)
     lm := TilingMap(lowOrder)
@@ -146,6 +159,8 @@ func MergeAndTilingMap(highOrder, lowOrder map[string]any) map[string]any {
     }
     return r
 }
+
+// MergeMultiAndTilingMap 平铺并合并多个map
 func MergeMultiAndTilingMap(maps ...map[string]any) map[string]any {
     l := len(maps)
     for i := 1; i < l; i++ {
@@ -155,6 +170,17 @@ func MergeMultiAndTilingMap(maps ...map[string]any) map[string]any {
 }
 
 // TilingMap 将多层级map平铺为单层级的map
+// 例如:
+//  map[string]any{
+//      "test": "test",
+//      "test2": map[string]any{"s":"v", "i":1 }
+//     }
+// 会转换为
+//  map[string]any{
+//      "test": "test",
+//      "test2.s": "v",
+//      "test2.i": i,
+//     }
 func TilingMap(m map[string]any) map[string]any {
     r := make(map[string]any, len(m))
     for k, v := range m {
@@ -167,9 +193,13 @@ func TilingMap(m map[string]any) map[string]any {
 func GetByPath(m map[string]any, path string) any {
     return getByPath(reflect.ValueOf(m), path)
 }
+
+// GetByPathSlice 类似 GetByPath
 func GetByPathSlice(m []any, path string) any {
     return getByPath(reflect.ValueOf(m), path)
 }
+
+// GetByPathAny 类似 GetByPath,任意类型的包装方法
 func GetByPathAny(obj any, path string) any {
     return getByPath(reflect.ValueOf(obj), path)
 }
@@ -232,7 +262,7 @@ func tilingMap(prefix string, vv reflect.Value, r map[string]any) {
     }
 }
 
-// UntilingMap 单层map转多层map
+// UntilingMap 单层map转多层map, TilingMap 的逆操作
 func UntilingMap(m map[string]any) map[string]any {
     r := make(map[string]any, len(m))
     for k, v := range m {
@@ -311,4 +341,14 @@ func FindFirstKey(path string) (key, nextKey string) {
         return path, next
     }
     return path, ""
+}
+
+// EnvMap 获取map格式的环境变量
+func EnvMap() map[string]any {
+    envMap := make(map[string]any)
+    for _, e := range os.Environ() {
+        k, v, _ := strings.Cut(e, "=")
+        envMap[strings.TrimSpace(k)] = strings.TrimSpace(v)
+    }
+    return envMap
 }

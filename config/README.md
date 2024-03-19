@@ -2,6 +2,14 @@
 
 工作模式类似spring配置工具类
 
+标准使用方式:  
+1. 读取文件并解析为map
+2. 将所有配置使用`MergeMultiAndTilingMap`扁平化并合并为单个map
+3. 单map使用`UntilingMap`转换为正常结构的map
+4. 使用`Item("路径")`或`GetByPath(config,"路径")`获取配置
+
+参考 [config_test.go](config_test.go)
+
 ```go
 package main
 
