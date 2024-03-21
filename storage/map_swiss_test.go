@@ -120,7 +120,7 @@ func testMapGrow[K comparable](t *testing.T, keys []K) {
 }
 
 func testSwissMapCapacity[K comparable](t *testing.T, gen func(n int) []K) {
-    // Capacity() behavior depends on |groupSize|
+    // capacity() behavior depends on |groupSize|
     // which varies by processor architecture.
     caps := []uint32{
         1 * maxAvgGroupLoad,
@@ -136,13 +136,13 @@ func testSwissMapCapacity[K comparable](t *testing.T, gen func(n int) []K) {
     for _, c := range caps {
         m := makeSwissMap[K, K](c)
         m1 := m
-        Equal(t, int(c), m1.Capacity())
+        Equal(t, int(c), m1.capacity())
         keys := gen(rand.Intn(int(c)))
         for _, k := range keys {
             m.Put(k, k)
         }
-        Equal(t, int(c)-len(keys), m1.Capacity())
-        Equal(t, int(c), m.Count()+m1.Capacity())
+        Equal(t, int(c)-len(keys), m1.capacity())
+        Equal(t, int(c), m.Count()+m1.capacity())
     }
 }
 
@@ -255,4 +255,52 @@ func expected(x int) (groups uint32) {
         groups = 1
     }
     return
+}
+
+//go test -run='^\QTestBenchmarkSwissMap\E$/^\Qswiss_w\E$' -cpuprofile=cpu.pprof ./storage
+func TestBenchmarkSwissMap(t *testing.T) {
+    n := 300_000
+    n1 := 1_000_000
+    t.Run("swiss_r", func(t *testing.T) {
+        m := makeSwissMap[int, int](1)
+        for i := 0; i < n1; i++ {
+            m.Put(i, i)
+        }
+        v := 1000 * n
+        ints := make([]int, n1)
+        for i := 0; i < n1; i++ {
+            ints[i] = rand.Intn(math.MaxInt) % n1
+        }
+        for i := 0; i < v; i++ {
+            m.Get(ints[i%n1])
+        }
+    })
+
+    t.Run("swiss_w", func(t *testing.T) {
+        m := makeSwissMap[int, int](1)
+        v := 1000 * n
+        ints := make([]int, n1)
+        for i := 0; i < n1; i++ {
+            ints[i] = rand.Intn(math.MaxInt) % n1
+        }
+        for i := 0; i < v; i++ {
+            m.Put(ints[i%n1], i)
+        }
+    })
+
+    t.Run("swiss_rw", func(t *testing.T) {
+        m := makeSwissMap[int, int](1)
+        v := 1000 * n
+        ints := make([]int, n1)
+        for i := 0; i < n1; i++ {
+            ints[i] = rand.Intn(math.MaxInt) % n1
+        }
+        for i := 0; i < v; i++ {
+            if i%2 == 0 {
+                m.Get(ints[i%n1])
+            } else {
+                m.Put(ints[i%n1], i)
+            }
+        }
+    })
 }

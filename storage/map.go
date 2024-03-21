@@ -17,6 +17,21 @@ type IterDeleteMap[K comparable, V any] interface {
     IterDelete(cb func(k K, v V) (del, stop bool)) bool
 }
 
+func IterDelete[K comparable, V any](m Map[K, V], cb func(k K, v V) (del, stop bool)) bool {
+    var delKeys []K
+    r := m.Iter(func(k K, v V) bool {
+        del, stop := cb(k, v)
+        if del {
+            delKeys = append(delKeys, k)
+        }
+        return stop
+    })
+    for _, k := range delKeys {
+        m.Delete(k)
+    }
+    return r
+}
+
 type MakeMap[K comparable, V any] interface {
     createMap() Map[K, V]
 }

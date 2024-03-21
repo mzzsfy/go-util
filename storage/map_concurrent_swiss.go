@@ -105,18 +105,7 @@ func (m *concurrentSwissMap[K, V]) Iter(cb func(k K, v V) (stop bool)) bool {
 }
 
 func (m *concurrentSwissMap[K, V]) IterDelete(cb func(k K, v V) (del bool, stop bool)) bool {
-    var delKeys []K
-    r := m.Iter(func(k K, v V) bool {
-        del, stop := cb(k, v)
-        if del {
-            delKeys = append(delKeys, k)
-        }
-        return stop
-    })
-    for _, k := range delKeys {
-        m.Delete(k)
-    }
-    return r
+    return IterDelete[K, V](m, cb)
 }
 
 func makeSwissConcurrentMap[K comparable, V any]() *concurrentSwissMap[K, V] {

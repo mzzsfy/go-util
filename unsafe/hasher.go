@@ -32,7 +32,9 @@ func (h hasher[K]) Hash(key K) uint64 {
 }
 
 func (h hasher[K]) NewSeed() Hasher[K] {
-    return NewHasher[K]()
+    h1 := NewHasher[K]()
+    h1.(*hasher[K]).seed = newHashSeed()
+    return h1
 }
 
 func (h hasher[K]) WithSeed(seed uintptr) Hasher[K] {

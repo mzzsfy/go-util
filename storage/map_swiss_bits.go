@@ -1,7 +1,5 @@
 //go:build !amd64 || nosimd
 
-//nolint:all
-
 package storage
 
 import (

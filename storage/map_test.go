@@ -3,6 +3,7 @@ package storage
 import (
     "github.com/mzzsfy/go-util/seq"
     "math/rand"
+    "strconv"
     "testing"
 )
 
@@ -62,9 +63,58 @@ func Test_AllMap(t *testing.T) {
     }
 }
 
+func BenchmarkMap(b *testing.B) {
+    n := 1
+    t1 := []struct {
+        name string
+        m    func() Map[int, int]
+    }{
+        {"Go", MapTypeGo[int, int](0).createMap},
+        {"Swiss", MapTypeSwiss[int, int](0).createMap},
+        {"Array", MapTypeArray[int, int](0).createMap},
+    }
+    for _, n1 := range []int{16, 256, 2048, 65536} {
+        for _, m := range t1 {
+            b.Run(m.name+"_r_"+strconv.Itoa(n1), func(b *testing.B) {
+                m2 := m.m()
+                for i := 0; i < n1; i++ {
+                    m2.Put(i, i)
+                }
+                b.ResetTimer()
+                v := b.N * n
+                for i := 0; i < v; i++ {
+                    m2.Get(i % n1)
+                }
+            })
+        }
+        for _, m := range t1 {
+            b.Run(m.name+"_w_"+strconv.Itoa(n1), func(b *testing.B) {
+                m2 := m.m()
+                b.ResetTimer()
+                v := b.N * n
+                for i := 0; i < v; i++ {
+                    m2.Put(i%n1, i)
+                }
+            })
+        }
+        for _, m := range t1 {
+            b.Run(m.name+"_rw_"+strconv.Itoa(n1), func(b *testing.B) {
+                m2 := m.m()
+                b.ResetTimer()
+                v := b.N * n
+                for i := 0; i < v; i++ {
+                    if i%2 == 0 {
+                        m2.Get(i % n1)
+                    } else {
+                        m2.Put(i%n1, i)
+                    }
+                }
+            })
+        }
+    }
+}
+
 func testMapCapacity[K comparable](t *testing.T, gen func(n int) []K, makeMap func() Map[K, int]) {
-    // Capacity() behavior depends on |groupSize|
-    // which varies by processor architecture.
     caps := []uint32{
         1 * maxAvgGroupLoad,
         2 * maxAvgGroupLoad,

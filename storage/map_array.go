@@ -87,6 +87,7 @@ func (m *arrayMap[K, V]) Count() int {
     return m.count
 }
 
+// MapTypeArray array底层的map,适合小数据量(低于50个元素),空间利用率高,性能与key的数量成正比
 func MapTypeArray[K comparable, V any](size int) MakeMap[K, V] {
     return MapImpl[K, V](func() Map[K, V] {
         return &arrayMap[K, V]{

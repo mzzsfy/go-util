@@ -94,7 +94,7 @@ func MakeNewDfsNode[T any](size int) func([]byte, T) Node[T] {
     }
 }
 
-//Dfa Deterministic Finite Automaton
+//Dfa Deterministic Finite Automaton,用于快速匹配内容
 type Dfa[T any] struct {
     lock sync.Mutex
     root Node[T]

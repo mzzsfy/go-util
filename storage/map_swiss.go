@@ -50,9 +50,9 @@ func (m *swissMap[K, V]) IterDelete(cb func(k K, v V) (del bool, stop bool)) boo
     })
 }
 
-// Capacity returns the number of additional elements
+// capacity returns the number of additional elements
 // the can be added to the Map before resizing.
-func (m *swissMap[K, V]) Capacity() int {
+func (m *swissMap[K, V]) capacity() int {
     return int(m.limit - m.resident)
 }
 
@@ -98,39 +98,19 @@ func MapTypeSwiss[K comparable, V any](size uint32) MakeMap[K, V] {
 }
 
 func (m *swissMap[K, V]) HasWithHash(key K, hash uint64) (ok bool) {
-    hi, lo := splitHash(hash)
-    g := probeStart(hi, len(m.groups))
-    for { // inlined find loop
-        matches := metaMatchH2(&m.ctrl[g], lo)
-        for matches != 0 {
-            s := nextMatch(&matches)
-            if key == m.groups[g].keys[s] {
-                ok = true
-                return
-            }
-        }
-        // |key| is not in group |g|,
-        // stop probing if we see an empty slot
-        matches = metaMatchEmpty(&m.ctrl[g])
-        if matches != 0 {
-            ok = false
-            return
-        }
-        g++ // linear probing
-        if g >= uint32(len(m.groups)) {
-            g = 0
-        }
-    }
+    _, b := m.GetWithHash(key, hash)
+    return b
 }
 
 func (m *swissMap[K, V]) GetWithHash(key K, hash uint64) (value V, ok bool) {
     hi, lo := splitHash(hash)
     g := probeStart(hi, len(m.groups))
-    for { // inlined find loop
+    for {
         matches := metaMatchH2(&m.ctrl[g], lo)
         for matches != 0 {
             s := nextMatch(&matches)
-            if key == m.groups[g].keys[s] {
+            k := m.groups[g].keys[s]
+            if key == k {
                 value, ok = m.groups[g].values[s], true
                 return
             }
@@ -161,12 +141,13 @@ func (m *swissMap[K, V]) PutWithHash(key K, value V, hash uint64) {
     }
     hi, lo := splitHash(hash)
     g := probeStart(hi, len(m.groups))
-    for { // inlined find loop
+    for {
         matches := metaMatchH2(&m.ctrl[g], lo)
         for matches != 0 {
             s := nextMatch(&matches)
-            if key == m.groups[g].keys[s] { // update
-                m.groups[g].keys[s] = key
+            k := m.groups[g].keys[s] //缓存命中率低,如何提高?
+            if key == k {
+                //g2.keys[s] = key
                 m.groups[g].values[s] = value
                 return
             }
@@ -196,7 +177,8 @@ func (m *swissMap[K, V]) DeleteWithHash(key K, hash uint64) (ok bool) {
         matches := metaMatchH2(&m.ctrl[g], lo)
         for matches != 0 {
             s := nextMatch(&matches)
-            if key == m.groups[g].keys[s] {
+            g2 := &m.groups[g]
+            if key == g2.keys[s] {
                 ok = true
                 // optimization: if |m.ctrl[g]| contains any empty
                 // metadata bytes, we can physically delete |key|
@@ -214,8 +196,8 @@ func (m *swissMap[K, V]) DeleteWithHash(key K, hash uint64) (ok bool) {
                 }
                 var k K
                 var v V
-                m.groups[g].keys[s] = k
-                m.groups[g].values[s] = v
+                g2.keys[s] = k
+                g2.values[s] = v
                 return
             }
         }
@@ -233,8 +215,15 @@ func (m *swissMap[K, V]) DeleteWithHash(key K, hash uint64) (ok bool) {
     }
 }
 
-// Clear removes all elements from the swissMap1.
+// Clean removes all elements from the swissMap1.
 func (m *swissMap[K, V]) Clean() {
+    if cap(m.ctrl) > 16 {
+        m.ctrl = make([]metadata, 1)
+        m.groups = make([]group[K, V], 1)
+    } else {
+        m.ctrl = m.ctrl[:1]
+        m.groups = m.groups[:1]
+    }
     for i, c := range m.ctrl {
         for j := range c {
             m.ctrl[i][j] = empty
@@ -243,10 +232,9 @@ func (m *swissMap[K, V]) Clean() {
     var k K
     var v V
     for i := range m.groups {
-        g := &m.groups[i]
-        for i := range g.keys {
-            g.keys[i] = k
-            g.values[i] = v
+        for i2 := range m.groups[i].keys {
+            m.groups[i].keys[i2] = k
+            m.groups[i].values[i2] = v
         }
     }
     m.resident, m.dead = 0, 0
@@ -257,8 +245,6 @@ func (m *swissMap[K, V]) Clean() {
 // for un-mutated Maps, every key will be visited once. If the swissMap1 is
 // Mutated during iteration, mutations will be reflected on return from
 // Iter, but the set of keys visited by Iter is non-deterministic.
-//
-//nolint:gosec
 func (m *swissMap[K, V]) Iter(cb func(k K, v V) (stop bool)) bool {
     // take a consistent view of the table in case
     // we rehash during iteration
@@ -266,11 +252,13 @@ func (m *swissMap[K, V]) Iter(cb func(k K, v V) (stop bool)) bool {
     // pick a random starting group
     g := randIntN(len(groups))
     for n := 0; n < len(groups); n++ {
-        for s, c := range ctrl[g] {
+        g2 := &groups[g]
+        for s := 0; s < len(ctrl[g]); s++ {
+            c := ctrl[g][s]
             if c == empty || c == tombstone {
                 continue
             }
-            k, v := groups[g].keys[s], groups[g].values[s]
+            k, v := g2.keys[s], g2.values[s]
             if stop := cb(k, v); stop {
                 return stop
             }
@@ -297,6 +285,7 @@ func (m *swissMap[K, V]) nextSize() (n uint32) {
 }
 
 func (m *swissMap[K, V]) rehash(n uint32) {
+    //println("rehash", m.resident, m.limit, n, len(m.groups), len(m.ctrl))
     groups, ctrl := m.groups, m.ctrl
     m.groups = make([]group[K, V], n)
     m.ctrl = make([]metadata, n)

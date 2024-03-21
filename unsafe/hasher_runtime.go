@@ -1,7 +1,6 @@
 package unsafe
 
 import (
-    "math/rand"
     "unsafe"
 )
 
@@ -13,11 +12,10 @@ func getRuntimeHasher[K comparable]() (h hashFn) {
     return
 }
 
-var hashSeed = uintptr(rand.Int())
+var hashSeed = newHashSeed()
 
-func newHashSeed() uintptr {
-    return uintptr(rand.Int())
-}
+//go:linkname newHashSeed runtime.fastrand64
+func newHashSeed() uintptr
 
 // noescape hides a pointer from escape analysis. It is the identity function
 // but escape analysis doesn't think the output depends on the input.

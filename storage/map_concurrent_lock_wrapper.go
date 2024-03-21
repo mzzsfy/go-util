@@ -57,18 +57,7 @@ func (m *rwWrapper[K, V]) Iter(cb func(k K, v V) (stop bool)) bool {
 }
 
 func (m *rwWrapper[K, V]) IterDelete(cb func(k K, v V) (del bool, stop bool)) bool {
-    var delKeys []K
-    r := m.Iter(func(k K, v V) bool {
-        del, stop := cb(k, v)
-        if del {
-            delKeys = append(delKeys, k)
-        }
-        return stop
-    })
-    for _, k := range delKeys {
-        m.Delete(k)
-    }
-    return r
+    return IterDelete[K, V](m, cb)
 }
 
 // MapTypeConcurrentLockWrapper 轻量级的并发包装
