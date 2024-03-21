@@ -1,6 +1,7 @@
 package unsafe
 
 import (
+    "strconv"
     "testing"
     "unsafe"
 )
@@ -13,20 +14,34 @@ func Test_GetWithHash(t *testing.T) {
 }
 
 func Test_Hash(t *testing.T) {
-    h := NewHasher[int]()
-    h1 := h.NewSeed()
-    h2 := h.NewSeed()
-    h3 := h.NewSeed()
-    for j := 0; j < 10; j++ {
-        t.Logf("hash%d:%b", j, h1.Hash(j))
-        if h1.Hash(j) != h1.Hash(j) {
-            t.Error("hash1 not equal")
+    t.Run("hash_int", func(t *testing.T) {
+        h0 := NewHasher[int]()
+        h1 := h0.NewSeed()
+        h2 := h0.NewSeed()
+        h3 := h0.NewSeed()
+        for j := 0; j < 10; j++ {
+            for _, h := range []Hasher[int]{h1, h2, h3} {
+                t.Logf("hash%d:%b", j, h.Hash(j))
+                if h.Hash(j) != h.Hash(j) {
+                    t.Error("hash not equal")
+                }
+            }
         }
-        //}
-        //for j := 0; j < 10; j++ {
-        t.Logf("hash%d:%b", j, h2.Hash(j))
-        //}
-        //for j := 0; j < 10; j++ {
-        t.Logf("hash%d:%b", j, h3.Hash(j))
-    }
+    })
+
+    t.Run("hash_str", func(t *testing.T) {
+        h0 := NewHasher[string]()
+        h1 := h0.NewSeed()
+        h2 := h0.NewSeed()
+        h3 := h0.NewSeed()
+        for j := 0; j < 10; j++ {
+            for _, h := range []Hasher[string]{h1, h2, h3} {
+                t.Logf("hash%d:%b", j, h.Hash(strconv.Itoa(j)))
+                if h.Hash(strconv.Itoa(j)) != h.Hash(strconv.Itoa(j)) {
+                    t.Error("hash not equal")
+                }
+            }
+        }
+    })
+
 }

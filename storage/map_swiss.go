@@ -138,6 +138,7 @@ func (m *swissMap[K, V]) Put(key K, value V) {
 func (m *swissMap[K, V]) PutWithHash(key K, value V, hash uint64) {
     if m.resident >= m.limit {
         m.rehash(m.nextSize())
+        //hash = m.hash.Hash(key)
     }
     hi, lo := splitHash(hash)
     g := probeStart(hi, len(m.groups))
@@ -147,7 +148,7 @@ func (m *swissMap[K, V]) PutWithHash(key K, value V, hash uint64) {
             s := nextMatch(&matches)
             k := m.groups[g].keys[s] //缓存命中率低,如何提高?
             if key == k {
-                //g2.keys[s] = key
+                //m.groups[g].keys[s] = key
                 m.groups[g].values[s] = value
                 return
             }
@@ -177,8 +178,7 @@ func (m *swissMap[K, V]) DeleteWithHash(key K, hash uint64) (ok bool) {
         matches := metaMatchH2(&m.ctrl[g], lo)
         for matches != 0 {
             s := nextMatch(&matches)
-            g2 := &m.groups[g]
-            if key == g2.keys[s] {
+            if key == m.groups[g].keys[s] {
                 ok = true
                 // optimization: if |m.ctrl[g]| contains any empty
                 // metadata bytes, we can physically delete |key|
@@ -196,8 +196,8 @@ func (m *swissMap[K, V]) DeleteWithHash(key K, hash uint64) (ok bool) {
                 }
                 var k K
                 var v V
-                g2.keys[s] = k
-                g2.values[s] = v
+                m.groups[g].keys[s] = k
+                m.groups[g].values[s] = v
                 return
             }
         }
@@ -292,7 +292,7 @@ func (m *swissMap[K, V]) rehash(n uint32) {
     for i := range m.ctrl {
         m.ctrl[i] = newEmptyMetadata()
     }
-    m.hash = m.hash.NewSeed()
+    //m.hash = m.hash.NewSeed()
     m.limit = n * maxAvgGroupLoad
     m.resident, m.dead = 0, 0
     for g := range ctrl {

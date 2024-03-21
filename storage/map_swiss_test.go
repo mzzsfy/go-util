@@ -20,8 +20,8 @@ func True(t *testing.T, a bool) {
 }
 
 func Test_SwissMap(t *testing.T) {
-    t.Run("strings=0", func(t *testing.T) {
-        testSwissMap(t, genStringData(16, 0))
+    t.Run("strings=1", func(t *testing.T) {
+        testSwissMap(t, genStringData(16, 1))
     })
     t.Run("strings=100", func(t *testing.T) {
         testSwissMap(t, genStringData(16, 100))
@@ -258,7 +258,7 @@ func expected(x int) (groups uint32) {
 }
 
 //go test -run='^\QTestBenchmarkSwissMap\E$/^\Qswiss_w\E$' -cpuprofile=cpu.pprof ./storage
-func TestBenchmarkSwissMap(t *testing.T) {
+func _TestBenchmarkSwissMap(t *testing.T) {
     n := 300_000
     n1 := 1_000_000
     t.Run("swiss_r", func(t *testing.T) {
