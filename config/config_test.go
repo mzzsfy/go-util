@@ -74,46 +74,46 @@ func Test_Parse(t *testing.T) {
         t.Error("test2.testFloat 未成功解析")
     }
     dataItem := NewDataItem(res, "")
-    if dataItem.ValueChild("Path").ValueString() == "" && dataItem.ValueChild("PATH").ValueString() == "" {
-        t.Error("dataItem.ValueChild 未成功解析")
+    if dataItem.Child("Path").String() == "" && dataItem.Child("PATH").String() == "" {
+        t.Error("dataItem.Child 未成功解析")
     }
-    if dataItem.ValueChild("runtime").ValueAny() == nil {
-        t.Error("dataItem.ValueChild 未成功解析")
+    if dataItem.Child("runtime").Any() == nil {
+        t.Error("dataItem.Child 未成功解析")
     }
-    if dataItem.ValueChild("runtime").ValueChild("workId").ValueInt() != 1 {
-        t.Error("dataItem.ValueChild 未成功解析")
+    if dataItem.Child("runtime").Child("workId").Int() != 1 {
+        t.Error("dataItem.Child 未成功解析")
     }
-    if dataItem.ValueChild("runtime.workId").ValueInt() != 1 {
-        t.Error("dataItem.ValueChild 未成功解析")
+    if dataItem.Child("runtime.workId").Int() != 1 {
+        t.Error("dataItem.Child 未成功解析")
     }
-    if dataItem.ValueChild("test2").ValueChild("test").ValueString() != "test" {
-        t.Error("dataItem.ValueChild 未成功解析")
+    if dataItem.Child("test2").Child("test").String() != "test" {
+        t.Error("dataItem.Child 未成功解析")
     }
-    if dataItem.ValueChild("test2.test").ValueString() != "test" {
-        t.Error("dataItem.ValueChild 未成功解析")
+    if dataItem.Child("test2.test").String() != "test" {
+        t.Error("dataItem.Child 未成功解析")
     }
-    if dataItem.ValueChild("test2.testBool").ValueBool() != true {
-        t.Error("dataItem.ValueChild 未成功解析")
+    if dataItem.Child("test2.testBool").Bool() != true {
+        t.Error("dataItem.Child 未成功解析")
     }
-    if dataItem.ValueChild("test2.testInt").ValueInt() != 1 {
-        t.Error("dataItem.ValueChild 未成功解析")
+    if dataItem.Child("test2.testInt").Int() != 1 {
+        t.Error("dataItem.Child 未成功解析")
     }
-    if dataItem.ValueChild("test2.testFloat").ValueFloat() != 1.1 {
-        t.Error("dataItem.ValueChild 未成功解析")
+    if dataItem.Child("test2.testFloat").Float() != 1.1 {
+        t.Error("dataItem.Child 未成功解析")
     }
-    if dataItem.ValueChild("test2.testArr").ValueChild("0").ValueInt() != 1 {
-        t.Error("dataItem.ValueChild 未成功解析")
+    if dataItem.Child("test2.testArr").Child("0").Int() != 1 {
+        t.Error("dataItem.Child 未成功解析")
     }
-    if dataItem.ValueChild("test2.testArr").ValueChild("1").ValueInt() != 2 {
-        t.Error("dataItem.ValueChild 未成功解析")
+    if dataItem.Child("test2.testArr").Child("1").Int() != 2 {
+        t.Error("dataItem.Child 未成功解析")
     }
-    if dataItem.ValueChild("test2.testArr").ValueChild("1").ValueString() != "2" {
-        t.Error("dataItem.ValueChild 未成功解析")
+    if dataItem.Child("test2.testArr").Child("1").String() != "2" {
+        t.Error("dataItem.Child 未成功解析")
     }
-    if dataItem.ValueChild("test2.testArr").ValueChild("2").ValueString() != "3" {
-        t.Error("dataItem.ValueChild 未成功解析")
+    if dataItem.Child("test2.testArr").Child("2").String() != "3" {
+        t.Error("dataItem.Child 未成功解析")
     }
-    if dataItem.ValueChild("test2.testArr").ValueChild("3").ValueFloat() != 4.0 {
-        t.Error("dataItem.ValueChild 未成功解析")
+    if dataItem.Child("test2.testArr").Child("3").Float() != 4.0 {
+        t.Error("dataItem.Child 未成功解析")
     }
 }
