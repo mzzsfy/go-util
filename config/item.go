@@ -11,25 +11,40 @@ func (i Item) String() string {
     return "configItem(" + string(i) + ")"
 }
 
-func (i Item) AnyValue(m any) any {
+func (i Item) ValueAny(m any) any {
     return GetByPathAny(m, string(i))
 }
 
-func (i Item) StringValue(m any) string {
-    v := GetByPathAny(m, string(i))
-    if v == nil {
-        return ""
-    }
-    if s, ok := v.(string); ok {
-        return s
-    }
-    return fmt.Sprint(v)
+func (i Item) ValueString(m any) string {
+    return i.DefaultString(m, "")
 }
 
-func (i Item) IntValue(m any) int {
+func (i Item) DefaultString(m any, defaultValue string) string {
     v := GetByPathAny(m, string(i))
     if v == nil {
-        return 0
+        return defaultValue
+    }
+    if s, ok := v.(string); ok {
+        if s == "" {
+            return defaultValue
+        }
+        return s
+    }
+    r := fmt.Sprint(v)
+    if r == "" {
+        return defaultValue
+    }
+    return r
+}
+
+func (i Item) ValueInt(m any) int {
+    return i.DefaultInt(m, 0)
+}
+
+func (i Item) DefaultInt(m any, defaultValue int) int {
+    v := GetByPathAny(m, string(i))
+    if v == nil {
+        return defaultValue
     }
     switch v1 := v.(type) {
     case int:
@@ -57,16 +72,24 @@ func (i Item) IntValue(m any) int {
     case float64:
         return int(v1)
     case string:
-        p, _ := strconv.ParseInt(v1, 10, 64)
+        p, err := strconv.ParseInt(v1, 10, 64)
+        if err != nil {
+            return defaultValue
+        }
         return int(p)
     default:
-        panic("无法转换为int")
+        return defaultValue
     }
 }
-func (i Item) FloatValue(m any) float64 {
+
+func (i Item) ValueFloat(m any) float64 {
+    return i.DefaultFloat(m, 0)
+}
+
+func (i Item) DefaultFloat(m any, defaultValue float64) float64 {
     v := GetByPathAny(m, string(i))
     if v == nil {
-        return 0
+        return defaultValue
     }
     switch v1 := v.(type) {
     case float32:
@@ -74,7 +97,10 @@ func (i Item) FloatValue(m any) float64 {
     case float64:
         return v1
     case string:
-        p, _ := strconv.ParseFloat(v1, 64)
+        p, err := strconv.ParseFloat(v1, 64)
+        if err != nil {
+            return defaultValue
+        }
         return p
     case int:
         return float64(v1)
@@ -97,14 +123,18 @@ func (i Item) FloatValue(m any) float64 {
     case uint64:
         return float64(v1)
     default:
-        panic("无法转换为float64")
+        return defaultValue
     }
 }
 
-func (i Item) BoolValue(m any) bool {
+func (i Item) ValueBool(m any) bool {
+    return i.DefaultBool(m, false)
+}
+
+func (i Item) DefaultBool(m any, defaultValue bool) bool {
     v := GetByPathAny(m, string(i))
     if v == nil {
-        return false
+        return defaultValue
     }
     if b, ok := v.(bool); ok {
         return b
@@ -118,5 +148,55 @@ func (i Item) BoolValue(m any) bool {
     if i1, ok := v.(uint); ok {
         return i1 > 0
     }
-    return false
+    return defaultValue
+}
+
+func NewDataItem(data any, key string) DataItem {
+    return DataItem{data, key}
+}
+
+type DataItem struct {
+    m   any
+    key string
+}
+
+func (i DataItem) String() string {
+    return "dataItem(" + i.key + ")"
+}
+
+func (i DataItem) ValueAny() any {
+    return GetByPathAny(i.m, i.key)
+}
+func (i DataItem) ValueString() string {
+    return Item(i.key).DefaultString(i.m, "")
+}
+func (i DataItem) DefaultString(defaultValue string) string {
+    return Item(i.key).DefaultString(i.m, defaultValue)
+}
+func (i DataItem) ValueInt() int {
+    return Item(i.key).DefaultInt(i.m, 0)
+}
+func (i DataItem) DefaultInt(defaultValue int) int {
+    return Item(i.key).DefaultInt(i.m, defaultValue)
+}
+func (i DataItem) ValueFloat() float64 {
+    return Item(i.key).DefaultFloat(i.m, 0)
+}
+func (i DataItem) DefaultFloat(defaultValue float64) float64 {
+    return Item(i.key).DefaultFloat(i.m, defaultValue)
+}
+func (i DataItem) ValueBool() bool {
+    return Item(i.key).DefaultBool(i.m, false)
+}
+func (i DataItem) DefaultBool(defaultValue bool) bool {
+    return Item(i.key).DefaultBool(i.m, defaultValue)
+}
+func (i DataItem) ValueChild(name string) DataItem {
+    if name == "" {
+        return i
+    }
+    if i.key == "" {
+        return DataItem{i.m, name}
+    }
+    return DataItem{i.m, i.key + "." + name}
 }
