@@ -14,9 +14,6 @@ func getRuntimeHasher[K comparable]() (h hashFn) {
 
 var hashSeed = newHashSeed()
 
-//go:linkname newHashSeed runtime.fastrand64
-func newHashSeed() uintptr
-
 // noescape hides a pointer from escape analysis. It is the identity function
 // but escape analysis doesn't think the output depends on the input.
 // noescape is inlined and currently compiles down to zero instructions.
