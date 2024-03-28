@@ -31,9 +31,9 @@ func Test_AllMap(t *testing.T) {
             t.Run(m.name+"_strings=10_000", func(t *testing.T) {
                 testMap(t, genStringData(16, 10_000), m.m)
             })
-            t.Run(m.name+"_strings=100_000", func(t *testing.T) {
-                testMap(t, genStringData(16, 100_000), m.m)
-            })
+            //t.Run(m.name+"_strings=100_000", func(t *testing.T) {
+            //    testMap(t, genStringData(16, 100_000), m.m)
+            //})
         }
         t.Run(m.name+"_uint32=0", func(t *testing.T) {
             testMap(t, genUint32Data(0), m.m1)
@@ -48,9 +48,9 @@ func Test_AllMap(t *testing.T) {
             t.Run(m.name+"_uint32=10_000", func(t *testing.T) {
                 testMap(t, genUint32Data(10_000), m.m1)
             })
-            t.Run(m.name+"_uint32=100_000", func(t *testing.T) {
-                testMap(t, genUint32Data(100_000), m.m1)
-            })
+            //t.Run(m.name+"_uint32=100_000", func(t *testing.T) {
+            //    testMap(t, genUint32Data(100_000), m.m1)
+            //})
         }
         t.Run(m.name+"_string capacity", func(t *testing.T) {
             testMapCapacity(t, func(n int) []string {

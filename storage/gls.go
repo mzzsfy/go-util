@@ -22,20 +22,10 @@ var (
     //glsMap          = NewMap(MapTypeConcurrentWrapper(MapTypeGo[int64, Map[uint32, any]](0)))
     glsMap = NewMap(MapTypeSwissConcurrent[int64, Map[uint32, any]]())
     //glsLock         concurrent.RwLocker = &sync.RWMutex{}
-    glsLock concurrent.RwLocker = noLock{}
+    glsLock concurrent.RwLocker = concurrent.NoLock{}
     //glsSubMapPool                       = sync.Pool{New: func() any { return NewMap(MapTypeSwiss[uint32, any](1)) }}
     glsSubMapPool = sync.Pool{New: func() any { return NewMap(MapTypeArray[uint32, any](2)) }}
 )
-
-type noLock struct{}
-
-func (l noLock) Lock()         {}
-func (l noLock) Unlock()       {}
-func (l noLock) TryLock() bool { return true }
-
-func (l noLock) RLock()         {}
-func (l noLock) RUnlock()       {}
-func (l noLock) TryRLock() bool { return true }
 
 type GlsError struct {
     NumGoroutine int

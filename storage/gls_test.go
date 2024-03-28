@@ -332,7 +332,7 @@ func BenchmarkGlsLock(b *testing.B) {
                 glsLock = &concurrent.CasRwLocker{}
                 glsMap = NewMap(MapTypeSwiss[int64, Map[uint32, any]](1))
             default:
-                glsLock = noLock{}
+                glsLock = concurrent.NoLock{}
                 glsMap = NewMap(MapTypeSwissConcurrent[int64, Map[uint32, any]]())
             }
             value := 1

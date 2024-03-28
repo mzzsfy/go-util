@@ -12,6 +12,8 @@ type RwLocker interface {
     TryRLock() bool
 }
 
+// CasRwLocker 大部分情况下没有 sync.RWMutex 性能好,不要使用
+// Deprecated: 使用sync.RWMutex
 type CasRwLocker struct {
     lock int32
 }
@@ -75,3 +77,14 @@ func (c *CasRwLocker) TryRLock() bool {
         }
     }
 }
+
+// NoLock 一个空锁,用于站位
+type NoLock struct{}
+
+func (l NoLock) Lock()         {}
+func (l NoLock) Unlock()       {}
+func (l NoLock) TryLock() bool { return true }
+
+func (l NoLock) RLock()         {}
+func (l NoLock) RUnlock()       {}
+func (l NoLock) TryRLock() bool { return true }
