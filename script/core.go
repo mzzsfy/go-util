@@ -1,9 +1,33 @@
 package script
 
+import "fmt"
+
 type Scope interface {
     Get(string) (any, error)
-    Set(string, any) error
+    New(string, any) error
+    Update(string, any) error
 }
+type RuntimeError struct {
+    err    any
+    offset int
+}
+
+func (r RuntimeError) String() string {
+    return fmt.Sprintf("runtime error: %v, offset: %d", r.err, r.offset)
+}
+
+func recoverRunTimeError(r any, offset int) {
+    if r != nil {
+        if _, ok := r.(RuntimeError); ok {
+            panic(r)
+        }
+        panic(RuntimeError{
+            err:    r,
+            offset: offset,
+        })
+    }
+}
+
 type Engine interface {
     // Execute 执行脚本
     Execute(map[string]any) Result
@@ -12,7 +36,7 @@ type Engine interface {
 }
 
 type expression interface {
-    compute() any
+    compute(Scope) any
 }
 
 type position interface {
@@ -46,17 +70,29 @@ func (r res) Any() any {
 }
 
 func (r res) Int() int {
-    return r.value.(int)
+    if i, ok := r.value.(int); ok {
+        return i
+    }
+    panic("不是int")
 }
 
 func (r res) Bool() bool {
-    return r.value.(bool)
+    if i, ok := r.value.(bool); ok {
+        return i
+    }
+    panic("不是bool")
 }
 
 func (r res) String() string {
-    return r.value.(string)
+    if i, ok := r.value.(string); ok {
+        return i
+    }
+    return fmt.Sprint(r.value)
 }
 
 func (r res) Float() float64 {
-    return r.value.(float64)
+    if i, ok := r.value.(float64); ok {
+        return i
+    }
+    panic("不是float")
 }

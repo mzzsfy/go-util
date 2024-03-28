@@ -5,21 +5,17 @@ type judge interface {
 }
 
 type ifJudge struct {
-    offset_   int
-    condition func() bool
-    trueBody  func() any
-    falseBody func() any
+    offset    int
+    condition func(Scope) bool
+    trueBody  func(Scope) any
+    falseBody func(Scope) any
 }
 
-func (f ifJudge) offset() int {
-    return f.offset_
-}
-
-func (f ifJudge) compute() any {
-    if f.condition() {
-        return f.trueBody()
+func (f ifJudge) compute(scope Scope) any {
+    if f.condition(scope) {
+        return f.trueBody(scope)
     }
-    return f.falseBody()
+    return f.falseBody(scope)
 }
 
 type ternaryJudge struct {

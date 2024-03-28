@@ -1,37 +1,35 @@
 package script
 
 type loop interface {
-    Continue() bool
+    Continue(Scope) bool
 }
 
 type forLoop struct {
-    offset_   int
+    offset    int
     init      bool
-    start     func()
-    condition func() bool
-    end       func()
-    body      func()
+    start     func(Scope)
+    condition func(Scope) bool
+    end       func(Scope)
+    body      func(Scope)
 }
 
-func (f forLoop) offset() int {
-    return f.offset_
-}
-
-func (f forLoop) Continue() bool {
+func (f forLoop) Continue(scope Scope) bool {
+    defer func() { recoverRunTimeError(recover(), f.offset) }()
+    scope = NewChildScope(scope)
     if !f.init {
         f.init = true
         if f.start != nil {
-            f.start()
+            f.start(scope)
         }
     }
     if f.condition != nil {
-        v := f.condition()
+        v := f.condition(scope)
         if v {
             if f.body != nil {
-                f.body()
+                f.body(scope)
             }
             if f.end != nil {
-                f.end()
+                f.end(scope)
             }
             return true
         }
@@ -40,18 +38,20 @@ func (f forLoop) Continue() bool {
 }
 
 type whileLoop struct {
-    offset_   int
-    condition func() bool
+    offset    int
+    condition func(Scope) bool
     //0: continue 1: break 2: return
-    body func() int
+    body func(Scope) int
 }
 
-func (f whileLoop) Continue() bool {
+func (f whileLoop) Continue(scope Scope) bool {
+    defer func() { recoverRunTimeError(recover(), f.offset) }()
+    scope = NewChildScope(scope)
     if f.condition != nil {
-        v := f.condition()
+        v := f.condition(scope)
         if v {
             if f.body != nil {
-                r := f.body()
+                r := f.body(scope)
                 if r > 0 {
                     return false
                 }
@@ -60,8 +60,4 @@ func (f whileLoop) Continue() bool {
         }
     }
     return false
-}
-
-func (f whileLoop) offset() int {
-    return f.offset_
 }

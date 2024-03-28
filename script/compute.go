@@ -20,10 +20,10 @@ func operatorPriority(r rune) uint8 {
         return 21
     case '+', '-':
         return 31
-    case '^', '|':
-        return 41
-    case '&':
-        return 44
+    //case '^', '|':
+    //    return 41
+    //case '&':
+    //    return 44
     default:
         return 0
     }
@@ -36,7 +36,7 @@ type numberNode struct {
     next   *numberNode
 }
 
-func (p *numberNode) String() string {
+func (p numberNode) String() string {
     if p.expr > 0 {
         return string(p.expr)
     }
@@ -44,12 +44,178 @@ func (p *numberNode) String() string {
 }
 
 type numberCompute struct {
-    stack *numberNode // number or variable
+    offset int
+    expr   numberNode // number or variable
+}
+
+func (n *numberCompute) compute(scope Scope) (r any) {
+    node := n.expr
+    defer func() { recoverRunTimeError(recover(), helper.Default(node.offset, n.offset)) }()
+    if node.next == nil {
+        return node.value.value(scope)
+    }
+    stack := make([]variable, 0, 3)
+    for {
+        if node.next == nil {
+            if len(stack) != 1 {
+                panic("计算结果应该为单个值")
+            }
+            r = stack[0].value(scope)
+            //if f, ok := r.(float64); ok {
+            //if math.Trunc(f) != f {
+            //    //保留9位小数
+            //    n10 := math.Pow10(9)
+            //    return math.Trunc((f+0.5/n10)*n10) / n10
+            //}
+            //}
+            return
+        }
+        //计算
+        if node.expr != 0 {
+            if len(stack) < 2 {
+                panic("表达式错误,参数不足")
+            }
+            left := stack[len(stack)-2].value(scope)
+            right := stack[len(stack)-1].value(scope)
+            stack = n.compute1(left, right, &node, stack[:len(stack)-2])
+        } else {
+            stack = append(stack, node.value)
+        }
+        node = *node.next
+    }
+}
+
+// 优化,计算静态表达式,避免重复计算
+func (n *numberCompute) optimization() {
+    node := n.expr
+    stack := make([]variable, 0, 3)
+    offsetStack := make([]int, 0, 3)
+    defer func() {
+        recoverRunTimeError(recover(), helper.Default(node.offset, n.offset))
+        for i := len(stack) - 1; i >= 0; i-- {
+            n1 := node
+            node = numberNode{
+                offset: offsetStack[i],
+                value:  stack[i],
+                next:   &n1,
+            }
+        }
+        n.expr = node
+    }()
+    for {
+        if node.next == nil {
+            return
+        }
+        //计算
+        if node.expr != 0 {
+            if len(stack) < 2 {
+                panic("表达式错误,参数不足")
+            }
+            //todo: 当遇到非固定值时,跳过参数,尝试继续计算
+            if _, ok := stack[len(stack)-2].(fixedValue); !ok {
+                return
+            }
+            if _, ok := stack[len(stack)-1].(fixedValue); !ok {
+                return
+            }
+            left := stack[len(stack)-2].(fixedValue).v
+            right := stack[len(stack)-1].(fixedValue).v
+            stack = n.compute1(left, right, &node, stack[:len(stack)-2])
+            offsetStack = offsetStack[:len(offsetStack)-1]
+        } else {
+            stack = append(stack, node.value)
+            offsetStack = append(offsetStack, node.offset)
+        }
+        node.next, node = nil, *node.next
+    }
+}
+
+func (n *numberCompute) compute1(left any, right any, node *numberNode, stack []variable) []variable {
+    //1:整数模式
+    //2:浮点数模式
+    var mode int
+    var lf float64
+    var rf float64
+    var li int
+    var ri int
+    if _, ok := left.(int); ok {
+        li = left.(int)
+        if _, ok := right.(int); ok {
+            ri = right.(int)
+            mode = 1
+        } else {
+            rf = right.(float64)
+            lf = float64(li)
+        }
+    } else {
+        lf = left.(float64)
+        if _, ok := right.(int); ok {
+            ri = right.(int)
+            rf = float64(ri)
+        } else {
+            rf = right.(float64)
+        }
+    }
+    if mode == 0 {
+        mode = 2
+    }
+    switch node.expr {
+    case '*':
+        switch mode {
+        case 1:
+            stack = append(stack, fixedValue{v: li * ri})
+        case 2:
+            stack = append(stack, fixedValue{v: lf * rf})
+        default:
+            panic("计算模式错误")
+        }
+    case '/':
+        switch mode {
+        case 1:
+            //todo:提供选项,整数转换为浮点数后计算除法
+            stack = append(stack, fixedValue{v: li / ri})
+        case 2:
+            stack = append(stack, fixedValue{v: lf / rf})
+        default:
+            panic("计算模式错误")
+        }
+    case '%':
+        switch mode {
+        case 1:
+            stack = append(stack, fixedValue{v: li % ri})
+        case 2:
+            //todo:提供选项,小数转换为整数后取模
+            panic("小数不支持模运算")
+        default:
+            panic("计算模式错误")
+        }
+    case '+':
+        switch mode {
+        case 1:
+            stack = append(stack, fixedValue{v: li + ri})
+        case 2:
+            stack = append(stack, fixedValue{v: lf + rf})
+        default:
+            panic("计算模式错误")
+        }
+    case '-':
+        switch mode {
+        case 1:
+            stack = append(stack, fixedValue{v: li - ri})
+        case 2:
+            stack = append(stack, fixedValue{v: lf - rf})
+        default:
+            panic("计算模式错误")
+        }
+    default:
+        panic("不支持的表达式")
+    }
+    return stack
 }
 
 func parseNumberExpr(expr []rune, offset int) *numberCompute {
-    c := &numberCompute{stack: &numberNode{offset: offset}}
-    parseNumberExpr1(expr, offset, c.stack)
+    c := &numberCompute{expr: numberNode{offset: offset}}
+    parseNumberExpr1(expr, offset, &c.expr)
     return c
 }
 
@@ -261,7 +427,7 @@ func parseNumber(expr []rune, isVar bool, numbers []rune, c *numberNode, i int, 
                     err:    "不正确的表达式:" + err.Error(),
                 })
             }
-            v = Int
+            v = int(Int)
         }
         c.value = fixedValue{v: v}
     }
