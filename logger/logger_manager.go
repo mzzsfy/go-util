@@ -48,7 +48,7 @@ func AllLogger() func(t func(string)) {
         defer globalLock.RUnlock()
         globalLog.Iter(func(key string, value *logger) bool {
             globalLock.RUnlock()
-            defer globalLock.Lock()
+            defer globalLock.RLock()
             t(key)
             return false
         })
