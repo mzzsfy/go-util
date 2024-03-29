@@ -75,10 +75,14 @@ func (t *contextHolder) Each(f func(key, value any)) {
 type StatusHolder interface {
     Get(any) any
     Set(any, any)
+}
+
+type EachStatusHolder interface {
+    StatusHolder
     Each(func(key any, value any))
 }
 
-// DefItem 创建或者获取 StatusValue,因为泛型的限制,不能使用 StatusHolder.Get(key) 来获取值
+// DefItem 创建或者获取 StatusValue,因为golang泛型限制,不能使用 StatusHolder.Get(key) 来获取值
 func DefItem[T comparable](status StatusHolder, key StatusKey[T]) StatusValue[T] {
     value := status.Get(key)
     if r, ok := value.(StatusValue[T]); ok {

@@ -72,7 +72,7 @@ FormatDuration(duration time.Duration) time.Duration
 
 ## 布隆过滤器
 
-todo
+效果不够理想,不推荐使用,后面可能改成仅允许string 的版本,优化hash效果
 
 ## dfa查找
 
@@ -88,4 +88,52 @@ dfa.Test([]byte("aaa"))
 
 ```go
 CallerStack(skip int, limit ...int) []Stack
+```
+
+
+## 状态追踪
+
+优化开发体验,避免使用context等工具里的类型转换
+
+```go
+var k1 = DefStatusKeyStatic(int64(1))
+var k2 = DefStatusKeyStatic(int64(1))
+var k3 = DefStatusKeyFn(func() string {
+    return strconv.Itoa(rand.Int())
+})
+
+//上面的为全局变量,无需重复声明
+
+ctx := NewStatusTraceCtx()
+DefItem(ctx, k1).Set(11)
+DefItem(ctx, k2).Set(12)
+DefItem(ctx, k3).Set("abc")
+if DefItem(ctx, k1).Value() != 11 {
+    t.Errorf("Expected 11, got %d", DefItem(ctx, k1).Value())
+}
+if DefItem(ctx, k2).Value() != 12 {
+    t.Errorf("Expected 12, got %d", DefItem(ctx, k2).Value())
+}
+if DefItem(ctx, k3).Value() != "abc" {
+    t.Errorf("Expected abc, got %s", DefItem(ctx, k3).Value())
+}
+```
+对比之前的实现方式
+```go
+var ctx = context.Background()
+
+//panic(cast error)
+//ctx.Value("key1").(int)
+ctx = context.WithValue(ctx, "key1", 1)
+ctx = context.WithValue(ctx, "key2", 3)
+ctx = context.WithValue(ctx, "key3", "abc")
+//panic(cast error)
+//ctx.Value("key1").(string)
+if i, ok := ctx.Value("key1").(int); ok {
+if i != 1 {
+    t.Errorf("Expected 1, got %d", i)
+}
+} else {
+    t.Errorf("Expected 1, got %v", ctx.Value("key1"))
+}
 ```
