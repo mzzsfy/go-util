@@ -24,8 +24,8 @@ const (
 
 type Level int8
 
-func (l *Level) String() string {
-    switch *l {
+func (l Level) String() string {
+    switch l {
     //info和debug通常使用的次数会多一些
     case InfoLevel:
         return "I"
@@ -40,7 +40,31 @@ func (l *Level) String() string {
     case FatalLevel:
         return "F"
     default:
-        if *l > FatalLevel {
+        if l > FatalLevel {
+            return "F"
+        } else {
+            return "T"
+        }
+    }
+}
+
+func (l Level) Fullname() string {
+    switch l {
+    //info和debug通常使用的次数会多一些
+    case InfoLevel:
+        return "Info"
+    case DebugLevel:
+        return "Debug"
+    case TraceLevel:
+        return "Trace"
+    case WarnLevel:
+        return "Warn"
+    case ErrorLevel:
+        return "Error"
+    case FatalLevel:
+        return "FFatal"
+    default:
+        if l > FatalLevel {
             return "F"
         } else {
             return "T"
@@ -63,16 +87,16 @@ func (l *Level) UnmarshalText(b []byte) error {
     return nil
 }
 
-func (l *Level) MarshalJSON() ([]byte, error) {
+func (l Level) MarshalJSON() ([]byte, error) {
     return helper.StringToBytes(`"` + l.String() + `"`), nil
 }
-func (l *Level) MarshalYAML() (any, error) {
+func (l Level) MarshalYAML() (any, error) {
     return l.String(), nil
 }
-func (l *Level) MarshalBinary() ([]byte, error) {
+func (l Level) MarshalBinary() ([]byte, error) {
     return helper.StringToBytes(l.String()), nil
 }
-func (l *Level) MarshalText() ([]byte, error) {
+func (l Level) MarshalText() ([]byte, error) {
     return helper.StringToBytes(l.String()), nil
 }
 
