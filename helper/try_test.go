@@ -33,7 +33,7 @@ func Test_TryWithStack_PanicWithStack(t *testing.T) {
         TryWithStack(func() {
             panic("test error")
         }, func(err any, stack []Stack) {
-            t.Log("\n", FormatStack(stack))
+            //t.Log("\n", FormatStack(stack))
             name := SimpleFunctionName(stack[0].PC)
             i := len(s) + 5
             if name[:i] != s+".func" {
@@ -51,7 +51,7 @@ func Test_TryWithStack_PanicWithStack(t *testing.T) {
                 panic("test error")
             }()
         }, func(err any, stack []Stack) {
-            t.Log("\n", FormatStack(stack))
+            //t.Log("\n", FormatStack(stack))
             name := SimpleFunctionName(stack[0].PC)
             i := len(s) + 5
             if name[:i] != s+".func" {
@@ -75,7 +75,7 @@ func Test_TryWithStack_PanicWithStack(t *testing.T) {
                 }()
             }()
         }, func(err any, stack []Stack) {
-            t.Log("\n", FormatStack(stack))
+            //t.Log("\n", FormatStack(stack))
             name := SimpleFunctionName(stack[0].PC)
             i := len(s) + 5
             if name[:i] != s+".func" {

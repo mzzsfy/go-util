@@ -468,7 +468,7 @@ func ParseCron(cron string) (CustomSchedulerTime, error) {
             }
             //非*或者?号,则与day of month互斥
             if v != math.MaxUint8>>1<<1 && s.day != math.MaxUint32>>1<<1 {
-                return nil, errors.New("解析错误,周和日不能同时设置,你的表达式为:" + cron)
+                return nil, errors.New("解析错误,周几和每月第几天不能同时设置,你的表达式为:" + cron)
             }
             s.week = uint8(v)
             continue

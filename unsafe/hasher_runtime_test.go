@@ -21,7 +21,7 @@ func Test_Hash(t *testing.T) {
         h3 := h0.NewSeed()
         for j := 0; j < 10; j++ {
             for _, h := range []Hasher[int]{h1, h2, h3} {
-                t.Logf("hash%d:%b", j, h.Hash(j))
+                //t.Logf("hash%d:%b", j, h.Hash(j))
                 if h.Hash(j) != h.Hash(j) {
                     t.Error("hash not equal")
                 }
@@ -36,7 +36,7 @@ func Test_Hash(t *testing.T) {
         h3 := h0.NewSeed()
         for j := 0; j < 10; j++ {
             for _, h := range []Hasher[string]{h1, h2, h3} {
-                t.Logf("hash%d:%b", j, h.Hash(strconv.Itoa(j)))
+                //t.Logf("hash%d:%b", j, h.Hash(strconv.Itoa(j)))
                 if h.Hash(strconv.Itoa(j)) != h.Hash(strconv.Itoa(j)) {
                     t.Error("hash not equal")
                 }

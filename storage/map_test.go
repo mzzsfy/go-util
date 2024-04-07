@@ -240,28 +240,32 @@ func testMapClear[K comparable](t *testing.T, keys []K, m Map[K, int]) {
     var calls int
     m.Iter(func(k K, v int) (stop bool) {
         calls++
-        return
-    })
-    Equal(t, 0, calls)
-
-    m.Iter(func(k K, v int) (stop bool) {
         t.Errorf("unexpected call to Iter: %v, %v", k, v)
         return false
     })
+
+    Equal(t, 0, calls)
+
+    for i, key := range keys {
+        m.Put(key, i)
+    }
+    for i, key := range keys {
+        act, ok := m.Get(key)
+        True(t, ok)
+        Equal(t, i, act)
+    }
 }
 
 func testMapIter[K comparable](t *testing.T, keys []K, m Map[K, int]) {
     for i, key := range keys {
         m.Put(key, i)
     }
-    t.Log("Put ok")
     visited := make(map[K]uint, len(keys))
     m.Iter(func(k K, v int) (stop bool) {
         visited[k] = 0
         stop = true
         return
     })
-    t.Log("iter ok")
     if len(keys) == 0 {
         Equal(t, len(visited), 0)
     } else {
@@ -270,16 +274,13 @@ func testMapIter[K comparable](t *testing.T, keys []K, m Map[K, int]) {
     for _, k := range keys {
         visited[k] = 0
     }
-    t.Log("iter2 ok")
     m.Iter(func(k K, v int) (stop bool) {
         visited[k]++
         return
     })
-    t.Log("iter3 ok")
     for _, c := range visited {
         Equal(t, c, uint(1))
     }
-    t.Log("iter4 ok")
     // mutate on iter
     seq.BiFrom(func(t func(k K, v int)) {
         m.Iter(func(k K, v int) (stop bool) {
@@ -289,11 +290,9 @@ func testMapIter[K comparable](t *testing.T, keys []K, m Map[K, int]) {
     }).Cache().ForEach(func(k K, v int) {
         m.Put(k, -v)
     })
-    t.Log("iter5 ok")
     for i, key := range keys {
         act, ok := m.Get(key)
         True(t, ok)
         Equal(t, -i, act)
     }
-    t.Log("iter6 ok")
 }

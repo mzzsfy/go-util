@@ -51,7 +51,7 @@ func Test_Parse(t *testing.T) {
     resolveMap := ResolveMap(m)
     //t.Log("resolveMap", resolveMap)
     res := UntilingMap(resolveMap)
-    t.Log("res", res)
+    //t.Log("res", res)
     if Item("Path").ValueString(res) == "" && Item("PATH").ValueString(res) == "" {
         t.Error("path 未成功解析")
     }

@@ -43,14 +43,13 @@ var (
     longStr  []string
 )
 
-func TestMain(m *testing.M) {
+func init() {
     rand.Seed(time.Now().UnixNano())
     for i := 0; i < 1000; i++ {
         shortStr = append(shortStr, strings.Repeat(strconv.Itoa(rand.Int()), 1))
         midStr = append(midStr, strings.Repeat(strconv.Itoa(rand.Int()), 10))
         longStr = append(longStr, strings.Repeat(strconv.Itoa(rand.Int()), 100))
     }
-    m.Run()
 }
 
 func BenchmarkBufferPool(b *testing.B) {

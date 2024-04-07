@@ -26,7 +26,7 @@ func Test_Bi1(t *testing.T) {
             f(i+1, j+1)
         }
     }).ForEach(func(i any, j any) {
-        t.Log(i.(int), j.(int))
+        //t.Log(i.(int), j.(int))
         ok3++
     })
     if ok1 != 10 || ok2 != 5 || ok3 != 10 {

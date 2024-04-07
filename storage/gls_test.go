@@ -92,7 +92,7 @@ func Test_Clean(t *testing.T) {
     })
 }
 
-func Test_Get2(t *testing.T) {
+func TestGet2(t *testing.T) {
     n := 1000
     wg := helper.NewWaitGroup(n)
     item := NewGlsItem[int]()
@@ -114,6 +114,7 @@ func Test_Get2(t *testing.T) {
         }()
     }
     wg.Wait()
+    t.Log("ok")
 }
 
 func Test_check(t *testing.T) {
@@ -122,20 +123,24 @@ func Test_check(t *testing.T) {
         r := recover()
         if r == nil {
             t.Errorf("check should panic")
+            t.FailNow()
             return
         } else if _, ok := r.(GlsError); !ok {
             t.Errorf("check should panic with GlsError")
+            t.FailNow()
         }
         keyIdGen = 10000
     }()
     item := NewGlsItem[string]()
+    wg := helper.NewWaitGroup(1000)
     for i := 0; i < 1000; i++ {
         go func() {
-            defer func() { recover() }()
+            defer func() { recover(); wg.Done() }()
             item.Set("testValue")
         }()
     }
-    for i := 0; i < 10_000_000; i++ {
+    wg.Wait()
+    for i := 0; i < 10_000_00; i++ {
         check()
     }
 }

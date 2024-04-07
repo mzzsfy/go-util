@@ -417,7 +417,7 @@ func Test_ParseCron_WithInvalidExpression(t *testing.T) {
         if err == nil {
             t.Errorf("expected error, got nil")
         }
-        t.Log(err)
+        //t.Log(err)
     })
 }
 

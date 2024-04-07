@@ -1,6 +1,7 @@
 package helper
 
 import (
+    "errors"
     "fmt"
     "strings"
     "time"
@@ -108,42 +109,9 @@ func ParseLocalTimeAuto(str string) (LocalTime, error) {
             return ParseLocalTimeWithLayout("20060102150405.999999999", str[:len("20060102150405")]+"."+str[len("20060102150405"):])
         }
     } else {
-        switch len(str) {
-        case len("yyyy-MM-ddTHH:mm:ssZ07:00"):
-            parse, err := time.Parse(time.RFC3339, str)
-            return LocalTime(parse), err
-        case len("yyyy-MM-dd'T'HH:mm:ss'Z'"):
-            return ParseLocalTimeWithLayout(`2006-01-02'T'15:04:05'Z'`, str)
-        case len("yyyy-MM-dd'T'HH:mm:ss"):
-            return ParseLocalTimeWithLayout(`2006-01-02'T'15:04:05`, str)
-        case len("yyyy-MM-ddTHH:mm:ssZ"):
-            return ParseLocalTimeWithLayout(`2006-01-02T15:04:05Z`, str)
-        case len("yyyy-MM-dd HH:mm:ss.SSS"):
-            return ParseLocalTimeWithLayout(`2006-01-02 15:04:05.000`, str)
-        case len("yyyy-MM-dd HH:mm:ss"):
-            //return ParseLocalTimeWithLayout(`2006`+str[4:5]+`01`+str[7:8]+`02`+str[10:11]+`15`+str[13:14]+`04`+str[16:17]+`05`, str)
-            if str[11] == 'T' {
-                return ParseLocalTimeWithLayout(`2006-01-02T15:04:05`, str)
-            }
-            if str[11] == ' ' {
-                if str[4] == '-' {
-                    return ParseLocalTimeWithLayout(`2006-01-02 15:04:05`, str)
-                } else if str[4] == '/' {
-                    return ParseLocalTimeWithLayout(`2006/01/02 15:04:05`, str)
-                }
-            }
-            return ParseLocalTimeWithLayout(`20060102150405`, str[0:4]+str[5:7]+str[8:10]+str[11:13]+str[14:16]+str[17:19])
-        case len("yyyy-MM-dd HH:mm"):
-            return ParseLocalTimeWithLayout(`2006-01-02 15:04`, str)
-        case len("yyyy-MM-dd"):
-            if str[4] == '/' {
-                return ParseLocalTimeWithLayout(`2006/01/02`, str)
-            }
-            return ParseLocalTimeWithLayout(`2006-01-02`, str)
-        case len("HH:mm:ss"):
-            return ParseLocalTimeWithLayout(`15:04:05`, str)
-        case len("HH:mm:ss.SSS"):
-            return ParseLocalTimeWithLayout(`15:04:05.000`, str)
+        localTime, err := parse2(str)
+        if err == nil {
+            return localTime, err
         }
     }
     if len(str) > len("yyyy-MM-dd HH:mm:ss.SS -0700 MST") {
@@ -162,6 +130,47 @@ func ParseLocalTimeAuto(str string) (LocalTime, error) {
         }
     }
     return LocalTime(time.Time{}), fmt.Errorf("无法解析时间: %s", str)
+}
+
+func parse2(str string) (LocalTime, error) {
+    switch len(str) {
+    case len("yyyy-MM-ddTHH:mm:ssZ07:00"):
+        parse, err := time.Parse(time.RFC3339, str)
+        return LocalTime(parse), err
+    case len("yyyy-MM-dd'T'HH:mm:ss'Z'"):
+        return ParseLocalTimeWithLayout(`2006-01-02'T'15:04:05'Z'`, str)
+    case len("yyyy-MM-dd'T'HH:mm:ss"):
+        return ParseLocalTimeWithLayout(`2006-01-02'T'15:04:05`, str)
+    case len("yyyy-MM-ddTHH:mm:ssZ"):
+        return ParseLocalTimeWithLayout(`2006-01-02T15:04:05Z`, str)
+    case len("yyyy-MM-dd HH:mm:ss.SSS"):
+        return ParseLocalTimeWithLayout(`2006-01-02 15:04:05.000`, str)
+    case len("yyyy-MM-dd HH:mm:ss"):
+        //return ParseLocalTimeWithLayout(`2006`+str[4:5]+`01`+str[7:8]+`02`+str[10:11]+`15`+str[13:14]+`04`+str[16:17]+`05`, str)
+        if str[11] == 'T' {
+            return ParseLocalTimeWithLayout(`2006-01-02T15:04:05`, str)
+        }
+        if str[11] == ' ' {
+            if str[4] == '-' {
+                return ParseLocalTimeWithLayout(`2006-01-02 15:04:05`, str)
+            } else if str[4] == '/' {
+                return ParseLocalTimeWithLayout(`2006/01/02 15:04:05`, str)
+            }
+        }
+        return ParseLocalTimeWithLayout(`20060102150405`, str[0:4]+str[5:7]+str[8:10]+str[11:13]+str[14:16]+str[17:19])
+    case len("yyyy-MM-dd HH:mm"):
+        return ParseLocalTimeWithLayout(`2006-01-02 15:04`, str)
+    case len("yyyy-MM-dd"):
+        if str[4] == '/' {
+            return ParseLocalTimeWithLayout(`2006/01/02`, str)
+        }
+        return ParseLocalTimeWithLayout(`2006-01-02`, str)
+    case len("HH:mm:ss"):
+        return ParseLocalTimeWithLayout(`15:04:05`, str)
+    case len("HH:mm:ss.SSS"):
+        return ParseLocalTimeWithLayout(`15:04:05.000`, str)
+    }
+    return LocalTime{}, errors.New("无法解析")
 }
 
 func removeChinese(str string) string {

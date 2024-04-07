@@ -7,6 +7,8 @@ import (
     "testing"
 )
 
+func Test_1(t *testing.T) {
+}
 func TestParseNumberExpr(t *testing.T) {
     exprs := []string{
         "1.1+3.2",

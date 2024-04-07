@@ -220,9 +220,6 @@ func (m *swissMap[K, V]) Clean() {
     if cap(m.ctrl) > 16 {
         m.ctrl = make([]metadata, 1)
         m.groups = make([]group[K, V], 1)
-    } else {
-        m.ctrl = m.ctrl[:1]
-        m.groups = m.groups[:1]
     }
     for i, c := range m.ctrl {
         for j := range c {

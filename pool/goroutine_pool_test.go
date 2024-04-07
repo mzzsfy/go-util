@@ -2,12 +2,9 @@ package pool
 
 import (
     "math/rand"
+    "testing"
     "time"
 )
-
-func init() {
-    rand.Seed(time.Now().UnixNano())
-}
 
 const sleepTime = time.Millisecond * 3
 
@@ -15,7 +12,9 @@ func getSleepTime() time.Duration {
     return sleepTime * time.Duration(rand.Intn(100))
 }
 
-//
+func Test_1(t *testing.T) {
+}
+
 //func TestGopool_Go(t *testing.T) {
 //    t.Parallel()
 //    n := 200000
