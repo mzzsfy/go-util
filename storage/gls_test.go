@@ -140,7 +140,7 @@ func Test_check(t *testing.T) {
         }()
     }
     wg.Wait()
-    for i := 0; i < 10_000_00; i++ {
+    for i := 0; i < 10_000_000; i++ {
         check()
     }
 }
