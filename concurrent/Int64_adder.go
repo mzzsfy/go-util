@@ -49,27 +49,38 @@ type Int64Adder struct {
 
 // Add 增加v,手动提供goid来提高性能
 func (l *Int64Adder) Add(goid int64, v int64) {
+    if l.addNoCompete(v) {
+        return
+    }
+    l.addCompete(goid, v)
+}
+
+func (l *Int64Adder) addNoCompete(v int64) bool {
     if l.init == 0 {
         old := l.base
         //没有并发竞争的场景下,直接CAS
         if atomic.CompareAndSwapInt64(&l.base, old, old+v) {
-            return
+            return true
         }
         if atomic.CompareAndSwapInt32(&l.init, 0, 1) {
+            //无扩容功能,使用该工具场景,并不会特别需要节省内存
             l.values = make([]c, slotNumber)
         }
     }
     if len(l.values) == 0 {
         //等待初始化
         for {
-            if len(l.values) > 0 {
+            if len(l.values) == slotNumber {
                 break
             }
             runtime.Gosched()
         }
     }
-    //无扩容功能,使用该工具场景,并不会特别需要节省内存
-    atomic.AddInt64(&l.values[int(goid)&modNumber].int64, v)
+    return false
+}
+
+func (l *Int64Adder) addCompete(goid int64, v int64) int64 {
+    return atomic.AddInt64(&l.values[int(goid)&modNumber].int64, v)
 }
 
 func (l *Int64Adder) Decrement(goid int64) {
@@ -81,15 +92,24 @@ func (l *Int64Adder) Increment(goid int64) {
 }
 
 func (l *Int64Adder) IncrementSimple() {
-    l.Add(GoID(), 1)
+    if l.addNoCompete(1) {
+        return
+    }
+    l.addCompete(GoID(), 1)
 }
 
 func (l *Int64Adder) DecrementSimple() {
-    l.Add(GoID(), -1)
+    if l.addNoCompete(-1) {
+        return
+    }
+    l.addCompete(GoID(), -1)
 }
 
 func (l *Int64Adder) AddSimple(v int64) {
-    l.Add(GoID(), v)
+    if l.addNoCompete(v) {
+        return
+    }
+    l.addCompete(GoID(), v)
 }
 
 func (l *Int64Adder) Sum() int64 {
