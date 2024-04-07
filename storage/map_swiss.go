@@ -105,6 +105,7 @@ func (m *swissMap[K, V]) HasWithHash(key K, hash uint64) (ok bool) {
 func (m *swissMap[K, V]) GetWithHash(key K, hash uint64) (value V, ok bool) {
     hi, lo := splitHash(hash)
     g := probeStart(hi, len(m.groups))
+    //gi := g
     for {
         matches := metaMatchH2(&m.ctrl[g], lo)
         for matches != 0 {
@@ -126,6 +127,9 @@ func (m *swissMap[K, V]) GetWithHash(key K, hash uint64) (value V, ok bool) {
         if g >= uint32(len(m.groups)) {
             g = 0
         }
+        //if gi == g {
+        //    return
+        //}
     }
 }
 
@@ -142,6 +146,7 @@ func (m *swissMap[K, V]) PutWithHash(key K, value V, hash uint64) {
     }
     hi, lo := splitHash(hash)
     g := probeStart(hi, len(m.groups))
+    //gi := g
     for {
         matches := metaMatchH2(&m.ctrl[g], lo)
         for matches != 0 {
@@ -168,12 +173,16 @@ func (m *swissMap[K, V]) PutWithHash(key K, value V, hash uint64) {
         if g >= uint32(len(m.groups)) {
             g = 0
         }
+        //if gi == g {
+        //    return
+        //}
     }
 }
 
 func (m *swissMap[K, V]) DeleteWithHash(key K, hash uint64) (ok bool) {
     hi, lo := splitHash(hash)
     g := probeStart(hi, len(m.groups))
+    //gi := g
     for {
         matches := metaMatchH2(&m.ctrl[g], lo)
         for matches != 0 {
@@ -212,6 +221,9 @@ func (m *swissMap[K, V]) DeleteWithHash(key K, hash uint64) (ok bool) {
         if g >= uint32(len(m.groups)) {
             g = 0
         }
+        //if gi == g {
+        //    return
+        //}
     }
 }
 
@@ -220,6 +232,7 @@ func (m *swissMap[K, V]) Clean() {
     if cap(m.ctrl) > 16 {
         m.ctrl = make([]metadata, 1)
         m.groups = make([]group[K, V], 1)
+        m.limit = maxAvgGroupLoad
     }
     for i, c := range m.ctrl {
         for j := range c {
