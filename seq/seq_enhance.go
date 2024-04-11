@@ -216,16 +216,29 @@ func (t Seq[T]) Parallel(concurrent ...int) Seq[T] {
     return func(c func(T)) {
         if sl > 0 {
             p := NewParallel(sl)
-            t(func(t T) { p.Add(func() { c(t) }) })
+            t(func(t T) {
+                p.Add(func() {
+                    c(t)
+                })
+            })
             p.Wait()
         } else {
             wg := sync.WaitGroup{}
+            var err any
             t(func(t T) {
                 wg.Add(1)
                 DefaultParallelFunc(func() {
-                    defer wg.Done()
+                    defer func() {
+                        if a := recover(); a != nil {
+                            err = a
+                        }
+                        wg.Done()
+                    }()
                     c(t)
                 })
+                if err != nil {
+                    panic(err)
+                }
             })
             wg.Wait()
         }
@@ -236,12 +249,21 @@ func (t Seq[T]) Parallel(concurrent ...int) Seq[T] {
 func (t Seq[T]) ParallelCustomize(fn func(T, func())) Seq[T] {
     return func(c func(T)) {
         wg := sync.WaitGroup{}
+        var err any
         t(func(t T) {
             wg.Add(1)
             fn(t, func() {
-                defer wg.Done()
+                defer func() {
+                    if a := recover(); a != nil {
+                        err = a
+                    }
+                    wg.Done()
+                }()
                 c(t)
             })
+            if err != nil {
+                panic(err)
+            }
         })
         wg.Wait()
     }

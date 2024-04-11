@@ -28,6 +28,7 @@ type parallel struct {
     cond       sync.Cond
     // ParallelFunc 自定义携程任务运行模式
     ParallelFunc func(fn func())
+    error        any
 }
 
 func (p *parallel) Add(fn func()) {
@@ -36,6 +37,9 @@ func (p *parallel) Add(fn func()) {
     for atomic.LoadInt32(&p.running) >= p.concurrent {
         p.cond.Wait()
     }
+    if p.error != nil {
+        panic(p.error)
+    }
     atomic.AddInt32(&p.running, 1)
     pf := DefaultParallelFunc
     if p.ParallelFunc != nil {
@@ -43,6 +47,9 @@ func (p *parallel) Add(fn func()) {
     }
     pf(func() {
         defer func() {
+            if r := recover(); r != nil {
+                p.error = r
+            }
             p.cond.L.Lock()
             defer p.cond.L.Unlock()
             atomic.AddInt32(&p.running, -1)
@@ -57,5 +64,8 @@ func (p *parallel) Wait() {
     defer p.cond.L.Unlock()
     for atomic.LoadInt32(&p.running) > 0 {
         p.cond.Wait()
+    }
+    if p.error != nil {
+        panic(p.error)
     }
 }

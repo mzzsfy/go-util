@@ -175,17 +175,64 @@ func Test_Seq_Repeat(t *testing.T) {
         t.Fail()
     }
 }
-func Test_Seq_Catch(t *testing.T) {
-    FromIntSeq().RecoverErr(func(a any) {
-        t.Log("recover", a)
-    }).MapInt(func(i int) int {
+func Test_Seq_Recover(t *testing.T) {
+    BiCastAnyK[int, int](FromIntSeq().RecoverErr(func(a any) {
+        t.Log("recover1", a)
+        panic(a)
+    }).Parallel().MapBiInt(func(i int) int {
+        return i
+    }).MapV(func(_ int, i int) any {
+        return i
+    })).Finally(func() {
+        t.Log("finally1")
+    }).RecoverErr(func(a any) {
+        t.Log("recover2", a)
+    }).Finally(func() {
+        t.Log("finally2")
+    }).ForEach(func(i, _ int) {
         if i > 10 {
             panic("stop")
         }
+    })
+    t.Log("ok~")
+    BiCastAnyK[int, int](FromIntSeq().MapParallel(func(i int) any {
         return i
-    }).Finally(func() {
-        t.Log("finally")
+    }).MapInt(func(a any) int {
+        return a.(int)
     }).RecoverErr(func(a any) {
-        t.Fatal("recover", a)
-    }).Complete()
+        t.Log("recover1", a)
+        panic(a)
+    }).Parallel().RecoverErr(func(a any) {
+        t.Log("recover2", a)
+        panic(a)
+    }).ParallelCustomize(func(i int, f func()) {
+        go f()
+    }).RecoverErr(func(a any) {
+        t.Log("recover3", a)
+        panic(a)
+    }).MapBiInt(func(i int) int {
+        return i
+    }).MapVParallel(func(k int, v int) any {
+        return v
+    }).RecoverErr(func(a any) {
+        t.Log("recover4", a)
+        panic(a)
+    }).ExchangeKV().MapKInt(func(a any, i int) int {
+        return a.(int)
+    }).ExchangeKV().MapV(func(_ int, i int) any {
+        return i
+    })).RecoverErr(func(a any) {
+        t.Log("recover5", a)
+        panic(a)
+    }).Finally(func() {
+        t.Log("finally1")
+    }).RecoverErr(func(a any) {
+        t.Log("recover6", a)
+    }).Finally(func() {
+        t.Log("finally2")
+    }).ForEach(func(i, _ int) {
+        if i > 10 {
+            panic("stop")
+        }
+    })
 }

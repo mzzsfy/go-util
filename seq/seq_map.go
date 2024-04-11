@@ -97,12 +97,21 @@ func (t Seq[T]) MapParallel(syncFn func(T) any, order ...int) Seq[any] {
 func (t Seq[T]) MapParallelCustomize(asyncFn func(T, func(any))) Seq[any] {
     return func(c func(any)) {
         wg := sync.WaitGroup{}
+        var err any
         t(func(t T) {
             wg.Add(1)
             asyncFn(t, func(r any) {
-                defer wg.Done()
+                defer func() {
+                    if a := recover(); a != nil {
+                        err = a
+                    }
+                    wg.Done()
+                }()
                 c(r)
             })
+            if err != nil {
+                panic(err)
+            }
         })
         wg.Wait()
     }

@@ -237,12 +237,21 @@ func (t BiSeq[K, V]) Parallel(concurrent ...int) BiSeq[K, V] {
             p.Wait()
         } else {
             wg := sync.WaitGroup{}
+            var err any
             t(func(k K, v V) {
                 wg.Add(1)
                 DefaultParallelFunc(func() {
-                    defer wg.Done()
+                    defer func() {
+                        if a := recover(); a != nil {
+                            err = a
+                        }
+                        wg.Done()
+                    }()
                     c(k, v)
                 })
+                if err != nil {
+                    panic(err)
+                }
             })
             wg.Wait()
         }
