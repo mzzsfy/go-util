@@ -197,8 +197,8 @@ func (t Seq[T]) OnLast(f func(*T)) Seq[T] {
 
 // Sync 串行执行
 func (t Seq[T]) Sync() Seq[T] {
-    lock := sync.Mutex{}
     return func(c func(T)) {
+        lock := sync.Mutex{}
         t(func(t T) {
             lock.Lock()
             defer lock.Unlock()
