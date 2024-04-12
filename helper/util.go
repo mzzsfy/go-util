@@ -48,3 +48,17 @@ func AnyArray(vars ...any) []any {
 func AnyArrayT[T any](vars ...T) []T {
     return vars
 }
+
+func Must[T any](data T, err error) T {
+    if err != nil {
+        panic(err)
+    }
+    return data
+}
+
+func MustR[T any](err error, data T) T {
+    if err != nil {
+        panic(err)
+    }
+    return data
+}

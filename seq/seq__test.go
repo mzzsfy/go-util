@@ -61,14 +61,17 @@ func Test_FromIntSeq(t *testing.T) {
 }
 
 func Test_Take(t *testing.T) {
-    seq := FromIntSeq(0, 9)
+    seq := FromIntSeq(0, 9).Filter(func(i int) bool {
+        return i > 2
+    }).Drop(1).Take(10)
     var r []int
     seq.Take(5).ForEach(func(i int) { r = append(r, i) })
     if len(r) != 5 {
         t.Fail()
     }
+    start := 4
     for i := 0; i < 5; i++ {
-        if r[i] != i {
+        if r[i] != i+start {
             t.Fail()
         }
     }

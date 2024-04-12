@@ -105,7 +105,7 @@ func (t Seq[T]) AllMatch(f func(T) bool) bool {
 
 // NonMatch 全部不匹配
 func (t Seq[T]) NonMatch(f func(T) bool) bool {
-    return t.AnyMatch(func(t T) bool { return !f(t) })
+    return !t.AnyMatch(f)
 }
 
 // GroupBy 元素分组,每个组保留所有元素

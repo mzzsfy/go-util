@@ -162,7 +162,7 @@ func Test_ParseLocalTimeAuto1(t *testing.T) {
         if err != nil {
             t.Errorf("Expected no error, got %v", err)
         }
-        _, err = ParseLocalTimeAuto(time.Now().Format("2006-01-02 15:04:05.999999999"))
+        _, err = ParseLocalTimeAuto(time.Now().Format("2006-01-02 15:04:05.000000000"))
         if err != nil {
             t.Errorf("Expected no error, got %v", err)
         }
