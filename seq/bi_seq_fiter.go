@@ -15,10 +15,10 @@ func (t BiSeq[K, V]) Filter(f func(K, V) bool) BiSeq[K, V] {
 
 // Take 保留前n个元素
 func (t BiSeq[K, V]) Take(n int) BiSeq[K, V] {
+    if n <= 0 {
+        return func(k func(K, V)) {}
+    }
     return func(c func(K, V)) {
-        if n == 0 {
-            return
-        }
         n := n
         t.Stoppable()(func(k K, v V) {
             c(k, v)

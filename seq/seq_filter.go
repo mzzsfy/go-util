@@ -15,10 +15,10 @@ func (t Seq[T]) Filter(f func(T) bool) Seq[T] {
 
 // Take 保留前n个元素
 func (t Seq[T]) Take(n int) Seq[T] {
+    if n <= 0 {
+        return func(t func(T)) {}
+    }
     return func(c func(T)) {
-        if n == 0 {
-            return
-        }
         n := n
         t.Stoppable()(func(e T) {
             c(e)
