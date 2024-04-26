@@ -1,7 +1,8 @@
-package unsafe
+package unsafe_test
 
 import (
     "fmt"
+    "github.com/mzzsfy/go-util/unsafe"
     "runtime"
     "strings"
     "sync"
@@ -22,7 +23,7 @@ func Test_GoID(t *testing.T) {
 }
 
 func testGoID(t *testing.T) {
-    id := GoID()
+    id := unsafe.GoID()
     lines := strings.Split(stackTrace(), "\n")
     for i, line := range lines {
         if !strings.HasPrefix(line, fmt.Sprintf("goroutine %d ", id)) {
