@@ -12,7 +12,6 @@ var (
 )
 
 func JsonResponseUnmarshal[T any](r *http.Response) (*T, error) {
-    t := new(T)
     if r.Body == nil {
         return nil, errors.New("body is nil")
     }
@@ -21,8 +20,9 @@ func JsonResponseUnmarshal[T any](r *http.Response) (*T, error) {
     if err != nil {
         return nil, err
     }
+    t := new(T)
     err = JsonUnmarshal(all, t)
-    return nil, err
+    return t, err
 }
 
 func JsonRequestUnmarshal[T any](req *http.Request) (*T, error) {
