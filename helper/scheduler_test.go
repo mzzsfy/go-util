@@ -1,6 +1,7 @@
 package helper
 
 import (
+    "github.com/mzzsfy/go-util/concurrent"
     "math"
     "math/rand"
     "testing"
@@ -75,4 +76,48 @@ func BenchmarkScheduler_AddCronTask(b *testing.B) {
         }
         s.Stop()
     })
+}
+
+func TestScheduler_CronTask(t *testing.T) {
+    s := NewScheduler(time.Millisecond * 10)
+    t.Cleanup(func() { s.Stop() })
+    wg := NewWaitGroup(0)
+    add := concurrent.Int64Adder{}
+    run := concurrent.Int64Adder{}
+    f := func() {
+        run.IncrementSimple()
+        wg.Done()
+    }
+    num := 10000000
+    st := 5
+    n := 7
+    go func() {
+        for {
+            sum := run.SumInt()
+            if sum == num*n {
+                return
+            }
+            if sum == 0 {
+                t.Log("adding", add.Sum(), "/", num*n)
+                time.Sleep(time.Millisecond)
+            } else {
+                t.Log("running", run.Sum(), "/", num*n)
+                time.Sleep(time.Millisecond * 300)
+            }
+        }
+    }()
+    for i := 0; i < num; i++ {
+        wg.Add(n)
+        for j := st; j < st+n; j++ {
+            add.IncrementSimple()
+            s.AddDelayTask(time.Millisecond*time.Duration(j)*time.Duration(j), f)
+        }
+    }
+    for i := 0; i < 1000; i++ {
+        s.AddDelayTask(time.Hour*1, func() {})
+        s.AddDelayTask(time.Hour*10, func() {})
+        s.AddDelayTask(time.Hour*100, func() {})
+        s.AddDelayTask(time.Hour*1000, func() {})
+    }
+    wg.Wait()
 }

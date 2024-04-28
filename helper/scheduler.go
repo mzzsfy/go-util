@@ -75,7 +75,8 @@ type schedulerLayer struct {
     ceilInterval    int64
     allCeilInterval int64
     //每层的时间为检查间隔*10
-    cells [10]concurrent.Queue[schedulerTask]
+    adding [10]int32
+    cells  [10]concurrent.Queue[schedulerTask]
     //下一次运行的cell
     idx int
 }
@@ -96,12 +97,15 @@ func (s *schedulerLayer) next(scheduler *Scheduler, now int64) {
         atomic.CompareAndSwapInt32(&scheduler.runLock, 0, 1)
         c := s.cells[s.idx]
         t := time.UnixMilli(now)
-        for {
-            task, b := c.Dequeue()
-            if !b {
-                break
+        if atomic.CompareAndSwapInt32(&s.adding[s.idx], 0, 1) {
+            for {
+                task, b := c.Dequeue()
+                if !b {
+                    break
+                }
+                s.callTask(scheduler, t, task)
             }
-            s.callTask(scheduler, t, task)
+            atomic.StoreInt32(&s.adding[s.idx], 0)
         }
         s.idx++
         if s.idx == 9 {
@@ -114,20 +118,26 @@ func (s *schedulerLayer) next(scheduler *Scheduler, now int64) {
         atomic.StoreInt32(&scheduler.runLock, 0)
         return
     }
-    //非最低层,将当前单元格的所有元素添加到下层
     c := s.cells[s.idx]
-    for {
-        task, b := c.Dequeue()
-        if !b {
-            break
-        }
-        if scheduler.stopped {
-            return
-        }
-        err := scheduler.addTask(task)
-        if err != nil {
-            s.callTask(scheduler, time.UnixMilli(now), task)
-        }
+    if atomic.CompareAndSwapInt32(&s.adding[s.idx], 0, 1) {
+        idx := s.idx
+        go func() {
+            defer atomic.StoreInt32(&s.adding[idx], 0)
+            //非最低层,将当前单元格的所有元素添加到下层
+            for {
+                task, b := c.Dequeue()
+                if !b {
+                    break
+                }
+                if scheduler.stopped {
+                    return
+                }
+                err := scheduler.addTask(task)
+                if err != nil {
+                    s.callTask(scheduler, time.UnixMilli(now), task)
+                }
+            }
+        }()
     }
     s.idx++
     if s.idx == 9 {
@@ -238,6 +248,9 @@ func (s *schedulerLayer) addTask(scheduler *Scheduler, task schedulerTask) (err 
     var i int
     if s.level > 0 {
         i = (int((delay-s.ceilInterval)/s.ceilInterval) + s.idx) % 10
+        if i < 0 {
+            i = -i
+        }
     } else {
         i = (int(delay/s.ceilInterval) + s.idx) % 10
     }

@@ -32,12 +32,74 @@ func Test_DequeueTimeout(t *testing.T) {
     t.Log(time.Now(), zipAny(queue.DequeueBlock()))
 }
 
+func Test_LkQueue1(b *testing.T) {
+    num := 100000
+    queue := NewQueue[int]()
+    for i := 0; i < num; i++ {
+        queue.Enqueue(1)
+    }
+    if queue.Size() != num {
+        b.Fatal("插入数据量数量不正确")
+        return
+    }
+    var x = Int64Adder{}
+    for i := 0; i < num; i++ {
+        _, exist := queue.Dequeue()
+        if exist {
+            x.IncrementSimple()
+        } else {
+            return
+        }
+    }
+    if x.SumInt() != num {
+        b.Fatal("消费数据量数量不正确", x.SumInt(), num)
+    }
+}
+
+func Test_LkQueue2(b *testing.T) {
+    gn := 10
+    num := 10000
+    n := num * gn
+    wg := NewWaitGroup(gn)
+    queue := NewQueue[int]()
+    for g := 0; g < gn; g++ {
+        go func() {
+            defer wg.Done()
+            for i := 0; i < num; i++ {
+                queue.Enqueue(1)
+            }
+        }()
+    }
+    wg.Wait()
+    if queue.Size() != n {
+        b.Fatal("插入数据量数量不正确")
+        return
+    }
+    var x = Int64Adder{}
+    wg.Add(gn)
+    for g := 0; g < gn; g++ {
+        go func() {
+            defer wg.Done()
+            for i := 0; i < num; i++ {
+                _, exist := queue.Dequeue()
+                if exist {
+                    x.IncrementSimple()
+                } else {
+                    return
+                }
+            }
+        }()
+    }
+    wg.Wait()
+    if x.SumInt() != n {
+        b.Fatal("消费数据量数量不正确", x.SumInt(), n)
+    }
+}
 func Benchmark_LkQueue_q1(b *testing.B) {
     i := f1(b.N)
     if i != 0 {
         b.Fatal("count is not 0", i)
     }
-
 }
 func Benchmark_LkQueue_q2(b *testing.B) {
     i := f2(b.N)
@@ -46,8 +108,7 @@ func Benchmark_LkQueue_q2(b *testing.B) {
     }
 }
 
-const num = 1000
-
+//const num = 1000
 //func Test_LkQueue_q1(t *testing.T) {
 //    file, _ := os.OpenFile("cpu1.prof", os.O_RDWR|os.O_CREATE, os.ModePerm)
 //    pprof.StartCPUProfile(file)

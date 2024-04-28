@@ -1,12 +1,17 @@
 package concurrent
 
 import (
+    "reflect"
+    "sync"
     "sync/atomic"
     "unsafe"
 )
 
 //cas 链表
 type lkQueue[T any] struct {
+    newNode     func() *node[T]
+    reclaimNode func(n *node[T])
+
     head unsafe.Pointer
     _    [7]int64
     tail unsafe.Pointer
@@ -24,21 +29,63 @@ func WithTypeLink[T any]() Opt[T] {
     }
 }
 
+var (
+    poolLock  = sync.RWMutex{}
+    nodePools = make(map[string]any)
+)
+
+func getNodePool[T any]() *sync.Pool {
+    name := reflect.TypeOf((*T)(nil)).Elem().String()
+    poolLock.RLock()
+    if pool, ok := nodePools[name]; ok {
+        poolLock.RUnlock()
+        return pool.(*sync.Pool)
+    }
+    poolLock.RUnlock()
+    poolLock.Lock()
+    defer poolLock.Unlock()
+    p := &sync.Pool{
+        New: func() any {
+            return &node[T]{}
+        },
+    }
+    nodePools[name] = p
+    return p
+}
+
 func newLinkedQueue[T any]() Queue[T] {
     n := unsafe.Pointer(&node[T]{})
-    return &lkQueue[T]{head: n, tail: n}
+    q := &lkQueue[T]{head: n, tail: n}
+    pool := getNodePool[T]()
+    if pool != nil {
+        q.newNode = func() *node[T] {
+            return pool.Get().(*node[T])
+        }
+        var t T
+        q.reclaimNode = func(n *node[T]) {
+            n.value = t
+            pool.Put(n)
+        }
+    }
+    return q
 }
 func (q *lkQueue[T]) Size() int {
     return int(atomic.LoadInt32(&q.size))
 }
 
 func (q *lkQueue[T]) Enqueue(v T) {
-    n := &node[T]{value: v}
+    var n *node[T]
+    if q.newNode == nil {
+        n = &node[T]{value: v}
+    } else {
+        n = q.newNode()
+        n.value = v
+        n.next = nil
+    }
     var tail *node[T]
     for {
         // 1.读取当前tail
         tail = q.load(&q.tail)
-        //情况1,当前tail.next为nil
         //无竞争
         if q.casTT(&tail.next, nil, n) {
             // 设置tail为当前值
@@ -75,6 +122,9 @@ func (q *lkQueue[T]) Dequeue() (T, bool) {
             v = next.value
             if q.casTT(&q.head, head, next) {
                 atomic.AddInt32(&q.size, -1)
+                if q.reclaimNode != nil {
+                    q.reclaimNode(head)
+                }
                 return v, true
             }
         }
