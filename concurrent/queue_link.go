@@ -1,7 +1,6 @@
 package concurrent
 
 import (
-    "reflect"
     "sync"
     "sync/atomic"
     "unsafe"
@@ -9,17 +8,17 @@ import (
 
 //cas 链表
 type lkQueue[T any] struct {
-    newNode     func() *node[T]
-    reclaimNode func(n *node[T])
+    newNode     func() *node
+    reclaimNode func(n *node)
 
     head unsafe.Pointer
-    _    [7]int64
+    _    [cpuCacheKillerPaddingLength]byte
     tail unsafe.Pointer
-    _    [7]int64
+    _    [cpuCacheKillerPaddingLength]byte
     size int32
 }
-type node[T any] struct {
-    value T
+type node struct {
+    value any
     next  unsafe.Pointer
 }
 
@@ -30,40 +29,51 @@ func WithTypeLink[T any]() Opt[T] {
 }
 
 var (
-    poolLock  = sync.RWMutex{}
-    nodePools = make(map[string]any)
+    //poolLock = sync.RWMutex{}
+    //nodePools = make(map[string]any)
+    nodePool = &sync.Pool{New: func() any { return &node{} }}
 )
 
 func getNodePool[T any]() *sync.Pool {
-    name := reflect.TypeOf((*T)(nil)).Elem().String()
-    poolLock.RLock()
-    if pool, ok := nodePools[name]; ok {
-        poolLock.RUnlock()
-        return pool.(*sync.Pool)
-    }
-    poolLock.RUnlock()
-    poolLock.Lock()
-    defer poolLock.Unlock()
-    p := &sync.Pool{
-        New: func() any {
-            return &node[T]{}
-        },
-    }
-    nodePools[name] = p
-    return p
+    return nil
+    //return nodePool
+    //name := reflect.TypeOf((*T)(nil)).Elem().String()
+    //poolLock.RLock()
+    //if pool, ok := nodePools[name]; ok {
+    //    poolLock.RUnlock()
+    //    return pool.(*sync.Pool)
+    //}
+    //poolLock.RUnlock()
+    //poolLock.Lock()
+    //defer poolLock.Unlock()
+    //p := &sync.Pool{New: func() any { return &node[T]{} }}
+    //nodePools[name] = p
+    //return p
 }
 
+var (
+    hit   = Int64Adder{}
+    noHit = Int64Adder{}
+)
+
 func newLinkedQueue[T any]() Queue[T] {
-    n := unsafe.Pointer(&node[T]{})
-    q := &lkQueue[T]{head: n, tail: n}
+    start := unsafe.Pointer(&node{})
+    q := &lkQueue[T]{head: start, tail: start}
     pool := getNodePool[T]()
     if pool != nil {
-        q.newNode = func() *node[T] {
-            return pool.Get().(*node[T])
+        q.newNode = func() *node {
+            for {
+                n := pool.Get().(*node)
+                if n.next == nil && n.value == nil {
+                    hit.IncrementSimple()
+                    return n
+                } else {
+                    noHit.IncrementSimple()
+                }
+            }
         }
-        var t T
-        q.reclaimNode = func(n *node[T]) {
-            n.value = t
+        q.reclaimNode = func(n *node) {
+            n.next = nil
             pool.Put(n)
         }
     }
@@ -74,72 +84,68 @@ func (q *lkQueue[T]) Size() int {
 }
 
 func (q *lkQueue[T]) Enqueue(v T) {
-    var n *node[T]
+    var n *node
     if q.newNode == nil {
-        n = &node[T]{value: v}
+        n = &node{}
     } else {
         n = q.newNode()
-        n.value = v
-        n.next = nil
     }
-    var tail *node[T]
+    n.value = v
+    var tail *node
     for {
         // 1.读取当前tail
-        tail = q.load(&q.tail)
-        //无竞争
-        if q.casTT(&tail.next, nil, n) {
-            // 设置tail为当前值
-            //若无竞争,则head.next和插入都正常,不影响遍历
-            //若有竞争,则head.next正确,tail不正确,不影响遍历,影响插入
-            q.casTT(&q.tail, tail, n)
+        tail = casLoad(&q.tail)
+        // 设置tail.next为当前值
+        if casSwap(&tail.next, nil, unsafe.Pointer(n)) {
+            //无竞争
+
             atomic.AddInt32(&q.size, 1)
+            //尝试将new node设置为tail
+            //若有竞争,则head.next正确,tail不正确,不影响遍历,影响插入,Enqueue重试即可
+            casSwap(&q.tail, unsafe.Pointer(tail), unsafe.Pointer(n))
             return
-        } else /*有竞争*/ {
-            //尝试将next设置为tail
-            q.casTP(&q.tail, tail, tail.next)
+        } else {
+            //有竞争
+
+            next := casLoad(&tail.next)
+            if next == nil || next == tail {
+                continue
+            }
+            //尝试将tail.next设置为tail,然后再次尝试插入tail
+            casSwap(&q.tail, unsafe.Pointer(tail), unsafe.Pointer(next))
         }
-        //总结,每个循环中
-        //尝试使用n替换tail.next(如果nil)
-        //否则,尝试使用tail.next替换tail,也就是移动一步
     }
 }
 
 func (q *lkQueue[T]) Dequeue() (T, bool) {
     var (
-        head *node[T]
-        next *node[T]
-        v    T
+        head *node
+        next *node
     )
     for {
-        head = q.load(&q.head)
-        next = q.load(&head.next)
+        head = casLoad(&q.head)
+        next = casLoad(&head.next)
         // next.value为当前值,所以next.value没值则队列为空
         if next == nil {
-            return v, false
+            var r T
+            return r, false
         }
-        //确保head 与 next 读取数据一致
-        if head == q.load(&q.head) {
-            v = next.value
-            if q.casTT(&q.head, head, next) {
-                atomic.AddInt32(&q.size, -1)
-                if q.reclaimNode != nil {
-                    q.reclaimNode(head)
-                }
-                return v, true
+        if casSwap(&q.head, unsafe.Pointer(head), unsafe.Pointer(next)) {
+            v := next.value
+            if q.reclaimNode != nil {
+                q.reclaimNode(head)
             }
+            next.value = nil
+            atomic.AddInt32(&q.size, -1)
+            return v.(T), true
         }
     }
 }
 
-func (q *lkQueue[T]) load(p *unsafe.Pointer) (n *node[T]) {
-    return (*node[T])(atomic.LoadPointer(p))
+func casLoad(p *unsafe.Pointer) (n *node) {
+    return (*node)(atomic.LoadPointer(p))
 }
-func (q *lkQueue[T]) casTT(p *unsafe.Pointer, old, new *node[T]) (ok bool) {
-    return atomic.CompareAndSwapPointer(p, unsafe.Pointer(old), unsafe.Pointer(new))
-}
-func (q *lkQueue[T]) casPT(p *unsafe.Pointer, old unsafe.Pointer, new *node[T]) (ok bool) {
-    return atomic.CompareAndSwapPointer(p, old, unsafe.Pointer(new))
-}
-func (q *lkQueue[T]) casTP(p *unsafe.Pointer, old *node[T], new unsafe.Pointer) (ok bool) {
-    return atomic.CompareAndSwapPointer(p, unsafe.Pointer(old), new)
+
+func casSwap(p *unsafe.Pointer, old, new unsafe.Pointer) (ok bool) {
+    return atomic.CompareAndSwapPointer(p, old, new)
 }

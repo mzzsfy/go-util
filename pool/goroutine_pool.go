@@ -3,6 +3,7 @@ package pool
 import (
     "context"
     "errors"
+    "github.com/mzzsfy/go-util/concurrent"
     "runtime"
     "sync"
     "sync/atomic"
@@ -11,9 +12,8 @@ import (
 var (
     //workerIdGen   uint64
     //taskIdGen     uint64
-    defaultGoPool = NewGopool(WithName("defaultGoPool"), WithMaxSize(uint32(runtime.NumCPU()*1000)))
-    workerPool    = NewObjectPool[worker](func() *worker { return &worker{} }, func(i *worker) { i.p = nil })
-    taskPool      = NewObjectPool[task](func() *task { return &task{} }, func(i *task) { i.next = nil; i.fn = nil })
+    defaultGoPool = NewGopool(WithName("defaultGoPool"))
+    taskPool      = NewObjectPool[task](func() *task { return &task{} }, func(i *task) { i.ctx = nil; i.fn = nil })
 )
 
 func Go(f func()) error {
@@ -24,20 +24,12 @@ func CtxGo(ctx context.Context, f func()) error {
 }
 
 type GoPool struct {
-    //coreSize以下的,每个goroutine负责一个任务,超过部分每1个任务由loadProbability(0.0~1.0)个goroutine负责
-    loadProbability float32
-    panicHandler    func(any, context.Context)
-    name            string
-    coreSize        uint32
-    maxSize         uint32
-    works           uint32
-    //剩余任务数量,当任务开始执行时就不被计数
-    tasks     uint32
-    shutDown  int32
-    taskLock  sync.Mutex
-    taskHead  *task
-    taskTail  *task
-    closeChan sync.Once
+    panicHandler func(any, context.Context)
+    name         string
+    works        int32
+    shutDown     int32
+    taskQueue    concurrent.Queue[*task]
+    closeChan    sync.Once
 }
 
 func (p *GoPool) Name() string {
@@ -45,13 +37,13 @@ func (p *GoPool) Name() string {
 }
 
 // WorkerCount 获取当前工作中携程数量
-func (p *GoPool) WorkerCount() uint {
-    return uint(atomic.LoadUint32(&p.works))
+func (p *GoPool) WorkerCount() uint64 {
+    return uint64(atomic.LoadInt32(&p.works))
 }
 
-// TaskCount 获取任务数量
-func (p *GoPool) TaskCount() uint {
-    return uint(atomic.LoadUint32(&p.tasks))
+// TaskCount 获取队列任务数量
+func (p *GoPool) TaskCount() uint64 {
+    return uint64(p.taskQueue.Size())
 }
 
 // Shutdown 关闭携程池,停止接受新任务,停止运行新任务
@@ -64,8 +56,11 @@ func (p *GoPool) Restart() bool {
     r := atomic.CompareAndSwapInt32(&p.shutDown, 1, 0)
     if r {
         for {
-            if !p.newWorker() {
-                break
+            t, b := p.taskQueue.Dequeue()
+            if b {
+                go p.goRun(t)
+            } else {
+                return r
             }
         }
     }
@@ -81,109 +76,80 @@ func (p *GoPool) CtxGo(ctx context.Context, f func()) error {
         return errors.New("pool is shut down")
     }
     t := taskPool.Get()
-    atomic.AddUint32(&p.tasks, 1)
     //t.id = atomic.AddUint64(&taskIdGen, 1)
     t.fn = f
     t.ctx = ctx
-
-    p.taskLock.Lock()
-    if p.taskHead == nil {
-        p.taskHead = t
-        p.taskTail = t
-    } else {
-        p.taskTail.next = t
-        p.taskTail = t
-    }
-    p.taskLock.Unlock()
-
-    //少于coreSize,直接扩容
-    p.newWorker()
+    p.newWorker(t)
     return nil
 }
 
-func (p *GoPool) newWorker() bool {
-    if p.loadProbability == 0 || atomic.LoadUint32(&p.works) == 0 || atomic.LoadUint32(&p.works) < p.coreSize {
-        p.runWorker()
+func (p *GoPool) newWorker(t *task) bool {
+    if p.taskQueue.Size() >= int(atomic.LoadInt32(&p.works)) {
+        go p.goRun(t)
+        return true
     } else {
-        //满足扩容条件,扩容
-        if uint32(float32(atomic.LoadUint32(&p.tasks))*p.loadProbability) > (atomic.LoadUint32(&p.works)-p.coreSize) && (p.maxSize == 0 || atomic.LoadUint32(&p.works) < p.maxSize) {
-            p.runWorker()
-        } else {
-            return false
-        }
+        p.taskQueue.Enqueue(t)
+        return false
     }
-    return true
 }
 
-func (p *GoPool) runWorker() {
-    w := workerPool.Get()
-    w.p = p
-    //w.id = atomic.AddUint64(&workerIdGen, 1)
-    go w.run()
-}
-
-type worker struct {
-    //id uint64
-    p *GoPool
-}
-
-func (w *worker) run() {
-    atomic.AddUint32(&w.p.works, 1)
-    defer func() {
-        atomic.AddUint32(&w.p.works, ^uint32(0))
-        workerPool.Put(w)
-    }()
+func (p *GoPool) goRun(t *task) {
+    atomic.AddInt32(&p.works, 1)
+    defer atomic.AddInt32(&p.works, -1)
     for {
-        if !w.run1() {
+        if !p.goRun1(t) {
             break
         }
     }
 }
-func (w *worker) run1() (Continue bool) {
-    var t *task
+func (p *GoPool) goRun1(t *task) (Continue bool) {
     defer func() {
-        if t != nil && w.p.panicHandler != nil {
+        if t != nil && p.panicHandler != nil {
             if a := recover(); a != nil {
                 Continue = true
-                w.p.panicHandler(a, t.ctx)
+                p.panicHandler(a, t.ctx)
             }
         }
     }()
-    for {
-        if atomic.LoadInt32(&w.p.shutDown) == 1 {
-            return
-        }
-        if w.p.taskHead != nil {
-            w.p.taskLock.Lock()
-            t = w.p.taskHead
-            if t != nil {
-                w.p.taskHead = t.next
-            }
-            w.p.taskLock.Unlock()
-        }
-        if t == nil {
-            return
-        }
-        atomic.AddUint32(&w.p.tasks, ^uint32(0))
+    if t != nil {
         t.fn()
         taskPool.Put(t)
         t = nil
+    }
+    var (
+        ok   = false
+        fail = 0
+    )
+    for {
+        if atomic.LoadInt32(&p.shutDown) == 1 {
+            return
+        }
+        t, ok = p.taskQueue.Dequeue()
+        if !ok {
+            if fail > 10 || (fail > 0 && p.works > 1024) {
+                return
+            }
+            fail++
+            runtime.Gosched()
+            continue
+        }
+        t.fn()
+        taskPool.Put(t)
+        t = nil
+        fail = 0
     }
 }
 
 type task struct {
     //id   uint64
-    fn   func()
-    ctx  context.Context
-    next *task
+    fn  func()
+    ctx context.Context
 }
 
 // NewGopool 创建一个携程池,不推荐使用(性能有待优化)
-// Deprecated
 func NewGopool(options ...Option) *GoPool {
     gopool := &GoPool{
-        coreSize:        uint32(runtime.NumCPU() * 100),
-        loadProbability: float32(0.3),
+        taskQueue: concurrent.NewQueue(concurrent.WithTypeLink[*task]()),
     }
     for _, option := range options {
         option(gopool)
@@ -193,35 +159,6 @@ func NewGopool(options ...Option) *GoPool {
 
 type Option func(gopool *GoPool)
 
-func WithCoreSize(size uint32) Option {
-    return func(gopool *GoPool) {
-        gopool.maxSize = size
-    }
-}
-func WithMaxSize(size uint32) Option {
-    return func(gopool *GoPool) {
-        if size != 0 && gopool.coreSize > size {
-            panic("maxSize must be more than coreSize")
-        }
-        gopool.maxSize = size
-    }
-}
-func WithLoadProbability(probability float32) Option {
-    if probability < 0 || probability > 1 {
-        panic("LoadProbability must be between 0 and 1")
-    }
-    if probability == 1 {
-        probability = 0
-    }
-    if probability == 0 {
-        return func(gopool *GoPool) {
-            gopool.loadProbability = probability
-        }
-    }
-    return func(gopool *GoPool) {
-        gopool.loadProbability = probability
-    }
-}
 func WithPanicHandler(handler func(any, context.Context)) Option {
     return func(gopool *GoPool) {
         gopool.panicHandler = handler

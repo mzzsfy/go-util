@@ -2,4 +2,4 @@
 
 package concurrent
 
-const cCacheKillerPaddingLength = 24
+const cpuCacheKillerPaddingLength = 24

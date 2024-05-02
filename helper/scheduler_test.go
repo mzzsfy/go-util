@@ -2,8 +2,11 @@ package helper
 
 import (
     "github.com/mzzsfy/go-util/concurrent"
+    "github.com/mzzsfy/go-util/pool"
+    "github.com/mzzsfy/go-util/unsafe"
     "math"
     "math/rand"
+    "runtime"
     "testing"
     "time"
 )
@@ -80,7 +83,13 @@ func BenchmarkScheduler_AddCronTask(b *testing.B) {
 
 func TestScheduler_CronTask(t *testing.T) {
     s := NewScheduler(time.Millisecond * 10)
+    gp := pool.NewGopool()
+    s.DoCallFn = func(f func()) { gp.Go(f) }
     t.Cleanup(func() { s.Stop() })
+    var goid int64
+    go func() {
+        goid = unsafe.GoID()
+    }()
     wg := NewWaitGroup(0)
     add := concurrent.Int64Adder{}
     run := concurrent.Int64Adder{}
@@ -88,7 +97,7 @@ func TestScheduler_CronTask(t *testing.T) {
         run.IncrementSimple()
         wg.Done()
     }
-    num := 10000000
+    num := 3000000
     st := 5
     n := 7
     go func() {
@@ -101,7 +110,7 @@ func TestScheduler_CronTask(t *testing.T) {
                 t.Log("adding", add.Sum(), "/", num*n)
                 time.Sleep(time.Millisecond)
             } else {
-                t.Log("running", run.Sum(), "/", num*n)
+                t.Log("running", run.Sum(), "/", num*n, gp.WorkerCount(), runtime.NumGoroutine())
                 time.Sleep(time.Millisecond * 300)
             }
         }
@@ -120,4 +129,8 @@ func TestScheduler_CronTask(t *testing.T) {
         s.AddDelayTask(time.Hour*1000, func() {})
     }
     wg.Wait()
+    time.Sleep(time.Millisecond * 50)
+    go func() {
+        t.Log("goid start", goid, "end", unsafe.GoID(), "new", unsafe.GoID()-goid)
+    }()
 }

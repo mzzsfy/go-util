@@ -36,7 +36,7 @@ type c struct {
     // Benchmark_bitInt64Adder_24Bit-6           154597              8164 ns/op
     // Benchmark_bitInt64Adder_56Bit-6           239994              5650 ns/op
     // Benchmark_bitInt64Adder_120Bit-6          272733              5006 ns/op
-    _ [cCacheKillerPaddingLength]byte
+    _ [cpuCacheKillerPaddingLength]byte
 }
 
 // Int64Adder 用于统计int64类型的数据
@@ -114,6 +114,9 @@ func (l *Int64Adder) AddSimple(v int64) {
 
 func (l *Int64Adder) Sum() int64 {
     r := l.base
+    if l.init == 0 {
+        return r
+    }
     for i := range l.values {
         r += atomic.LoadInt64(&l.values[i].int64)
     }

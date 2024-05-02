@@ -85,7 +85,7 @@ func Test_LkQueue2(b *testing.T) {
                 if exist {
                     x.IncrementSimple()
                 } else {
-                    return
+                    i--
                 }
             }
         }()
@@ -95,32 +95,214 @@ func Test_LkQueue2(b *testing.T) {
         b.Fatal("消费数据量数量不正确", x.SumInt(), n)
     }
 }
-func Benchmark_LkQueue_q1(b *testing.B) {
-    i := f1(b.N)
-    if i != 0 {
-        b.Fatal("count is not 0", i)
-    }
-}
-func Benchmark_LkQueue_q2(b *testing.B) {
-    i := f2(b.N)
-    if i != 0 {
-        b.Fatal("count is not 0", i)
-    }
+func Benchmark_LkQueue(b *testing.B) {
+    b.Run("Enqueue", func(b *testing.B) {
+        queue := NewQueue(WithTypeLink[int]())
+        over := int32(0)
+        b.Cleanup(func() {
+            atomic.StoreInt32(&over, 1)
+        })
+        for i := 0; i < 32; i++ {
+            go func() {
+                for {
+                    _, ok := queue.Dequeue()
+                    if !ok {
+                        if atomic.LoadInt32(&over) == 1 {
+                            return
+                        }
+                    }
+                }
+            }()
+        }
+        b.RunParallel(func(pb *testing.PB) {
+            for pb.Next() {
+                queue.Enqueue(1)
+            }
+        })
+        b.Log("hit", hit.Sum(), "noHit", noHit.Sum())
+    })
+    b.Run("Dequeue", func(b *testing.B) {
+        queue := NewQueue(WithTypeLink[int]())
+        over := int32(0)
+        b.Cleanup(func() {
+            atomic.StoreInt32(&over, 1)
+        })
+        for i := 0; i < 3; i++ {
+            go func() {
+                for {
+                    if queue.Size() > 3000 {
+                        time.Sleep(100 * time.Millisecond)
+                    } else {
+                        for j := 0; j < 1000; j++ {
+                            queue.Enqueue(1)
+                        }
+                    }
+                    if atomic.LoadInt32(&over) == 1 {
+                        return
+                    }
+                }
+            }()
+        }
+        b.RunParallel(func(pb *testing.PB) {
+            for pb.Next() {
+                for {
+                    _, ok := queue.Dequeue()
+                    if ok {
+                        break
+                    }
+                }
+            }
+        })
+        b.Log("hit", hit.Sum(), "noHit", noHit.Sum())
+    })
+    b.Run("chan Enqueue", func(b *testing.B) {
+        queue := make(chan int, 10)
+        over := int32(0)
+        b.Cleanup(func() {
+            atomic.StoreInt32(&over, 1)
+        })
+        for i := 0; i < 10; i++ {
+            go func() {
+                for {
+                    _, ok := <-queue
+                    if !ok {
+                        if atomic.LoadInt32(&over) == 1 {
+                            return
+                        }
+                    }
+                }
+            }()
+        }
+        b.RunParallel(func(pb *testing.PB) {
+            for pb.Next() {
+                queue <- 1
+            }
+        })
+    })
+    b.Run("chan Dequeue", func(b *testing.B) {
+        queue := make(chan int)
+        over := int32(0)
+        b.Cleanup(func() {
+            atomic.StoreInt32(&over, 1)
+        })
+        for i := 0; i < 3; i++ {
+            go func() {
+                for {
+                    for j := 0; j < 100; j++ {
+                        queue <- 1
+                    }
+                    if atomic.LoadInt32(&over) == 1 {
+                        return
+                    }
+                }
+            }()
+        }
+        b.RunParallel(func(pb *testing.PB) {
+            for pb.Next() {
+                for {
+                    _, ok := <-queue
+                    if ok {
+                        break
+                    }
+                }
+            }
+        })
+    })
 }
 
-//const num = 1000
-//func Test_LkQueue_q1(t *testing.T) {
-//    file, _ := os.OpenFile("cpu1.prof", os.O_RDWR|os.O_CREATE, os.ModePerm)
-//    pprof.StartCPUProfile(file)
-//    defer pprof.StopCPUProfile()
-//    f1(num)
-//}
-//func Test_LkQueue_q2(t *testing.T) {
-//    file, _ := os.OpenFile("cpu2.prof", os.O_RDWR|os.O_CREATE, os.ModePerm)
-//    pprof.StartCPUProfile(file)
-//    defer pprof.StopCPUProfile()
-//    f2(num)
-//}
+func Benchmark_LkQueue111(b *testing.B) {
+    b.Run("lk", func(b *testing.B) {
+        queue := NewQueue(WithTypeLink[int]())
+        wg := NewWaitGroup(0)
+        en := Int64Adder{}
+        de := Int64Adder{}
+        for i := 0; i < 10; i++ {
+            wg.Add(1)
+            go func() {
+                id := GoID()
+                for i := 0; i < b.N; i++ {
+                    en.Increment(id)
+                    queue.Enqueue(1)
+                }
+            }()
+            go func() {
+                defer wg.Done()
+                id := GoID()
+                for i := 0; i < b.N; i++ {
+                    x, ok := queue.Dequeue()
+                    if !ok {
+                        i--
+                        runtime.Gosched()
+                    } else {
+                        if x != 1 {
+                            b.Error("数据错误")
+                            b.FailNow()
+                            return
+                        }
+                        de.Increment(id)
+                    }
+                }
+            }()
+        }
+        time.Sleep(10 * time.Millisecond)
+        wg.Wait()
+        if en.Sum() != de.Sum() {
+            b.Error("入队出队数量不匹配")
+        }
+    })
+    b.Run("chan", func(b *testing.B) {
+        queue := make(chan int, 10)
+        wg := NewWaitGroup(0)
+        en := Int64Adder{}
+        de := Int64Adder{}
+        for i := 0; i < 10; i++ {
+            wg.Add(1)
+            go func() {
+                id := GoID()
+                for i := 0; i < b.N; i++ {
+                    en.Increment(id)
+                    queue <- 1
+                }
+            }()
+            go func() {
+                defer wg.Done()
+                id := GoID()
+                for i := 0; i < b.N; i++ {
+                    x, ok := <-queue
+                    if !ok {
+                        i--
+                    } else {
+                        if x != 1 {
+                            b.Error("数据错误")
+                            b.FailNow()
+                        }
+                        de.Increment(id)
+                    }
+                }
+            }()
+        }
+        time.Sleep(10 * time.Millisecond)
+        wg.Wait()
+        if en.Sum() != de.Sum() {
+            b.Error("入队出队数量不匹配")
+        }
+    })
+}
+
+func Benchmark_LkQueue_q1(b *testing.B) {
+    b.Run("f1", func(b *testing.B) {
+        i := f1(b.N)
+        if i != 0 {
+            b.Fatal("count is not 0", i)
+        }
+    })
+    b.Run("f2", func(b *testing.B) {
+        i := f2(b.N)
+        if i != 0 {
+            b.Fatal("count is not 0", i)
+        }
+    })
+}
 
 func f1(num int) int64 {
     queue := BlockQueueWrapper(newLinkedQueue[int]())
@@ -152,6 +334,7 @@ func f1(num int) int64 {
     wg.Wait()
     return atomic.LoadInt64(&count)
 }
+
 func f2(num int) int64 {
     queue := newLinkedQueue[int]()
     wg := sync.WaitGroup{}
@@ -187,46 +370,6 @@ func f2(num int) int64 {
     }
     wg.Wait()
     return atomic.LoadInt64(&count)
-}
-func Benchmark_LkQueue_c(b *testing.B) {
-    queue := make(chan int, 1024)
-    wg := sync.WaitGroup{}
-    count := int64(0)
-    for i := 0; i < consumer; i++ {
-        wg.Add(1)
-        go func() {
-            defer wg.Done()
-            for {
-                select {
-                case <-queue:
-                    atomic.AddInt64(&count, -1)
-                    continue
-                default:
-                    runtime.Gosched()
-                }
-                select {
-                case <-queue:
-                    atomic.AddInt64(&count, -1)
-                case <-time.After(time.Millisecond * 10):
-                    return
-                }
-            }
-        }()
-    }
-    for i := 0; i < producer; i++ {
-        wg.Add(1)
-        go func() {
-            defer wg.Done()
-            for i := 0; i < b.N; i++ {
-                queue <- i
-                atomic.AddInt64(&count, 1)
-            }
-        }()
-    }
-    wg.Wait()
-    if atomic.LoadInt64(&count) != 0 {
-        b.Fatal("count is not 0")
-    }
 }
 
 func TestDelayQueue_Dequeue(t *testing.T) {
