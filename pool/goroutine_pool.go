@@ -84,7 +84,7 @@ func (p *GoPool) CtxGo(ctx context.Context, f func()) error {
 }
 
 func (p *GoPool) newWorker(t *task) bool {
-    if p.taskQueue.Size() >= int(atomic.LoadInt32(&p.works)) {
+    if p.taskQueue.Size() > 10 || int(atomic.LoadInt32(&p.works)) < 10 {
         go p.goRun(t)
         return true
     } else {
