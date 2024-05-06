@@ -29,27 +29,9 @@ func WithTypeLink[T any]() Opt[T] {
 }
 
 var (
-    //poolLock = sync.RWMutex{}
-    //nodePools = make(map[string]any)
-    nodePool = &sync.Pool{New: func() any { return &node{} }}
+    nodePool *sync.Pool
+    //nodePool = &sync.Pool{New: func() any { return &node{} }}
 )
-
-func getNodePool[T any]() *sync.Pool {
-    return nil
-    //return nodePool
-    //name := reflect.TypeOf((*T)(nil)).Elem().String()
-    //poolLock.RLock()
-    //if pool, ok := nodePools[name]; ok {
-    //    poolLock.RUnlock()
-    //    return pool.(*sync.Pool)
-    //}
-    //poolLock.RUnlock()
-    //poolLock.Lock()
-    //defer poolLock.Unlock()
-    //p := &sync.Pool{New: func() any { return &node[T]{} }}
-    //nodePools[name] = p
-    //return p
-}
 
 var (
     hit   = Int64Adder{}
@@ -59,22 +41,22 @@ var (
 func newLinkedQueue[T any]() Queue[T] {
     start := unsafe.Pointer(&node{})
     q := &lkQueue[T]{head: start, tail: start}
-    pool := getNodePool[T]()
-    if pool != nil {
+    if nodePool != nil {
         q.newNode = func() *node {
             for {
-                n := pool.Get().(*node)
+                n := nodePool.Get().(*node)
                 if n.next == nil && n.value == nil {
                     hit.IncrementSimple()
                     return n
                 } else {
+                    //fmt.Println("h", unsafe.Pointer(n), n.next, n.value)
                     noHit.IncrementSimple()
                 }
             }
         }
         q.reclaimNode = func(n *node) {
             n.next = nil
-            pool.Put(n)
+            nodePool.Put(n)
         }
     }
     return q
@@ -132,6 +114,9 @@ func (q *lkQueue[T]) Dequeue() (T, bool) {
         }
         if casSwap(&q.head, unsafe.Pointer(head), unsafe.Pointer(next)) {
             v := next.value
+            if v == nil {
+                panic("value is nil")
+            }
             if q.reclaimNode != nil {
                 q.reclaimNode(head)
             }
