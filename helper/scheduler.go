@@ -218,7 +218,7 @@ func (s *schedulerLayer) addTask(scheduler *Scheduler, task schedulerTask) (err 
             return
         }
     }
-    //延迟高于当前层支持
+    //延迟高于当前层支持,尝试添加到下一层
     if delay > s.allCeilInterval {
         if s.level < len(scheduler.taskLayers)-1 {
             scheduler.taskLayers[s.level+1].addTask(scheduler, task)

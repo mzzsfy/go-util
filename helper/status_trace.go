@@ -6,7 +6,7 @@ type StatusKey[T comparable] interface {
     InitValue() T
 }
 
-// StatusValue 在程序运行中,方便的更新状态值 DefItem(ctx, k1).Set(11)
+// StatusValue 在程序运行中,方便的更新状态值 DefStatusItem(ctx, k1).Set(11)
 type StatusValue[T comparable] interface {
     Value() T
     Set(v T) StatusValue[T]
@@ -82,8 +82,8 @@ type EachStatusHolder interface {
     Each(func(key any, value any))
 }
 
-// DefItem 创建或者获取 StatusValue,因为golang泛型限制,不能使用 StatusHolder.Get(key) 来获取值
-func DefItem[T comparable](status StatusHolder, key StatusKey[T]) StatusValue[T] {
+// DefStatusItem 创建或者获取 StatusValue,因为golang泛型限制,不能使用 StatusHolder.Get(key) 来获取值
+func DefStatusItem[T comparable](status StatusHolder, key StatusKey[T]) StatusValue[T] {
     value := status.Get(key)
     if r, ok := value.(StatusValue[T]); ok {
         return r
@@ -93,25 +93,25 @@ func DefItem[T comparable](status StatusHolder, key StatusKey[T]) StatusValue[T]
     return r
 }
 
-type _st int8
-
-const (
-    keyTrace _st = iota
-)
-
 func SaveNewStatusHolder(parent context.Context) context.Context {
     return SaveStatusHolder(parent, NewStatusTraceCtx())
 }
 
+type _st int8
+
+const (
+    keyStatusTrace _st = iota
+)
+
 func SaveStatusHolder(parent context.Context, holder StatusHolder) context.Context {
-    return context.WithValue(parent, keyTrace, holder)
+    return context.WithValue(parent, keyStatusTrace, holder)
 }
 
-// DefItemFromCtx 从context中获取 StatusValue的便捷方式,你需要先存入上下文 ctx = SaveNewStatusHolder(ctx)
-func DefItemFromCtx[T comparable](ctx context.Context, key StatusKey[T]) StatusValue[T] {
-    v := ctx.Value(keyTrace)
+// DefStatusItemFromCtx 从context中获取 StatusValue的便捷方式,你需要先存入上下文 ctx = SaveNewStatusHolder(ctx)
+func DefStatusItemFromCtx[T comparable](ctx context.Context, key StatusKey[T]) StatusValue[T] {
+    v := ctx.Value(keyStatusTrace)
     if s, ok := v.(StatusHolder); ok {
-        return DefItem(s, key)
+        return DefStatusItem(s, key)
     }
-    panic("context 中没有找到 keyTrace")
+    panic("context 中没有找到 keyStatusTrace")
 }
