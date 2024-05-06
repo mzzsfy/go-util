@@ -1,6 +1,7 @@
 package concurrent
 
 import (
+    "runtime"
     "sync"
     "sync/atomic"
     "unsafe"
@@ -49,13 +50,12 @@ func newLinkedQueue[T any]() Queue[T] {
                     hit.IncrementSimple()
                     return n
                 } else {
-                    //fmt.Println("h", unsafe.Pointer(n), n.next, n.value)
                     noHit.IncrementSimple()
                 }
             }
         }
         q.reclaimNode = func(n *node) {
-            n.next = nil
+            atomic.StorePointer(&n.next, nil)
             nodePool.Put(n)
         }
     }
@@ -66,6 +66,9 @@ func (q *lkQueue[T]) Size() int {
 }
 
 func (q *lkQueue[T]) Enqueue(v T) {
+    if any(v) == nil {
+        return
+    }
     var n *node
     if q.newNode == nil {
         n = &node{}
@@ -90,7 +93,8 @@ func (q *lkQueue[T]) Enqueue(v T) {
             //有竞争
 
             next := casLoad(&tail.next)
-            if next == nil || next == tail {
+            //可能已经被消费,所以next为nil
+            if next == nil || next.value == nil {
                 continue
             }
             //尝试将tail.next设置为tail,然后再次尝试插入tail
@@ -104,25 +108,44 @@ func (q *lkQueue[T]) Dequeue() (T, bool) {
         head *node
         next *node
     )
+    i := 0
     for {
-        head = casLoad(&q.head)
-        next = casLoad(&head.next)
-        // next.value为当前值,所以next.value没值则队列为空
+        hp := atomic.LoadPointer(&q.head)
+        head = (*node)(hp)
+        np := atomic.LoadPointer(&head.next)
+        next = (*node)(np)
+        // next.value为当前值
         if next == nil {
-            var r T
-            return r, false
-        }
-        if casSwap(&q.head, unsafe.Pointer(head), unsafe.Pointer(next)) {
-            v := next.value
-            if v == nil {
-                panic("value is nil")
+            //可能是插入未完成
+            if q.size == 0 {
+                var r T
+                return r, false
+            } else {
+                i++
+                runtime.Gosched()
+                if i > 100 {
+                    //tail := casLoad(&q.tail)
+                    //fmt.Println("1", hp, head, tail)
+                    //time.Sleep(300 * time.Millisecond)
+                    //panic("")
+                }
+                continue
             }
+        }
+        //if next.value == nil {
+        //    tail := casLoad(&q.tail)
+        //    fmt.Println("2", hp, np, head, tail)
+        //    time.Sleep(300 * time.Millisecond)
+        //    panic("")
+        //}
+        if casSwap(&q.head, hp, np) {
+            atomic.AddInt32(&q.size, -1)
+            v := next.value.(T)
+            next.value = nil
             if q.reclaimNode != nil {
                 q.reclaimNode(head)
             }
-            next.value = nil
-            atomic.AddInt32(&q.size, -1)
-            return v.(T), true
+            return v, true
         }
     }
 }
