@@ -97,11 +97,11 @@ func SaveNewStatusHolder(parent context.Context) context.Context {
     return SaveStatusHolder(parent, NewStatusTraceCtx())
 }
 
-type _st int8
-
 const (
     keyStatusTrace _st = iota
 )
+
+type _st int8
 
 func SaveStatusHolder(parent context.Context, holder StatusHolder) context.Context {
     return context.WithValue(parent, keyStatusTrace, holder)
