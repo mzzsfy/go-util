@@ -107,11 +107,16 @@ func SaveStatusHolder(parent context.Context, holder StatusHolder) context.Conte
     return context.WithValue(parent, keyStatusTrace, holder)
 }
 
-// DefStatusItemFromCtx 从context中获取 StatusValue的便捷方式,你需要先存入上下文 ctx = SaveNewStatusHolder(ctx)
-func DefStatusItemFromCtx[T comparable](ctx context.Context, key StatusKey[T]) StatusValue[T] {
+// StatusHolderFromCtx 从context中获取 StatusHolder,你需要先存入上下文 ctx = SaveNewStatusHolder(ctx)
+func StatusHolderFromCtx(ctx context.Context) StatusHolder {
     v := ctx.Value(keyStatusTrace)
     if s, ok := v.(StatusHolder); ok {
-        return DefStatusItem(s, key)
+        return s
     }
     panic("context 中没有找到 keyStatusTrace")
+}
+
+// DefStatusItemFromCtx 从context中获取 StatusValue的便捷方式,你需要先存入上下文 ctx = SaveNewStatusHolder(ctx)
+func DefStatusItemFromCtx[T comparable](ctx context.Context, key StatusKey[T]) StatusValue[T] {
+    return DefStatusItem(StatusHolderFromCtx(ctx), key)
 }
