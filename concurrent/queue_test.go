@@ -56,7 +56,7 @@ func Test_LkQueue1(b *testing.T) {
     }
 }
 
-func Test_LkQueue2(b *testing.T) {
+func Test_LkQueue2(t *testing.T) {
     gn := 10
     num := 10000
     n := num * gn
@@ -72,7 +72,7 @@ func Test_LkQueue2(b *testing.T) {
     }
     wg.Wait()
     if queue.Size() != n {
-        b.Fatal("插入数据量数量不正确")
+        t.Fatal("插入数据量数量不正确")
         return
     }
     var x = Int64Adder{}
@@ -92,25 +92,32 @@ func Test_LkQueue2(b *testing.T) {
     }
     wg.Wait()
     if x.SumInt() != n {
-        b.Fatal("消费数据量数量不正确", x.SumInt(), n)
+        t.Fatal("消费数据量数量不正确", x.SumInt(), n)
     }
 }
 func Benchmark_LkQueue(b *testing.B) {
     b.Run("Enqueue", func(b *testing.B) {
         queue := NewQueue(WithTypeLink[int]())
+        (queue.(*lkQueue[int])).useLock = true
         over := int32(0)
         b.Cleanup(func() {
             atomic.StoreInt32(&over, 1)
         })
         for i := 0; i < 3; i++ {
             go func() {
+                x := 1
                 for {
                     _, ok := queue.Dequeue()
                     if !ok {
-                        runtime.Gosched()
-                        if atomic.LoadInt32(&over) == 1 {
-                            return
+                        x++
+                        if x > 10 {
+                            runtime.Gosched()
+                            if atomic.LoadInt32(&over) == 1 {
+                                return
+                            }
                         }
+                    } else {
+                        x = 0
                     }
                 }
             }()
@@ -123,10 +130,12 @@ func Benchmark_LkQueue(b *testing.B) {
                 queue.Enqueue(i1)
             }
         })
-        b.Log("hit", hit.Sum(), "noHit", noHit.Sum())
+        //b.Log("hit", hit.Sum(), "noHit", noHit.Sum())
+        b.Log(add1.Sum(), add2.Sum(), add3.Sum(), add4.Sum())
     })
     b.Run("Dequeue", func(b *testing.B) {
         queue := NewQueue(WithTypeLink[int]())
+        (queue.(*lkQueue[int])).useLock = true
         over := int32(0)
         b.Cleanup(func() {
             atomic.StoreInt32(&over, 1)
@@ -134,8 +143,8 @@ func Benchmark_LkQueue(b *testing.B) {
         for i := 0; i < 3; i++ {
             go func() {
                 for {
-                    if queue.Size() > 3000 {
-                        time.Sleep(100 * time.Millisecond)
+                    if queue.Size() > 10000 {
+                        runtime.Gosched()
                     } else {
                         for j := 0; j < 1000; j++ {
                             queue.Enqueue(1)
@@ -158,10 +167,10 @@ func Benchmark_LkQueue(b *testing.B) {
                 }
             }
         })
-        b.Log("hit", hit.Sum(), "noHit", noHit.Sum())
+        //b.Log("hit", hit.Sum(), "noHit", noHit.Sum())
     })
     b.Run("chan Enqueue", func(b *testing.B) {
-        queue := make(chan int, 10)
+        queue := make(chan int, 128)
         over := int32(0)
         b.Cleanup(func() {
             atomic.StoreInt32(&over, 1)
@@ -186,7 +195,7 @@ func Benchmark_LkQueue(b *testing.B) {
         })
     })
     b.Run("chan Dequeue", func(b *testing.B) {
-        queue := make(chan int)
+        queue := make(chan int, 128)
         over := int32(0)
         b.Cleanup(func() {
             atomic.StoreInt32(&over, 1)
