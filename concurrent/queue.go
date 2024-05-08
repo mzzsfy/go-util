@@ -19,13 +19,13 @@ type opt[T any] struct {
     opt  []func(Queue[T]) Queue[T]
 }
 
-type Opt[T any] func(opt[T])
+type Opt[T any] func(*opt[T])
 
 func NewQueue[T any](opts ...Opt[T]) Queue[T] {
     if len(opts) == 0 {
         return newLinkedQueue[T]()
     }
-    opt := opt[T]{
+    opt := &opt[T]{
         Type: newLinkedQueue[T],
     }
     for _, o := range opts {

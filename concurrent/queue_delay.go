@@ -6,7 +6,7 @@ import (
 )
 
 func WithTypeDelay[T any](delay time.Duration) Opt[T] {
-    return func(opt opt[T]) {
+    return func(opt *opt[T]) {
         opt.Type = func() Queue[T] {
             return newDelayQueue[T](delay)
         }

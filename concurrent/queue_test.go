@@ -96,75 +96,84 @@ func Test_LkQueue2(t *testing.T) {
     }
 }
 func Benchmark_LkQueue(b *testing.B) {
-    b.Run("Enqueue", func(b *testing.B) {
-        queue := NewQueue(WithTypeLink[int]())
-        over := int32(0)
-        b.Cleanup(func() {
-            atomic.StoreInt32(&over, 1)
+    for _, o := range []struct {
+        name string
+        opt  Opt[int]
+    }{
+        {"lk", WithTypeLink[int]()},
+        {"lak_32", WithTypeArrayLink[int](32)},
+        {"lak_128", WithTypeArrayLink[int](128)},
+    } {
+        b.Run("Enqueue_"+o.name, func(b *testing.B) {
+            queue := NewQueue(o.opt)
+            over := int32(0)
+            b.Cleanup(func() {
+                atomic.StoreInt32(&over, 1)
+            })
+            for i := 0; i < 3; i++ {
+                go func() {
+                    x := 1
+                    for {
+                        _, ok := queue.Dequeue()
+                        if !ok {
+                            x++
+                            if x > 10 {
+                                runtime.Gosched()
+                                if atomic.LoadInt32(&over) == 1 {
+                                    return
+                                }
+                            }
+                        } else {
+                            x = 0
+                        }
+                    }
+                }()
+            }
+            b.ResetTimer()
+            i1 := 0
+            b.RunParallel(func(pb *testing.PB) {
+                for pb.Next() {
+                    i1++
+                    queue.Enqueue(i1)
+                }
+            })
         })
-        for i := 0; i < 3; i++ {
-            go func() {
-                x := 1
-                for {
-                    _, ok := queue.Dequeue()
-                    if !ok {
-                        x++
-                        if x > 10 {
+        b.Run("Dequeue_"+o.name, func(b *testing.B) {
+            queue := NewQueue(o.opt)
+            over := int32(0)
+            b.Cleanup(func() {
+                atomic.StoreInt32(&over, 1)
+            })
+            for i := 0; i < 3; i++ {
+                go func() {
+                    for {
+                        if queue.Size() > 10000 {
                             runtime.Gosched()
-                            if atomic.LoadInt32(&over) == 1 {
-                                return
+                        } else {
+                            for j := 0; j < 1000; j++ {
+                                queue.Enqueue(1)
                             }
                         }
-                    } else {
-                        x = 0
-                    }
-                }
-            }()
-        }
-        b.ResetTimer()
-        i1 := 0
-        b.RunParallel(func(pb *testing.PB) {
-            for pb.Next() {
-                i1++
-                queue.Enqueue(i1)
-            }
-        })
-    })
-    b.Run("Dequeue", func(b *testing.B) {
-        queue := NewQueue(WithTypeLink[int]())
-        over := int32(0)
-        b.Cleanup(func() {
-            atomic.StoreInt32(&over, 1)
-        })
-        for i := 0; i < 3; i++ {
-            go func() {
-                for {
-                    if queue.Size() > 10000 {
-                        runtime.Gosched()
-                    } else {
-                        for j := 0; j < 1000; j++ {
-                            queue.Enqueue(1)
+                        if atomic.LoadInt32(&over) == 1 {
+                            return
                         }
                     }
-                    if atomic.LoadInt32(&over) == 1 {
-                        return
-                    }
-                }
-            }()
-        }
-        b.ResetTimer()
-        b.RunParallel(func(pb *testing.PB) {
-            for pb.Next() {
-                for {
-                    _, ok := queue.Dequeue()
-                    if ok {
-                        break
-                    }
-                }
+                }()
             }
+            b.ResetTimer()
+            b.RunParallel(func(pb *testing.PB) {
+                for pb.Next() {
+                    for {
+                        _, ok := queue.Dequeue()
+                        if ok {
+                            break
+                        }
+                    }
+                }
+            })
         })
-    })
-    b.Run("chan Enqueue", func(b *testing.B) {
+    }
+    b.Run("Enqueue_chan", func(b *testing.B) {
         queue := make(chan int, 128)
         over := int32(0)
         b.Cleanup(func() {
@@ -189,7 +198,7 @@ func Benchmark_LkQueue(b *testing.B) {
             }
         })
     })
-    b.Run("chan Dequeue", func(b *testing.B) {
+    b.Run("Dequeue_chan", func(b *testing.B) {
         queue := make(chan int, 128)
         over := int32(0)
         b.Cleanup(func() {

@@ -20,7 +20,7 @@ type node struct {
 }
 
 func WithTypeLink[T any]() Opt[T] {
-    return func(opt opt[T]) {
+    return func(opt *opt[T]) {
         opt.Type = newLinkedQueue[T]
     }
 }
