@@ -98,7 +98,6 @@ func Test_LkQueue2(t *testing.T) {
 func Benchmark_LkQueue(b *testing.B) {
     b.Run("Enqueue", func(b *testing.B) {
         queue := NewQueue(WithTypeLink[int]())
-        (queue.(*lkQueue[int])).useLock = true
         over := int32(0)
         b.Cleanup(func() {
             atomic.StoreInt32(&over, 1)
@@ -130,12 +129,9 @@ func Benchmark_LkQueue(b *testing.B) {
                 queue.Enqueue(i1)
             }
         })
-        //b.Log("hit", hit.Sum(), "noHit", noHit.Sum())
-        b.Log(add1.Sum(), add2.Sum(), add3.Sum(), add4.Sum())
     })
     b.Run("Dequeue", func(b *testing.B) {
         queue := NewQueue(WithTypeLink[int]())
-        (queue.(*lkQueue[int])).useLock = true
         over := int32(0)
         b.Cleanup(func() {
             atomic.StoreInt32(&over, 1)
@@ -167,7 +163,6 @@ func Benchmark_LkQueue(b *testing.B) {
                 }
             }
         })
-        //b.Log("hit", hit.Sum(), "noHit", noHit.Sum())
     })
     b.Run("chan Enqueue", func(b *testing.B) {
         queue := make(chan int, 128)
