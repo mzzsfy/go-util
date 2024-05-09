@@ -96,13 +96,15 @@ func Test_LkQueue2(t *testing.T) {
     }
 }
 func Benchmark_LkQueue(b *testing.B) {
+    goNum := 128
     for _, o := range []struct {
         name string
         opt  Opt[int]
     }{
-        {"lk", WithTypeLink[int]()},
+        //{"lk", WithTypeLink[int]()},
         {"lak_32", WithTypeArrayLink[int](32)},
         {"lak_128", WithTypeArrayLink[int](128)},
+        {"lak_2048", WithTypeArrayLink[int](2048)},
     } {
         b.Run("Enqueue_"+o.name, func(b *testing.B) {
             queue := NewQueue(o.opt)
@@ -110,7 +112,7 @@ func Benchmark_LkQueue(b *testing.B) {
             b.Cleanup(func() {
                 atomic.StoreInt32(&over, 1)
             })
-            for i := 0; i < 3; i++ {
+            for i := 0; i < goNum*2; i++ {
                 go func() {
                     x := 1
                     for {
@@ -131,6 +133,7 @@ func Benchmark_LkQueue(b *testing.B) {
             }
             b.ResetTimer()
             i1 := 0
+            b.SetParallelism(goNum)
             b.RunParallel(func(pb *testing.PB) {
                 for pb.Next() {
                     i1++
@@ -144,7 +147,7 @@ func Benchmark_LkQueue(b *testing.B) {
             b.Cleanup(func() {
                 atomic.StoreInt32(&over, 1)
             })
-            for i := 0; i < 3; i++ {
+            for i := 0; i < goNum*2; i++ {
                 go func() {
                     for {
                         if queue.Size() > 10000 {
@@ -161,6 +164,7 @@ func Benchmark_LkQueue(b *testing.B) {
                 }()
             }
             b.ResetTimer()
+            b.SetParallelism(goNum)
             b.RunParallel(func(pb *testing.PB) {
                 for pb.Next() {
                     for {
@@ -179,7 +183,7 @@ func Benchmark_LkQueue(b *testing.B) {
         b.Cleanup(func() {
             atomic.StoreInt32(&over, 1)
         })
-        for i := 0; i < 3; i++ {
+        for i := 0; i < goNum*2; i++ {
             go func() {
                 for {
                     _, ok := <-queue
@@ -192,6 +196,7 @@ func Benchmark_LkQueue(b *testing.B) {
             }()
         }
         b.ResetTimer()
+        b.SetParallelism(goNum)
         b.RunParallel(func(pb *testing.PB) {
             for pb.Next() {
                 queue <- 1
@@ -204,7 +209,7 @@ func Benchmark_LkQueue(b *testing.B) {
         b.Cleanup(func() {
             atomic.StoreInt32(&over, 1)
         })
-        for i := 0; i < 3; i++ {
+        for i := 0; i < goNum*2; i++ {
             go func() {
                 for {
                     for j := 0; j < 100; j++ {
@@ -217,6 +222,7 @@ func Benchmark_LkQueue(b *testing.B) {
             }()
         }
         b.ResetTimer()
+        b.SetParallelism(goNum)
         b.RunParallel(func(pb *testing.PB) {
             for pb.Next() {
                 for {
