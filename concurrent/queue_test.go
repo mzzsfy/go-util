@@ -60,8 +60,9 @@ func Test_LkQueue2(t *testing.T) {
     gn := 10
     num := 10000
     n := num * gn
-    wg := NewWaitGroup(gn)
-    queue := NewQueue[int]()
+    wg := sync.WaitGroup{}
+    wg.Add(gn)
+    queue := NewQueue[int](WithTypeArrayLink[int](8))
     for g := 0; g < gn; g++ {
         go func() {
             defer wg.Done()
@@ -96,22 +97,20 @@ func Test_LkQueue2(t *testing.T) {
     }
 }
 func Benchmark_LkQueue(b *testing.B) {
-    goNum := 128
+    goNum := 1
     for _, o := range []struct {
         name string
         opt  Opt[int]
     }{
         //{"lk", WithTypeLink[int]()},
+        {"lak_4", WithTypeArrayLink[int](4)},
         {"lak_32", WithTypeArrayLink[int](32)},
         {"lak_128", WithTypeArrayLink[int](128)},
-        {"lak_2048", WithTypeArrayLink[int](2048)},
+        //{"lak_2048", WithTypeArrayLink[int](2048)},
     } {
         b.Run("Enqueue_"+o.name, func(b *testing.B) {
             queue := NewQueue(o.opt)
             over := int32(0)
-            b.Cleanup(func() {
-                atomic.StoreInt32(&over, 1)
-            })
             for i := 0; i < goNum*2; i++ {
                 go func() {
                     x := 1
@@ -133,6 +132,16 @@ func Benchmark_LkQueue(b *testing.B) {
             }
             b.ResetTimer()
             i1 := 0
+            //for i := 0; i < goNum; i++ {
+            //    go func() {
+            //        for i := 0; i < b.N; i++ {
+            //            queue.Enqueue(i1)
+            //        }
+            //    }()
+            //}
+            //for i := 0; i < b.N; i++ {
+            //    queue.Enqueue(i1)
+            //}
             b.SetParallelism(goNum)
             b.RunParallel(func(pb *testing.PB) {
                 for pb.Next() {
@@ -140,6 +149,9 @@ func Benchmark_LkQueue(b *testing.B) {
                     queue.Enqueue(i1)
                 }
             })
+            b.StopTimer()
+            atomic.StoreInt32(&over, 1)
+            time.Sleep(time.Millisecond * 100)
         })
         b.Run("Dequeue_"+o.name, func(b *testing.B) {
             queue := NewQueue(o.opt)
@@ -150,10 +162,10 @@ func Benchmark_LkQueue(b *testing.B) {
             for i := 0; i < goNum*2; i++ {
                 go func() {
                     for {
-                        if queue.Size() > 10000 {
-                            runtime.Gosched()
+                        if queue.Size() > 100000 {
+                            time.Sleep(time.Millisecond)
                         } else {
-                            for j := 0; j < 1000; j++ {
+                            for j := 0; j < 10000; j++ {
                                 queue.Enqueue(1)
                             }
                         }
@@ -177,63 +189,63 @@ func Benchmark_LkQueue(b *testing.B) {
             })
         })
     }
-    b.Run("Enqueue_chan", func(b *testing.B) {
-        queue := make(chan int, 128)
-        over := int32(0)
-        b.Cleanup(func() {
-            atomic.StoreInt32(&over, 1)
-        })
-        for i := 0; i < goNum*2; i++ {
-            go func() {
-                for {
-                    _, ok := <-queue
-                    if !ok {
-                        if atomic.LoadInt32(&over) == 1 {
-                            return
-                        }
-                    }
-                }
-            }()
-        }
-        b.ResetTimer()
-        b.SetParallelism(goNum)
-        b.RunParallel(func(pb *testing.PB) {
-            for pb.Next() {
-                queue <- 1
-            }
-        })
-    })
-    b.Run("Dequeue_chan", func(b *testing.B) {
-        queue := make(chan int, 128)
-        over := int32(0)
-        b.Cleanup(func() {
-            atomic.StoreInt32(&over, 1)
-        })
-        for i := 0; i < goNum*2; i++ {
-            go func() {
-                for {
-                    for j := 0; j < 100; j++ {
-                        queue <- 1
-                    }
-                    if atomic.LoadInt32(&over) == 1 {
-                        return
-                    }
-                }
-            }()
-        }
-        b.ResetTimer()
-        b.SetParallelism(goNum)
-        b.RunParallel(func(pb *testing.PB) {
-            for pb.Next() {
-                for {
-                    _, ok := <-queue
-                    if ok {
-                        break
-                    }
-                }
-            }
-        })
-    })
+    //b.Run("Enqueue_chan", func(b *testing.B) {
+    //    queue := make(chan int, 128)
+    //    over := int32(0)
+    //    b.Cleanup(func() {
+    //        atomic.StoreInt32(&over, 1)
+    //    })
+    //    for i := 0; i < goNum*2; i++ {
+    //        go func() {
+    //            for {
+    //                _, ok := <-queue
+    //                if !ok {
+    //                    if atomic.LoadInt32(&over) == 1 {
+    //                        return
+    //                    }
+    //                }
+    //            }
+    //        }()
+    //    }
+    //    b.ResetTimer()
+    //    b.SetParallelism(goNum)
+    //    b.RunParallel(func(pb *testing.PB) {
+    //        for pb.Next() {
+    //            queue <- 1
+    //        }
+    //    })
+    //})
+    //b.Run("Dequeue_chan", func(b *testing.B) {
+    //    queue := make(chan int, 128)
+    //    over := int32(0)
+    //    b.Cleanup(func() {
+    //        atomic.StoreInt32(&over, 1)
+    //    })
+    //    for i := 0; i < goNum*2; i++ {
+    //        go func() {
+    //            for {
+    //                for j := 0; j < 100; j++ {
+    //                    queue <- 1
+    //                }
+    //                if atomic.LoadInt32(&over) == 1 {
+    //                    return
+    //                }
+    //            }
+    //        }()
+    //    }
+    //    b.ResetTimer()
+    //    b.SetParallelism(goNum)
+    //    b.RunParallel(func(pb *testing.PB) {
+    //        for pb.Next() {
+    //            for {
+    //                _, ok := <-queue
+    //                if ok {
+    //                    break
+    //                }
+    //            }
+    //        }
+    //    })
+    //})
 }
 
 func Benchmark_LkQueue111(b *testing.B) {

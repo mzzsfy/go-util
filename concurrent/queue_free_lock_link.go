@@ -75,7 +75,7 @@ func (q *lkQueue[T]) Dequeue() (T, bool) {
         head := (*node)(hp)
         np := atomic.LoadPointer(&head.next)
         next := (*node)(np)
-        // getValue.value为当前值
+        // next.value为当前值
         if next == nil {
             //可能是插入未完成
             if q.size < 128 {
