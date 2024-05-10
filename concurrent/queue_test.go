@@ -119,10 +119,10 @@ func Benchmark_LkQueue(b *testing.B) {
                         if !ok {
                             x++
                             if x > 10 {
-                                runtime.Gosched()
                                 if atomic.LoadInt32(&over) == 1 {
                                     return
                                 }
+                                runtime.Gosched()
                             }
                         } else {
                             x = 0

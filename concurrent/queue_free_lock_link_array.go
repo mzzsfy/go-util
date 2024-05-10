@@ -7,13 +7,7 @@ import (
     "unsafe"
 )
 
-//链表+数组实现队列,无锁
-
-//type ceil[T any] struct {
-//0,未写入,1,已写入,2,已取出
-//status int32
-//v      T
-//}
+//链表+数组实现队列,无锁,待解决:id溢出问题
 
 type layer[T any] struct {
     id   uint64
@@ -59,6 +53,7 @@ func (q *lkArrQueue[T]) Enqueue(v T) {
         if tail.id > layerId {
             //tail已经被后面的层替换,从head开始执行插入
             q.enqueueFromHead(layerId, lIdx, &v)
+            return
         } else
         //等待tail更新
         {
@@ -92,6 +87,7 @@ func (q *lkArrQueue[T]) Dequeue() (T, bool) {
             if atomic.CompareAndSwapUint64(&q.consumeId, cid-1, cid) {
                 return q.dequeueLayer(cid&q.layerMask, next), true
             }
+            j--
             continue
         } else
         //下一层 
@@ -106,10 +102,12 @@ func (q *lkArrQueue[T]) Dequeue() (T, bool) {
                         runtime.Gosched()
                     }
                 }
-                t := q.dequeueLayer(cid&q.layerMask, l)
-                q.replaceHead(hp, np)
+                idx := cid & q.layerMask
+                t := q.dequeueLayer(idx, l)
+                q.replaceHead(idx == 0, hp, np)
                 return t, true
             }
+            j--
             continue
         } else
         if j > 100 {
@@ -157,15 +155,14 @@ func (q *lkArrQueue[T]) enqueueFromHead(layerId uint64, lIdx uint64, v *T) {
         head1 := (*layer[T])(atomic.LoadPointer(&head.next))
         if head1 == nil {
             i++
-            if i > 2000 {
+            if i > 1000 {
                 panic("head")
-            } else if i > 1000 {
-                time.Sleep(1 * time.Millisecond)
             } else if i > 10 {
                 runtime.Gosched()
             }
             head = (*layer[T])(atomic.LoadPointer(&q.head))
             if head.id > layerId {
+                //为什么????
                 panic("head.id 太大")
                 //return
             }
@@ -191,8 +188,8 @@ func (q *lkArrQueue[T]) dequeueLayer(idx uint64, next *layer[T]) T {
     }
 }
 
-func (q *lkArrQueue[T]) replaceHead(oldHead, newHead unsafe.Pointer) {
-    if atomic.LoadUint32(&(*layer[T])(newHead).take) == uint32(q.layerMask+1) {
+func (q *lkArrQueue[T]) replaceHead(force bool, oldHead, newHead unsafe.Pointer) {
+    if force || atomic.LoadUint32(&(*layer[T])(newHead).take) == uint32(q.layerMask+1) {
         for i := 0; ; i++ {
             if atomic.LoadPointer(&q.head) != oldHead ||
                 atomic.CompareAndSwapPointer(&q.head, oldHead, newHead) {
@@ -210,12 +207,7 @@ func (q *lkArrQueue[T]) replaceHead(oldHead, newHead unsafe.Pointer) {
 func (q *lkArrQueue[T]) Size() int {
     pid := atomic.LoadUint64(&q.produceId)
     cid := atomic.LoadUint64(&q.consumeId)
-    if pid >= cid {
-        return int(pid - cid)
-    } else {
-        //id溢出,兼容一下
-        return int(pid + (1 << 63) - cid)
-    }
+    return int(pid - cid)
 }
 
 func newLayer[T any](id, size uint64) *layer[T] {
