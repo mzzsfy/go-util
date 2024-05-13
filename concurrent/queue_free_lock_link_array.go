@@ -1,7 +1,6 @@
 package concurrent
 
 import (
-    "math"
     "runtime"
     "sync"
     "sync/atomic"
@@ -13,12 +12,21 @@ import (
 const layerSize = 64
 
 type ceil struct {
-    p    unsafe.Pointer
-    _    [cpuCacheKillerPaddingLength]byte
-    take uint32
+    set bool
+    p   any
 }
 
+const (
+    changeHead uint32 = 1 << iota
+    changeNext
+)
+
 type layer struct {
+    status uint32
+
+    waitRead sync.WaitGroup
+    waitNext sync.WaitGroup
+
     lid       uint64
     reclaim   uint32
     reclaimId []uint64
@@ -26,7 +34,6 @@ type layer struct {
     arr  [layerSize]ceil
     _    [cpuCacheKillerPaddingLength]byte
     next unsafe.Pointer
-    take uint32
 }
 
 func (l *layer) id() uint64 {
@@ -54,25 +61,21 @@ func (q *lkArrQueue[T]) Enqueue(v T) {
     lIdx := pid & q.layerMask
     //根据pid获取layerId
     layerId := pid / (q.layerMask + 1)
-    //if lIdx <= 4 {
-    //更新tail
-    q.newTail(layerId)
-    //}
-    //获取tail
     for i := 0; ; i++ {
-        tail := (*layer)(atomic.LoadPointer(&q.tail))
-        if tail.id() == layerId {
-            q.SetV(tail, lIdx, &v)
+        p := unsafe.Pointer(q.tail)
+        tail := (*layer)(atomic.LoadPointer(&p))
+        tid := tail.id()
+        if tid == layerId {
+            q.SetV(tail, lIdx, v)
             return
         }
-        if tail.id() > layerId {
+        if tid > layerId {
             //tail已经被后面的层替换,从head开始执行插入
-            q.enqueueFromHead(layerId, lIdx, &v)
+            q.enqueueFromHead(layerId, lIdx, v)
             return
         }
-        if i > 10 {
-            runtime.Gosched()
-        }
+        q.newTail(layerId)
+        tail.waitNext.Wait()
     }
 }
 
@@ -84,7 +87,8 @@ func (q *lkArrQueue[T]) Dequeue() (T, bool) {
         if pid < cid {
             return q.zero, false
         }
-        l := (*layer)(atomic.LoadPointer(&q.head))
+        hp := unsafe.Pointer(q.head)
+        l := (*layer)(atomic.LoadPointer(&hp))
         //说明下一层还没插入
         if l == nil {
             if j > 10 {
@@ -106,16 +110,6 @@ func (q *lkArrQueue[T]) Dequeue() (T, bool) {
         } else
         if lid < layerId {
             if atomic.CompareAndSwapUint64(&q.consumeId, cid-1, cid) {
-                if lid+4 < layerId {
-                    for {
-                        id := (*layer)(atomic.LoadPointer(&q.head)).id()
-                        if id+4 >= layerId {
-                            break
-                        }
-                        q.updateHead()
-                        runtime.Gosched()
-                    }
-                }
                 return q.dequeueDepth(layerId, cid&q.layerMask), true
             }
         }
@@ -128,24 +122,20 @@ func (q *lkArrQueue[T]) Dequeue() (T, bool) {
 //从head中找到当前层,并取出值
 func (q *lkArrQueue[T]) dequeueDepth(layerId, idx uint64) T {
     defer q.updateHead()
-    l := (*layer)(atomic.LoadPointer(&q.head))
+    hp := unsafe.Pointer(q.head)
+    l := (*layer)(atomic.LoadPointer(&hp))
+    if l.id()+4 < layerId {
+        q.updateHead()
+    }
     for {
         if l.id() == layerId {
             return q.dequeueLayer(idx, l)
         } else {
             for i := 0; ; i++ {
-                next1 := (*layer)(atomic.LoadPointer(&l.next))
+                p := unsafe.Pointer(l.next)
+                next1 := (*layer)(atomic.LoadPointer(&p))
                 if next1 == nil {
-                    if l.id() == 0 && atomic.LoadUint32(&l.take) == 0 {
-                        l = (*layer)(atomic.LoadPointer(&q.head))
-                        if l.id() == 0 && atomic.LoadUint32(&l.take) == 0 {
-                            panic("读取了回收的layer")
-                        }
-                        continue
-                    }
-                    if i > 10 {
-                        runtime.Gosched()
-                    }
+                    l.waitNext.Wait()
                 } else {
                     l = next1
                     break
@@ -153,7 +143,7 @@ func (q *lkArrQueue[T]) dequeueDepth(layerId, idx uint64) T {
             }
             id := l.id()
             if id > layerId {
-                l = (*layer)(atomic.LoadPointer(&q.head))
+                l = (*layer)(atomic.LoadPointer(&hp))
                 if l.id() > layerId {
                     panic("layer.id() > layerId")
                 }
@@ -166,20 +156,28 @@ func (q *lkArrQueue[T]) updateHead() {
     for {
         hp := atomic.LoadPointer(&q.head)
         head := (*layer)(hp)
-        if atomic.LoadPointer(&head.next) == nil {
-            break
-        }
-        take := atomic.LoadUint32(&head.take)
-        if take != uint32(q.layerMask+1) {
-            break
-        }
-        if !atomic.CompareAndSwapUint32(&head.take, take, math.MaxUint64-10000) {
-            break
-        }
-        if atomic.CompareAndSwapPointer(&q.head, hp, head.next) {
-            reclaimLayer(head)
+        if atomic.LoadPointer(&head.next) != nil {
+            stat := atomic.LoadUint32(&head.status)
+            if stat&(changeHead) != 0 {
+                return
+            }
+            if atomic.LoadPointer(&head.next) == nil {
+                q.unsetLayerBit(head, changeHead)
+                return
+            }
+            if atomic.CompareAndSwapUint32(&head.status, stat, stat|changeHead) {
+                head.waitRead.Wait()
+                if atomic.CompareAndSwapPointer(&q.head, hp, head.next) {
+                    q.unsetLayerBit(head, changeHead)
+                    reclaimLayer(head)
+                } else {
+                    panic("替换head失败")
+                }
+            } else {
+                continue
+            }
         } else {
-            panic("替换head失败")
+            return
         }
     }
 }
@@ -188,68 +186,89 @@ func (q *lkArrQueue[T]) newTail(newLayerId uint64) {
     for i := 0; ; i++ {
         tp := atomic.LoadPointer(&q.tail)
         tail := (*layer)(tp)
-        if tail.id() >= newLayerId {
+        tid := tail.id()
+        if tid >= newLayerId {
             return
         }
-        if tail.id()+1 < newLayerId {
-            if i > 10 {
-                runtime.Gosched()
-            }
+        if tid+1 < newLayerId {
+            tail.waitNext.Wait()
             continue
         }
         //这里已经确定 tail 的 lid 为 newLayerId-1
+        stat := atomic.LoadUint32(&tail.status)
+        if stat&(changeNext) != 0 {
+            return
+        }
+        if !atomic.CompareAndSwapUint32(&tail.status, stat, stat|changeNext) {
+            continue
+        }
+        if atomic.LoadPointer(&tail.next) != nil {
+            q.unsetLayerBit(tail, changeNext)
+            return
+        }
         l := newLayer(newLayerId)
         nlp := unsafe.Pointer(l)
         if atomic.CompareAndSwapPointer(&tail.next, nil, nlp) {
             atomic.CompareAndSwapPointer(&q.tail, tp, nlp)
+            tail.waitNext.Done()
+            q.unsetLayerBit(tail, changeNext)
             break
         } else {
-            reclaimLayer(l)
+            panic("替换next失败")
+        }
+    }
+}
+
+func (q *lkArrQueue[T]) unsetLayerBit(tail *layer, bit uint32) {
+    for {
+        stat := atomic.LoadUint32(&tail.status)
+        if atomic.CompareAndSwapUint32(&tail.status, stat, stat&^bit) {
+            break
         }
     }
 }
 
 //从head开始找到当前的layer,并插入
-func (q *lkArrQueue[T]) enqueueFromHead(layerId uint64, lIdx uint64, v *T) {
+func (q *lkArrQueue[T]) enqueueFromHead(layerId uint64, lIdx uint64, v T) {
     head := (*layer)(atomic.LoadPointer(&q.head))
     for ; ; {
-        if head.id() == layerId {
+        hid := head.id()
+        if hid == layerId {
             q.SetV(head, lIdx, v)
             return
+        }
+        if hid > layerId {
+            panic("head.id() > layerId")
         }
         head = (*layer)(atomic.LoadPointer(&head.next))
     }
 }
 
 func (q *lkArrQueue[T]) dequeueLayer(idx uint64, l *layer) T {
-    for i := 0; ; i++ {
-        if atomic.LoadUint32(&l.arr[idx].take) != 0 {
-            panic("take!=0")
-        }
-        v := q.GetV(l, idx)
-        if v == nil {
+    return q.GetV(l, idx)
+}
+
+func (q *lkArrQueue[T]) GetV(l *layer, idx uint64) T {
+    defer l.waitRead.Done()
+    c := &l.arr[idx]
+    for i := 1; ; i++ {
+        if c.set {
             if i > 10 {
                 runtime.Gosched()
             }
-            continue
-        }
-        atomic.AddUint32(&l.take, 1)
-        return *v
-    }
-}
-
-func (q *lkArrQueue[T]) GetV(l *layer, idx uint64) *T {
-    t := (*T)(atomic.LoadPointer(&l.arr[idx].p))
-    if t != nil {
-        if atomic.AddUint32(&l.arr[idx].take, 1) > 1 {
-            panic("take>1")
+        } else {
+            c.set = false
+            c.p = nil
+            break
         }
     }
-    return t
+    return (c.p).(T)
 }
 
-func (q *lkArrQueue[T]) SetV(l *layer, idx uint64, v *T) {
-    atomic.StorePointer(&l.arr[idx].p, unsafe.Pointer(v))
+func (q *lkArrQueue[T]) SetV(l *layer, idx uint64, v T) {
+    c := &l.arr[idx]
+    c.p = v
+    c.set = true
 }
 
 func (q *lkArrQueue[T]) Size() int {
@@ -258,36 +277,25 @@ func (q *lkArrQueue[T]) Size() int {
     return int(pid - cid)
 }
 
-var layerPool = sync.Pool{
-    New: func() any { return &layer{} },
-}
+var layerPool = sync.Pool{New: func() any { return &layer{} }}
 
 func newLayer(id uint64) *layer {
     l := layerPool.Get().(*layer)
     atomic.StoreUint64(&l.lid, id)
-    for i := 0; i < layerSize; i++ {
-        if atomic.LoadPointer(&l.arr[i].p) != nil {
-            panic("layer.arr[i].p != nil")
-        }
-        if atomic.LoadUint32(&l.arr[i].take) != 0 {
-            panic("layer.arr[i].take != 0")
-        }
-    }
+    l.waitRead.Add(layerSize)
+    l.waitNext.Add(1)
     return l
-    //return &layer{
-    //    lid: id,
-    //}
 }
 func reclaimLayer(l *layer) {
     for i := 0; i < layerSize; i++ {
-        atomic.StorePointer(&l.arr[i].p, nil)
-        atomic.StoreUint32(&l.arr[i].take, 0)
+        l.arr[i].p = nil
     }
 
     atomic.AddUint32(&l.reclaim, 1)
     l.reclaimId = append(l.reclaimId, l.lid)
-
-    atomic.StoreUint32(&l.take, 0)
+    if atomic.LoadUint32(&l.status) != 0 {
+        panic("layer.status != 0")
+    }
     atomic.StorePointer(&l.next, nil)
     layerPool.Put(l)
 }
@@ -295,7 +303,7 @@ func reclaimLayer(l *layer) {
 func newLinkArrQueue[T any]() Queue[T] {
     l := newLayer(0)
     id := uint64(layerSize - 1)
-    l.take = uint32(layerSize)
+    l.waitRead.Add(-layerSize)
     return &lkArrQueue[T]{
         consumeId: id,
         produceId: id,

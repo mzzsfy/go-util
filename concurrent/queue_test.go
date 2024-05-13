@@ -96,6 +96,7 @@ func Test_LkQueue2(t *testing.T) {
         t.Fatal("消费数据量数量不正确", x.SumInt(), n)
     }
 }
+
 func Benchmark_LkQueue(b *testing.B) {
     goNum := 32
     for _, o := range []struct {

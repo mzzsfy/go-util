@@ -21,7 +21,7 @@ var slotNumber, modNumber = func() (int, int) {
     return n, n - 1
 }()
 
-type c struct {
+type int64AdderCeil struct {
     int64
     // 对齐字节,cpu缓存一般为128字节,默认设置为性价比最高的配置,如果你有其他需求,可以使用 tag:concurrent_128bit 或者 tag:concurrent_32bit 减少内存占用
     // 详细说明参考README.md
@@ -44,7 +44,7 @@ type c struct {
 type Int64Adder struct {
     init   int32
     base   int64
-    values []c
+    values []int64AdderCeil
 }
 
 // Add 增加v,手动提供goid来提高性能
@@ -64,7 +64,7 @@ func (l *Int64Adder) addNoCompete(v int64) bool {
         }
         if atomic.CompareAndSwapInt32(&l.init, 0, 1) {
             //无扩容功能,使用该工具场景,并不会特别需要节省内存
-            l.values = make([]c, slotNumber)
+            l.values = make([]int64AdderCeil, slotNumber)
         }
     }
     if len(l.values) == 0 {
