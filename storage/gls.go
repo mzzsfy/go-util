@@ -45,7 +45,8 @@ type Key[T any] interface {
     // GetById 获取指定goid的key对应的值,提供跨携程访问窗口
     GetById(goid int64) (value T, exist bool)
     Set(T)
-    Clean()
+    // Delete 删除key,如果autoClean为true,则删除后,如果当前goid没有其他key,则自动清理
+    Delete(autoClean ...bool)
 }
 
 func getSubMap(goid int64, init bool) Map[uint64, any] {
@@ -99,7 +100,16 @@ func (k KeySimple[T]) Set(value T) {
     check()
 }
 
-func (k KeySimple[T]) Clean() { GlsClean() }
+func (k KeySimple[T]) Delete(c ...bool) {
+    id := GoID()
+    m := getSubMap(id, false)
+    if m != nil {
+        m.Delete(uint64(k))
+        if len(c) > 0 && c[0] && m.Count() == 0 {
+            GlsClean()
+        }
+    }
+}
 
 type KeyFn[T any] struct {
     key uint64
@@ -123,16 +133,12 @@ func (k *KeyFn[T]) GetById(goid int64) (value T, exist bool) {
 }
 
 func (k *KeyFn[T]) Set(t T) {
-    if !knowHowToUseGls {
-        panic("call `KnowHowToUseGls()` after you know how to use it! (You must call Clean() after code)")
-    }
-    id := GoID()
-    m := getSubMap(id, true)
-    m.Put(k.key, any(t))
-    check()
+    KeySimple[T](k.key).Set(t)
 }
 
-func (k *KeyFn[T]) Clean() { GlsClean() }
+func (k *KeyFn[T]) Delete(b ...bool) {
+    KeySimple[T](k.key).Delete(b...)
+}
 
 func KnowHowToUseGls() {
     knowHowToUseGls = true

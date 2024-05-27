@@ -19,7 +19,7 @@ func TestMain(m *testing.M) {
 func Test_itemGet(t *testing.T) {
     t.Run("value exists", func(t *testing.T) {
         item := NewGlsItem[string]()
-        defer item.Clean()
+        defer item.Delete(true)
         item.Set("testValue1")
         item.Set("testValue")
         value, ok := item.Get()
@@ -156,7 +156,7 @@ func BenchmarkGls(b *testing.B) {
             fmt.Sprint(value, value1)
             b.RunParallel(func(pb *testing.PB) {
                 defer GlsClean()
-                var items []KeySimple[string]
+                var items []Key[string]
                 for i := 1; i <= l; i++ {
                     items = append(items, NewGlsItem[string]())
                 }
@@ -166,12 +166,10 @@ func BenchmarkGls(b *testing.B) {
                     for i := 0; i < x; i++ {
                         items[(i+0)%l1].Set(value)
                         items[(i+1)%l1].Get()
-                        items[(i+2)%l1].Delete()
                         items[(i+3)%l1].Get()
                         items[(i+4)%l1].Set(value1)
                         items[(i+5)%l1].Get()
                         items[(i+1)%l1].Set(value)
-                        items[(i+6)%l1].Delete()
                         runtime.Gosched()
                     }
                 }
@@ -184,7 +182,7 @@ func BenchmarkGls(b *testing.B) {
             fmt.Sprint(value, value1)
             b.RunParallel(func(pb *testing.PB) {
                 defer GlsClean()
-                var items []KeySimple[int]
+                var items []Key[int]
                 for i := 1; i <= l; i++ {
                     items = append(items, NewGlsItem[int]())
                 }
@@ -218,7 +216,7 @@ func BenchmarkGls(b *testing.B) {
             fmt.Sprint(value, value1)
             b.RunParallel(func(pb *testing.PB) {
                 defer GlsClean()
-                var items []KeySimple[struct {
+                var items []Key[struct {
                     aaa string
                     bbb int
                 }]
@@ -282,7 +280,7 @@ func BenchmarkGlsSubMapType(b *testing.B) {
                 fmt.Sprint(value, value1)
                 b.RunParallel(func(pb *testing.PB) {
                     defer GlsClean()
-                    var items []KeySimple[int]
+                    var items []Key[int]
                     for i := 1; i <= l; i++ {
                         items = append(items, NewGlsItem[int]())
                     }
@@ -311,7 +309,7 @@ func BenchmarkGlsLock(b *testing.B) {
     b.Cleanup(func() {
         glsMap.Clean()
         glsLock = &sync.RWMutex{}
-        glsMap = NewMap(MapTypeSwiss[int64, Map[uint32, any]](1))
+        glsMap = NewMap(MapTypeSwiss[int64, Map[uint64, any]](1))
         keyIdGen = 10000
     })
     goNum := 1000
@@ -332,20 +330,20 @@ func BenchmarkGlsLock(b *testing.B) {
             switch i {
             case 1:
                 glsLock = &sync.RWMutex{}
-                glsMap = NewMap(MapTypeSwiss[int64, Map[uint32, any]](1))
+                glsMap = NewMap(MapTypeSwiss[int64, Map[uint64, any]](1))
             case 2:
                 glsLock = &concurrent.CasRwLocker{}
-                glsMap = NewMap(MapTypeSwiss[int64, Map[uint32, any]](1))
+                glsMap = NewMap(MapTypeSwiss[int64, Map[uint64, any]](1))
             default:
                 glsLock = concurrent.NoLock{}
-                glsMap = NewMap(MapTypeSwissConcurrent[int64, Map[uint32, any]]())
+                glsMap = NewMap(MapTypeSwissConcurrent[int64, Map[uint64, any]]())
             }
             value := 1
             value1 := 2
             fmt.Sprint(value, value1)
             b.RunParallel(func(pb *testing.PB) {
                 defer GlsClean()
-                var items []KeySimple[int]
+                var items []Key[int]
                 for i := 1; i <= l; i++ {
                     items = append(items, NewGlsItem[int]())
                 }
