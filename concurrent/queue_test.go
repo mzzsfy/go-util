@@ -103,7 +103,7 @@ func Benchmark_LkQueue(b *testing.B) {
         name string
         opt  Opt[int]
     }{
-        //{"lk", WithTypeLink[int]()},
+        {"lk", WithTypeLink[int]()},
         {"lak", WithTypeArrayLink[int]()},
     } {
         b.Run("Enqueue_"+o.name, func(b *testing.B) {
@@ -167,10 +167,12 @@ func Benchmark_LkQueue(b *testing.B) {
             b.ResetTimer()
             b.RunParallel(func(pb *testing.PB) {
                 for pb.Next() {
-                    for {
+                    for i := 0; ; i++ {
                         _, ok := queue.Dequeue()
                         if ok {
                             break
+                        } else if i > 100 {
+                            runtime.Gosched()
                         }
                     }
                 }

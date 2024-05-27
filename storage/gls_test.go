@@ -19,7 +19,7 @@ func TestMain(m *testing.M) {
 func Test_itemGet(t *testing.T) {
     t.Run("value exists", func(t *testing.T) {
         item := NewGlsItem[string]()
-        defer item.GlsClean()
+        defer item.Clean()
         item.Set("testValue1")
         item.Set("testValue")
         value, ok := item.Get()
@@ -156,7 +156,7 @@ func BenchmarkGls(b *testing.B) {
             fmt.Sprint(value, value1)
             b.RunParallel(func(pb *testing.PB) {
                 defer GlsClean()
-                var items []Key[string]
+                var items []KeySimple[string]
                 for i := 1; i <= l; i++ {
                     items = append(items, NewGlsItem[string]())
                 }
@@ -184,7 +184,7 @@ func BenchmarkGls(b *testing.B) {
             fmt.Sprint(value, value1)
             b.RunParallel(func(pb *testing.PB) {
                 defer GlsClean()
-                var items []Key[int]
+                var items []KeySimple[int]
                 for i := 1; i <= l; i++ {
                     items = append(items, NewGlsItem[int]())
                 }
@@ -218,7 +218,7 @@ func BenchmarkGls(b *testing.B) {
             fmt.Sprint(value, value1)
             b.RunParallel(func(pb *testing.PB) {
                 defer GlsClean()
-                var items []Key[struct {
+                var items []KeySimple[struct {
                     aaa string
                     bbb int
                 }]
@@ -282,7 +282,7 @@ func BenchmarkGlsSubMapType(b *testing.B) {
                 fmt.Sprint(value, value1)
                 b.RunParallel(func(pb *testing.PB) {
                     defer GlsClean()
-                    var items []Key[int]
+                    var items []KeySimple[int]
                     for i := 1; i <= l; i++ {
                         items = append(items, NewGlsItem[int]())
                     }
@@ -345,7 +345,7 @@ func BenchmarkGlsLock(b *testing.B) {
             fmt.Sprint(value, value1)
             b.RunParallel(func(pb *testing.PB) {
                 defer GlsClean()
-                var items []Key[int]
+                var items []KeySimple[int]
                 for i := 1; i <= l; i++ {
                     items = append(items, NewGlsItem[int]())
                 }

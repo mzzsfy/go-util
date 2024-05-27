@@ -17,14 +17,11 @@ var GoID = unsafe.GoID
 var (
     knowHowToUseGls = false
 
-    //glsMap = NewMap(MapTypeSwiss[int64, Map[uint32, any]](0))
-    //glsMap = NewMap(MapTypeGo[int64, Map[uint32, any]](0))
-    //glsMap          = NewMap(MapTypeConcurrentWrapper(MapTypeGo[int64, Map[uint32, any]](0)))
-    glsMap = NewMap(MapTypeSwissConcurrent[int64, Map[uint32, any]]())
-    //glsLock         concurrent.RwLocker = &sync.RWMutex{}
+    glsMap = NewMap(MapTypeSwissConcurrent[int64, Map[uint64, any]]())
+
     glsLock concurrent.RwLocker = concurrent.NoLock{}
-    //glsSubMapPool                       = sync.Pool{New: func() any { return NewMap(MapTypeSwiss[uint32, any](1)) }}
-    glsSubMapPool = sync.Pool{New: func() any { return NewMap(MapTypeArray[uint32, any](2)) }}
+
+    glsSubMapPool = sync.Pool{New: func() any { return NewMap(MapTypeArray[uint64, any](2)) }}
 )
 
 type GlsError struct {
@@ -40,20 +37,46 @@ func (g GlsError) String() string {
     return "gls发生泄露,请检查!goroutine数量:" + strconv.Itoa(g.NumGoroutine) + ", gls数量:" + strconv.Itoa(len(g.GlsGoIds))
 }
 
-var keyIdGen = uint32(0)
+var keyIdGen = uint64(0)
 
 // Key 提供一个类型安全的key
-// 不使用struct以提供特殊操作的可能性
-type Key[T any] uint32
+type Key[T any] interface {
+    Get() (value T, exist bool)
+    // GetById 获取指定goid的key对应的值,提供跨携程访问窗口
+    GetById(goid int64) (value T, exist bool)
+    Set(T)
+    Clean()
+}
 
-func (k Key[T]) Get() (value T, exist bool) {
+func getSubMap(goid int64, init bool) Map[uint64, any] {
     glsLock.RLock()
-    m, ok := glsMap.Get(GoID())
+    m, ok := glsMap.Get(goid)
     glsLock.RUnlock()
     if !ok {
+        if init {
+            m = glsSubMapPool.Get().(Map[uint64, any])
+            glsLock.Lock()
+            glsMap.Put(goid, m)
+            glsLock.Unlock()
+        } else {
+            return nil
+        }
+    }
+    return m
+}
+
+type KeySimple[T any] uint64
+
+func (k KeySimple[T]) Get() (value T, exist bool) {
+    return k.GetById(GoID())
+}
+
+func (k KeySimple[T]) GetById(goid int64) (value T, exist bool) {
+    m := getSubMap(goid, false)
+    if m == nil {
         return
     }
-    get, o := m.Get(uint32(k))
+    get, o := m.Get(uint64(k))
     if o {
         value = get.(T)
         exist = true
@@ -61,67 +84,73 @@ func (k Key[T]) Get() (value T, exist bool) {
     return
 }
 
-func (k Key[T]) GetSimple() (value T) {
+func (k KeySimple[T]) GetSimple() (value T) {
     get, _ := k.Get()
     return get
 }
 
-func (k Key[T]) MustGet() (value T) {
-    get, ok := k.Get()
-    if !ok {
-        panic("key not set value")
-    }
-    return get
-}
-
-func (k Key[T]) Set(value T) {
+func (k KeySimple[T]) Set(value T) {
     if !knowHowToUseGls {
-        panic("call `KnowHowToUseGls()` after you know how to use it! (You must call GlsClean() after code)")
+        panic("call `KnowHowToUseGls()` after you know how to use it! (You must call Clean() after code)")
     }
-    glsLock.RLock()
     id := GoID()
-    m, ok := glsMap.Get(id)
-    if !ok {
-        glsLock.RUnlock()
-        m = glsSubMapPool.Get().(Map[uint32, any])
-        glsLock.Lock()
-        glsMap.Put(id, m)
-        glsLock.Unlock()
-    } else {
-        glsLock.RUnlock()
-    }
-    m.Put(uint32(k), any(value))
+    m := getSubMap(id, true)
+    m.Put(uint64(k), any(value))
     check()
 }
 
-func (k Key[T]) Delete() {
-    glsLock.RLock()
-    value, ok := glsMap.Get(GoID())
-    glsLock.RUnlock()
-    if !ok {
-        return
-    }
-    value.Delete(uint32(k))
+func (k KeySimple[T]) Clean() { GlsClean() }
+
+type KeyFn[T any] struct {
+    key uint64
+    fn  func() T
 }
 
-func (k Key[T]) GlsClean() { GlsClean() }
+func (k *KeyFn[T]) Get() (value T, exist bool) {
+    return k.GetById(GoID())
+}
+
+func (k *KeyFn[T]) GetById(goid int64) (value T, exist bool) {
+    exist = true
+    m := getSubMap(goid, true)
+    get, o := m.Get(k.key)
+    if o {
+        value = get.(T)
+    }
+    get = k.fn()
+    m.Put(k.key, get)
+    return
+}
+
+func (k *KeyFn[T]) Set(t T) {
+    if !knowHowToUseGls {
+        panic("call `KnowHowToUseGls()` after you know how to use it! (You must call Clean() after code)")
+    }
+    id := GoID()
+    m := getSubMap(id, true)
+    m.Put(k.key, any(t))
+    check()
+}
+
+func (k *KeyFn[T]) Clean() { GlsClean() }
+
 func KnowHowToUseGls() {
     knowHowToUseGls = true
 }
-func GlsClean() {
-    check()
-    glsLock.RLock()
-    id := GoID()
-    m, ok := glsMap.Get(id)
-    glsLock.RUnlock()
-    if !ok {
+func GlsCleanWithId(goid int64) {
+    m := getSubMap(goid, false)
+    if m == nil {
         return
     }
     glsLock.Lock()
-    glsMap.Delete(id)
+    glsMap.Delete(goid)
+    glsLock.Unlock()
+
     m.Clean()
     glsSubMapPool.Put(m)
-    glsLock.Unlock()
+}
+func GlsClean() {
+    GlsCleanWithId(GoID())
 }
 
 // NewGlsItem returns a new unique key.
@@ -129,15 +158,26 @@ func GlsClean() {
 // var item = NewGlsItem[int]() //at global
 // value,exist := item.Get()
 func NewGlsItem[T any]() Key[T] {
-    id := atomic.AddUint32(&keyIdGen, 1)
+    id := atomic.AddUint64(&keyIdGen, 1)
     if id == 0 {
-        keyIdGen = math.MaxUint32 //无限 panic
+        keyIdGen = math.MaxUint64 //无限 panic
 
-        // 使用全局定义key不可能超过2^32个
-        // 2^32 keys should be enough for everyone
-        panic("gls key too much, overflow! You should define keys in global, not in functions")
+        // 使用全局定义key不可能超过2^64个
+        // 2^64 keys should be enough for everyone
+        panic("gls key too much, overflow! You should define keys in global, don't declare a new one every time")
     }
-    return Key[T](id)
+    return KeySimple[T](id)
+}
+
+func NewGlsItemWithFunc[T any](defaultValue func() T) Key[T] {
+    return &KeyFn[T]{
+        key: uint64(NewGlsItem[T]().(KeySimple[T])),
+        fn:  defaultValue,
+    }
+}
+
+func NewGlsItemWithDefault[T any](defaultValue T) Key[T] {
+    return NewGlsItemWithFunc(func() T { return defaultValue })
 }
 
 var testI = 0
@@ -147,14 +187,14 @@ var testInterval = 10
 func check() {
     testI++
     if testI >= testInterval {
-        if runtime.NumGoroutine() < glsMap.Count() {
+        if runtime.NumGoroutine() < glsMap.Count()+runtime.NumCPU()+8 {
             runtime.Gosched()
-            if runtime.NumGoroutine() < glsMap.Count() {
+            if runtime.NumGoroutine() < glsMap.Count()+runtime.NumCPU()+8 {
                 glsLock.Lock()
                 runtime.GC()
-                if runtime.NumGoroutine() < glsMap.Count() {
+                if runtime.NumGoroutine() < glsMap.Count()+runtime.NumCPU()+8 {
                     var ids []int64
-                    glsMap.Iter(func(k int64, v Map[uint32, any]) (stop bool) {
+                    glsMap.Iter(func(k int64, v Map[uint64, any]) (stop bool) {
                         ids = append(ids, k)
                         return false
                     })

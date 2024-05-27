@@ -1,14 +1,14 @@
 package helper
 
 import (
-    "encoding/json"
     "errors"
     "io"
     "net/http"
 )
 
 var (
-    JsonUnmarshal = json.Unmarshal
+    // JsonUnmarshal 需要手动设置 JsonUnmarshal=func(r,v){return json.NewDecoder(r).Decode(v)}
+    JsonUnmarshal func(io.Reader, any) error
 )
 
 func JsonResponseUnmarshal[T any](r *http.Response) (*T, error) {
@@ -16,13 +16,8 @@ func JsonResponseUnmarshal[T any](r *http.Response) (*T, error) {
         return nil, errors.New("body is nil")
     }
     defer r.Body.Close()
-    all, err := io.ReadAll(r.Body)
-    if err != nil {
-        return nil, err
-    }
     t := new(T)
-    err = JsonUnmarshal(all, t)
-    return t, err
+    return t, JsonUnmarshal(r.Body, &t)
 }
 
 func JsonRequestUnmarshal[T any](req *http.Request) (*T, error) {
