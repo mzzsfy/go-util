@@ -16,7 +16,7 @@ var (
         {0, 23},
         {1, 31},
         {1, 12},
-        {1, 7},
+        {0, 7},
         {1990, 9999},
     }
     cronFix = map[string]string{
@@ -35,6 +35,20 @@ var (
         "THU": "5",
         "FRI": "6",
         "SAT": "7",
+    }
+    monthMap = map[string]string{
+        "JAN": "1",
+        "FEB": "2",
+        "MAR": "3",
+        "APR": "4",
+        "MAY": "5",
+        "JUN": "6",
+        "JUL": "7",
+        "AUG": "8",
+        "SEP": "9",
+        "OCT": "10",
+        "NOV": "11",
+        "DEC": "12",
     }
 )
 
@@ -195,9 +209,14 @@ type schedulerCron struct {
     year  []int
     month uint16
     week  uint8
+    //L,C,W,# 从高到低位含义为
+    //日:L月末,W工作日,周:L最后一周,W最近的工作日(不支持),空2位,(3位)第几周#(可用1~7,实际为1~5)
+    //lcw uint8
 
     day, hour      uint32
     second, minute uint64
+
+    local *time.Location
 }
 
 //获取下一个合法值
@@ -313,7 +332,7 @@ func (s *schedulerCron) NextTime(t time.Time) time.Time {
             day, month1, year = s.nextDay(day, int(month), year)
             month = time.Month(month1)
         } else {
-            t1 := time.Date(year, month, day, 0, 0, 0, 0, time.Local)
+            t1 := time.Date(year, month, day, 0, 0, 0, 0, s.local)
             weekday := t1.Weekday() + 1
             if (s.week>>uint8(weekday))&1 != 1 {
                 var month1 int
@@ -326,7 +345,7 @@ func (s *schedulerCron) NextTime(t time.Time) time.Time {
     if year == 0 {
         return time.Time{}
     }
-    return time.Date(year, month, day, hour, minu, sec, 0, t.Location())
+    return time.Date(year, month, day, hour, minu, sec, 0, s.local)
 }
 
 func (s *schedulerCron) nextDay(day, month, year int) (int, int, int) {
@@ -359,7 +378,7 @@ func (s *schedulerCron) nextDay(day, month, year int) (int, int, int) {
             }
         }
     testWeek:
-        t := time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.Local)
+        t := time.Date(year, time.Month(month), day, 0, 0, 0, 0, s.local)
         weekday := t.Weekday() + 1
         if (s.week>>uint8(weekday))&1 == 1 {
             break
@@ -374,7 +393,21 @@ func (e everyTask) NextTime(t time.Time) time.Time {
     return t.Add(time.Duration(e))
 }
 
+// ParseCron 解析cron表达式,支持5~7位cron表达式,支持设置时区 TZ=Asia/Shanghai 10 10 * * * *,支持@weekly,@every 1h1s
+// * * * * * * * 分别为 秒(可选) 分 时 每月第几天 月 每周第几天 年(可选),6位时为年不设置,day of week 0和7都为周日
 func ParseCron(cron string) (CustomSchedulerTime, error) {
+    tz := time.Local
+    //时区
+    if strings.HasPrefix(cron, "CRON_TZ=") || strings.HasPrefix(cron, "TZ=") {
+        tzStr := cron[:strings.Index(cron, " ")]
+        tzStr = strings.Split(tzStr, "TZ=")[1]
+        var err error
+        tz, err = time.LoadLocation(tzStr)
+        if err != nil {
+            return nil, errors.New("指定时区错误:" + err.Error() + ",你的表达式为:" + cron)
+        }
+        cron = cron[strings.Index(cron, " ")+1:]
+    }
     if cron[0] == '@' {
         if strings.HasPrefix(cron, "@every ") {
             cron = cron[7:]
@@ -405,9 +438,11 @@ func ParseCron(cron string) (CustomSchedulerTime, error) {
         items = append([]string{"0"}, items...)
     }
     s := &schedulerCron{
-        corn: cron,
+        corn:  cron,
+        local: tz,
     }
     for i, item := range items {
+        //年
         if i == 6 {
             if item == "?" || item == "*" {
                 continue
@@ -439,6 +474,7 @@ func ParseCron(cron string) (CustomSchedulerTime, error) {
             }
             continue
         }
+        //周
         if i == 5 {
             if item == "?" || item == "*" {
                 v, _ := parseCronItem("*", 1, 7)
@@ -459,7 +495,7 @@ func ParseCron(cron string) (CustomSchedulerTime, error) {
                 //处理英文
                 item1 := item
                 for k, v1 := range weekMap {
-                    strings.ReplaceAll(item1, k, v1)
+                    item1 = strings.ReplaceAll(item1, k, v1)
                 }
                 v, err = parseCronItem(item1, cronRules[i][0], cronRules[i][1])
                 if err != nil {
@@ -470,12 +506,28 @@ func ParseCron(cron string) (CustomSchedulerTime, error) {
             if v != math.MaxUint8>>1<<1 && s.day != math.MaxUint32>>1<<1 {
                 return nil, errors.New("解析错误,周几和每月第几天不能同时设置,你的表达式为:" + cron)
             }
+            //0替换为7
+            if v&1 != 0 {
+                v = (v & ^uint64(1)) | 1<<7
+            }
             s.week = uint8(v)
             continue
         }
         v, err := parseCronItem(item, cronRules[i][0], cronRules[i][1])
         if err != nil {
-            return nil, joinErrs(errors.New("解析错误,"+item), err)
+            //月
+            if i == 4 {
+                item1 := item
+                for k, v1 := range monthMap {
+                    item1 = strings.ReplaceAll(item1, k, v1)
+                }
+                v, err = parseCronItem(item1, cronRules[i][0], cronRules[i][1])
+                if err != nil {
+                    return nil, joinErrs(errors.New("解析错误,"+item), err)
+                }
+            } else {
+                return nil, joinErrs(errors.New("解析错误,"+item), err)
+            }
         }
         switch i {
         case 0:

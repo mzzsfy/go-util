@@ -562,6 +562,13 @@ func Test_Cron_nextTime(t *testing.T) {
             t.Errorf("expected: %v, got: %v", expect.Format(DateTimeLayout), next.Format(DateTimeLayout))
         }
     })
+    t.Run("Cron_nextTime_year_month_week2", func(t *testing.T) {
+        c, _ := ParseCron("0 0 0 * 6 0,1,2")
+        c1, _ := ParseCron("0 0 0 * 6 7,1,2")
+        if c.(*schedulerCron).week != c1.(*schedulerCron).week {
+            t.Error("week not equal", c.(*schedulerCron).week, c1.(*schedulerCron).week)
+        }
+    })
     t.Run("Cron_nextTime_year", func(t *testing.T) {
         c, err := ParseCron("0 0 0 * * * 2024")
         if err != nil {
