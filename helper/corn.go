@@ -4,10 +4,26 @@ import (
     "errors"
     "math"
     "math/bits"
+    "math/rand"
     "strconv"
     "strings"
     "time"
 )
+
+type everyTask time.Duration
+
+func (e everyTask) NextTime(t time.Time) time.Time {
+    return t.Add(time.Duration(e))
+}
+
+type randomTask struct {
+    offset time.Duration
+    rand   int64
+}
+
+func (e *randomTask) NextTime(t time.Time) time.Time {
+    return t.Add(time.Duration(rand.Int63n(e.rand)) + e.offset)
+}
 
 var (
     cronRules = [][]uint64{
@@ -18,14 +34,6 @@ var (
         {1, 12},
         {0, 7},
         {1990, 9999},
-    }
-    cronFix = map[string]string{
-        "@yearly":   "0 0 0 1 1 *",
-        "@annually": "0 0 0 1 1 *",
-        "@monthly":  "0 0 0 1 * *",
-        "@weekly":   "0 0 0 * * 0",
-        "@daily":    "0 0 0 * * *",
-        "@midnight": "0 0 0 * * *",
     }
     weekMap = map[string]string{
         "SUN": "1",
@@ -387,14 +395,10 @@ func (s *schedulerCron) nextDay(day, month, year int) (int, int, int) {
     return day, month, year
 }
 
-type everyTask time.Duration
-
-func (e everyTask) NextTime(t time.Time) time.Time {
-    return t.Add(time.Duration(e))
-}
-
-// ParseCron 解析cron表达式,支持5~7位cron表达式,支持设置时区 TZ=Asia/Shanghai 10 10 * * * *,支持@weekly,@every 1h1s
-// * * * * * * * 分别为 秒(可选) 分 时 每月第几天 月 每周第几天 年(可选),6位时为年不设置,day of week 0和7都为周日
+// ParseCron 解析cron表达式,支持5~7位cron表达式,支持设置时区 TZ=Asia/Shanghai 10 10 * * * *
+// 每一位含义为 秒(可选) 分 时 每月第几天 月 每周第几天 年(可选),6位时为年不设置,day of week 0和7都为周日
+// 内置表达式@yearly,@annually,@monthly,@weekly,@daily,@midnight,@hourly,@every 1h1s,@random 1m 1h
+// 其中@random [最低时长] 最高时长 中最低时长默认为1s
 func ParseCron(cron string) (CustomSchedulerTime, error) {
     tz := time.Local
     //时区
@@ -421,9 +425,40 @@ func ParseCron(cron string) (CustomSchedulerTime, error) {
             t := everyTask(task)
             return &t, nil
         }
-        cron1, ok := cronFix[cron]
-        if !ok {
-            return nil, errors.New("不支持的cron表达式:" + cron)
+        if strings.HasPrefix(cron, "@random ") {
+            cron = cron[7:]
+            split := strings.Split(cron, " ")
+            min := time.Second
+            var err error
+            maxStr := split[0]
+            if len(split) > 1 {
+                maxStr = split[1]
+                min, err = time.ParseDuration(split[0])
+                if err != nil {
+                    return nil, joinErrs(errors.New("时间间隔格式不正确,支持格式为:@random 1m 1h1s,你的表达式为:"+cron), err)
+                }
+                if min < time.Second {
+                    return nil, errors.New("时间间隔最少为1s,你的表达式为:" + cron)
+                }
+            }
+            max, err := time.ParseDuration(maxStr)
+            if err != nil {
+                return nil, joinErrs(errors.New("时间间隔格式不正确,支持格式为:@random 1m 1h1s,你的表达式为:"+cron), err)
+            }
+            if max < min {
+                max, min = min, max
+            }
+            if min < time.Second {
+                return nil, errors.New("时间间隔最少为1s,你的表达式为:" + cron)
+            }
+            return &randomTask{
+                offset: min,
+                rand:   int64(max - min),
+            }, nil
+        }
+        cron1 := fixedExpressions(cron)
+        if cron1 == "" {
+            return nil, errors.New("不支持的表达式:" + cron)
         }
         cron = cron1
     }
@@ -545,4 +580,21 @@ func ParseCron(cron string) (CustomSchedulerTime, error) {
         }
     }
     return s, nil
+}
+
+func fixedExpressions(cron string) string {
+    switch cron {
+    case "@yearly", "@annually":
+        return "0 0 0 1 1 *"
+    case "@monthly":
+        return "0 0 0 1 * *"
+    case "@weekly":
+        return "0 0 0 * * 0"
+    case "@daily", "@midnight":
+        return "0 0 0 * * *"
+    case "@hourly":
+        return "0 0 * * * *"
+    default:
+        return ""
+    }
 }
