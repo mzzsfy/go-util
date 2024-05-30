@@ -1,5 +1,7 @@
 package helper
 
+import "time"
+
 func Ternary[T any](test bool, trueValue, falseValue T) T {
     if test {
         return trueValue
@@ -61,4 +63,21 @@ func MustR[T any](err error, data T) T {
         panic(err)
     }
     return data
+}
+
+func Debounce(call func(), duration time.Duration) func() {
+    var lastCall *time.Time
+    return func() {
+        if lastCall == nil {
+            call()
+            t := time.Now()
+            lastCall = &t
+        } else {
+            now := time.Now()
+            if now.Sub(*lastCall) > duration {
+                lastCall = &now
+                call()
+            }
+        }
+    }
 }

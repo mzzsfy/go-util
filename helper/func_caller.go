@@ -136,20 +136,3 @@ func doExit(code int) {
     time.Sleep(time.Millisecond * 50)
     os.Exit(code)
 }
-
-func Debounce(call func(), duration time.Duration) func() {
-    var lastCall *time.Time
-    return func() {
-        if lastCall == nil {
-            call()
-            t := time.Now()
-            lastCall = &t
-        } else {
-            now := time.Now()
-            if now.Sub(*lastCall) > duration {
-                lastCall = &now
-                call()
-            }
-        }
-    }
-}
