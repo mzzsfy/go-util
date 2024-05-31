@@ -219,5 +219,11 @@ func TestLogger1(t *testing.T) {
 }
 
 func Test_Logger_111(t *testing.T) {
-    Logger("test").I("1321123", 123, "fsadf", 100)
+    Logger("test").I("-{}-", 123, "fsadf", 100)
+    Logger("test").I("{}--{}--{}--")
+    Logger("test").I("--{}--{}--{}")
+    Logger("test").I("{}--{}--{}--{}")
+    Logger("test").I("{}--{}--{}--{}", 1, 2)
+    Logger("test").I("--{}{}}{--", 1)
+    Logger("test").I("--{{}}}--", 123)
 }

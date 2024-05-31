@@ -270,11 +270,15 @@ var (
 func doLogFormat1(s Buffer, format string, args []any) {
     //todo: 修改实现,性能有较大提升空间
     l := len(args)
-    split := bytes.SplitN(helper.StringToBytes(format), bigParenthesis, -1)
+    split := bytes.Split(helper.StringToBytes(format), bigParenthesis)
     sl := len(split) - 1
     for i := 0; i < sl; i++ {
         s.Write(split[i])
-        appendAny(s, args[i])
+        if l > i {
+            appendAny(s, args[i])
+        } else {
+            s.Write(bigParenthesis)
+        }
     }
     s.Write(split[sl])
     if l > sl {
