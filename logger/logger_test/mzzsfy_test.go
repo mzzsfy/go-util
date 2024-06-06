@@ -3,7 +3,6 @@ package logger_test
 import (
     "github.com/mzzsfy/go-util/helper"
     "github.com/mzzsfy/go-util/logger"
-    "math/rand"
     "os"
     "testing"
     "time"
@@ -18,8 +17,8 @@ func Benchmark_Mzzsfy(b *testing.B) {
     defer file.Close()
     logger.SetDefaultWriterTarget(helper.NewAsyncWriter(file))
     time.Sleep(time.Second)
-    b.ResetTimer()
     log := logger.Logger("test")
+    b.ResetTimer()
     for i := 0; i < b.N; i++ {
         log.I("test", i)
     }
@@ -35,8 +34,8 @@ func Benchmark_Concurrent_Mzzsfy(b *testing.B) {
     log := logger.Logger("test")
     b.ResetTimer()
     b.RunParallel(func(pb *testing.PB) {
-        for pb.Next() {
-            log.I("test", rand.Int())
+        for i := 0; pb.Next(); i++ {
+            log.I("test", i)
         }
     })
 }
