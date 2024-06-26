@@ -1,6 +1,9 @@
 package helper
 
-import "sync"
+import (
+    "strconv"
+    "sync"
+)
 
 type Signed interface {
     ~int | ~int8 | ~int16 | ~int32 | ~int64
@@ -78,6 +81,28 @@ var buf = sync.Pool{
     New: func() any {
         return &[20]byte{}
     },
+}
+
+func ParseStringToInt(intStr string, defaultValue int) int {
+    if intStr == "" {
+        return defaultValue
+    }
+    i, err := strconv.ParseInt(intStr, 10, 64)
+    if err != nil {
+        return defaultValue
+    }
+    return int(i)
+}
+
+func ParseStringToFloat(intStr string, defaultValue float64) float64 {
+    if intStr == "" {
+        return defaultValue
+    }
+    i, err := strconv.ParseFloat(intStr, 64)
+    if err != nil {
+        return defaultValue
+    }
+    return i
 }
 
 func NumberToString[T ~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 | ~uintptr | ~int | ~int8 | ~int16 | ~int32 | ~int64](n T) string {
