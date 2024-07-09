@@ -7,7 +7,13 @@ import (
     _ "unsafe"
 )
 
-var slotNumber, modNumber = runtime.NumCPU(), runtime.NumCPU() - 1
+var slotNumber, modNumber = func() (int, int) {
+    numCPU := runtime.NumCPU()
+    if numCPU <= 1 {
+        return 1, 1
+    }
+    return numCPU, numCPU - 1
+}()
 var idxFn = func(hash uint64) int {
     //去除符号位,避免可能的负数
     return int(hash&0x7FFFFFFFFFFFFFFF) % modNumber

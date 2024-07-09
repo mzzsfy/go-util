@@ -7,6 +7,9 @@ import (
 
 var slotNumber, modNumber = func() (int, int) {
     n := runtime.NumCPU() - 1
+    if n <= 1 {
+        n = 1
+    }
     //复制于java.util.HashMap
     n |= n >> 1
     n |= n >> 2
