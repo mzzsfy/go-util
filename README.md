@@ -30,7 +30,8 @@
         print(k, v)
     }).KSeq().JoinString(func(s string){retrun s}, ",")
     ```
-  更多例子见: [seq_test.go](./seq/seq__test.go) [biSeq_test.go](./seq/biSeq_test.go)
+  更多例子见: [seq_test.go](./seq/seq__test.go) [biSeq_test.go](./seq/biSeq_test.go)   
+  **如果使用seq处理大interface{},可能会导致编译速度下降,编译缓存磁盘占用大**
 
   > 参考来源: https://mp.weixin.qq.com/s/v-HMKBWxtz1iakxFL09PDw
 
