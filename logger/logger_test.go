@@ -25,7 +25,12 @@ func Test_Logger_1(t *testing.T) {
     PrintYearInfo = 3
     Logger("test.test").I("test")
     PrintYearInfo = 1
-    Logger("test.test").I("test")
+    log1 := Logger("test.test")
+    log1.I("test")
+    length := showNameMaxLength
+    defer SetLogNameMaxLength(length)
+    SetLogNameMaxLength(6)
+    log1.I("short test")
 }
 
 func Test_Logger_11(t *testing.T) {

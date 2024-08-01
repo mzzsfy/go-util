@@ -37,7 +37,12 @@ func SetLogNameMaxLength(length int) {
     globalLock.Lock()
     globalLock.Unlock()
     showNameMaxLength = length
-    globalLog.Clean()
+    globalLog.Iter(func(key string, value *logger) bool {
+        names := strings.Split(value.fullName, ".")
+        showName := initName(len(names)-1, names, value.fullName)
+        value.showName = showName
+        return false
+    })
 }
 
 // AllLogger 获取所有的logger 名称,建议搭配 seq包使用
@@ -69,46 +74,7 @@ func Logger(name string, options ...Option) Log {
                 if _, ok := globalLog.Get(fullname); ok {
                     continue
                 }
-                var newNames []string
-                for j := 0; j < i+1; j++ {
-                    newNames = append(newNames, names[j])
-                }
-                showName := fullname
-                if CompressedLogName {
-                    //xxx.xxx.xxx.xxx => x.x.xxx.xxx
-                    if len([]rune(showName)) > showNameMaxLength {
-                        for i := range newNames[:len(newNames)-1] {
-                            newNames[i] = string([]rune(newNames[i])[:1])
-                            showName = strings.Join(newNames, ".")
-                            if len(showName) <= showNameMaxLength {
-                                break
-                            }
-                        }
-                        //x.x.xxx.xxx => x..xxx.xxx
-                        showName1 := []rune(showName)
-                        if len(showName1) > showNameMaxLength {
-                            idx := len(showName1) - showNameMaxLength + 3
-                            if showName[idx] == '.' {
-                                showName = string(fullname[:2]) + ".." + string(showName1[idx+1:])
-                            } else {
-                                showName = string(showName1[0]) + ".." + string(showName1[idx:])
-                            }
-                        }
-                    }
-                } else {
-                    showName1 := []rune(showName)
-                    if len(showName1) > showNameMaxLength {
-                        idx := len(showName1) - showNameMaxLength + 3
-                        if showName[idx] == '.' {
-                            showName = string(showName1[:2]) + ".." + string(showName1[idx+1:])
-                        } else {
-                            showName = string(showName1[0]) + ".." + string(showName1[idx:])
-                        }
-                    }
-                }
-                if len([]rune(showName)) < showNameMaxLength {
-                    showName = strings.Repeat(" ", showNameMaxLength-len([]rune(showName))) + showName
-                }
+                showName := initName(i, names, fullname)
                 l1 := logPool.Get()
                 l1.showName = showName
                 l1.fullName = fullname
@@ -125,6 +91,50 @@ func Logger(name string, options ...Option) Log {
         l = option(l)
     }
     return l
+}
+
+func initName(step int, names []string, fullname string) string {
+    var newNames []string
+    for j := 0; j < step+1; j++ {
+        newNames = append(newNames, names[j])
+    }
+    showName := fullname
+    if CompressedLogName {
+        //xxx.xxx.xxx.xxx => x.x.xxx.xxx
+        if len([]rune(showName)) > showNameMaxLength {
+            for i := range newNames[:len(newNames)-1] {
+                newNames[i] = string([]rune(newNames[i])[:1])
+                showName = strings.Join(newNames, ".")
+                if len(showName) <= showNameMaxLength {
+                    break
+                }
+            }
+            //x.x.xxx.xxx => x..xxx.xxx
+            showName1 := []rune(showName)
+            if len(showName1) > showNameMaxLength {
+                idx := len(showName1) - showNameMaxLength + 3
+                if showName[idx] == '.' {
+                    showName = string(fullname[:2]) + ".." + string(showName1[idx+1:])
+                } else {
+                    showName = string(showName1[0]) + ".." + string(showName1[idx:])
+                }
+            }
+        }
+    } else {
+        showName1 := []rune(showName)
+        if len(showName1) > showNameMaxLength {
+            idx := len(showName1) - showNameMaxLength + 3
+            if showName[idx] == '.' {
+                showName = string(showName1[:2]) + ".." + string(showName1[idx+1:])
+            } else {
+                showName = string(showName1[0]) + ".." + string(showName1[idx:])
+            }
+        }
+    }
+    if len([]rune(showName)) < showNameMaxLength {
+        showName = strings.Repeat(" ", showNameMaxLength-len([]rune(showName))) + showName
+    }
+    return showName
 }
 
 func WithSetPlugin(plugin ...Plugin) Option {
