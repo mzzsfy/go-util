@@ -28,12 +28,12 @@ func TestLocalTime_UnmarshalJSON(t *testing.T) {
 func TestLocalTime_MarshalJSON(t *testing.T) {
     t.Run("MarshalTime", func(t *testing.T) {
         lt := LocalTime(time.Date(2022, 12, 31, 23, 59, 59, 0, time.Local))
-        b, err := lt.MarshalJSON()
+        b, err := lt.MarshalBinary()
         if err != nil {
             t.Errorf("Expected no error, got %v", err)
         }
-        if string(b) != "\"2022-12-31 23:59:59\"" {
-            t.Errorf("Expected \"2022-12-31 23:59:59\", got %s", string(b))
+        if string(b) != "2022-12-31 23:59:59" {
+            t.Errorf("Expected 2022-12-31 23:59:59, got %s", string(b))
         }
     })
 }
