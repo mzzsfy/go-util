@@ -1,7 +1,6 @@
-package concurrent
+package helper
 
 import (
-    "github.com/mzzsfy/go-util/helper"
     "sync/atomic"
 )
 
@@ -30,7 +29,7 @@ func (n *namedSymbol) String() string {
 }
 
 func (n *namedSymbol) MarshalText() (text []byte, err error) {
-    return helper.StringToBytes(n.name), nil
+    return StringToBytes(n.name), nil
 }
 
 func NewSymbols(name string) NamedSymbol {

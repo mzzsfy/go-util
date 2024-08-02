@@ -43,21 +43,10 @@ func (t *LocalTime) UnmarshalText(b []byte) error {
     return t.Parse(string(b))
 }
 
-func (t *LocalTime) MarshalJSON() ([]byte, error) {
-    bs := StringToBytes(t.String())
-    r := make([]byte, len(bs)+2)
-    copy(r[1:], bs)
-    r[0] = byte('"')
-    r[len(r)-1] = byte('"')
-    return r, nil
-}
-
-func (t *LocalTime) MarshalYAML() (any, error) {
-    return t.String(), nil
-}
 func (t *LocalTime) MarshalBinary() ([]byte, error) {
     return []byte(t.String()), nil
 }
+
 func (t *LocalTime) MarshalText() ([]byte, error) {
     return []byte(t.String()), nil
 }
@@ -70,6 +59,7 @@ func (t *LocalTime) String() string {
 func (t *LocalTime) Time() time.Time {
     return time.Time(*t).Local()
 }
+
 func (t *LocalTime) Parse(str string) error {
     var err error
     *t, err = ParseLocalTime(str)
@@ -83,6 +73,8 @@ func ParseLocalTime(str string) (LocalTime, error) {
     }
     return ParseLocalTimeWithLayout(DateTimeLayout, str)
 }
+
+// ParseLocalTimeWithLayout 使用 layout 格式解析
 func ParseLocalTimeWithLayout(layout, str string) (LocalTime, error) {
     parse, err := time.ParseInLocation(layout, str, time.Local)
     return LocalTime(parse), err
