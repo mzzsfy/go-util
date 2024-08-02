@@ -5,7 +5,7 @@ import (
 )
 
 // TestNewSymbols tests the NewSymbols function.
-func TestNewSymbols(t *testing.T) {
+func Test_NewSymbols(t *testing.T) {
     sym := NewSymbols("test")
     sym1 := NewAnonymousSymbols()
     if sym.String() != "test" {
@@ -20,7 +20,7 @@ func TestNewSymbols(t *testing.T) {
 }
 
 // TestSymbolEqual tests the anonymousSymbol Equal method.
-func TestSymbolEqual(t *testing.T) {
+func Test_SymbolEqual(t *testing.T) {
     sym1 := NewAnonymousSymbols()
     sym2 := NewAnonymousSymbols()
     sym3 := NewSymbols("test")
