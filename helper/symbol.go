@@ -31,11 +31,11 @@ type namedSymbol struct {
     anonymousSymbol
 }
 
-func (n *namedSymbol) String() string {
+func (n namedSymbol) String() string {
     return n.name
 }
 
-func (n *namedSymbol) MarshalText() (text []byte, err error) {
+func (n namedSymbol) MarshalText() (text []byte, err error) {
     return StringToBytes(n.name), nil
 }
 
