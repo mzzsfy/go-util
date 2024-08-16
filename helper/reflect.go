@@ -39,3 +39,7 @@ func New[T any](a T) T {
         return *r
     }
 }
+
+func Ptr[T any](t T) *T {
+    return &t
+}
