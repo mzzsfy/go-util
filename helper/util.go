@@ -1,6 +1,9 @@
 package helper
 
-import "time"
+import (
+    "sync"
+    "time"
+)
 
 func Ternary[T any](test bool, trueValue, falseValue T) T {
     if test {
@@ -65,6 +68,22 @@ func MustR[T any](err error, data T) T {
     return data
 }
 
+func OneOfL[L, R any](data L, _ R) L {
+    return data
+}
+func OneOfR[L, R any](_ L, data R) R {
+    return data
+}
+func OneOf3L[L, M, R any](data L, _ M, _ R) L {
+    return data
+}
+func OneOf3M[L, M, R any](_ L, data M, _ R) M {
+    return data
+}
+func OneOf3R[L, M, R any](_ L, _ M, data R) R {
+    return data
+}
+
 func Debounce(call func(), duration time.Duration) func() {
     var lastCall *time.Time
     return func() {
@@ -79,5 +98,15 @@ func Debounce(call func(), duration time.Duration) func() {
                 call()
             }
         }
+    }
+}
+
+func DebounceConcurrent(call func(), duration time.Duration) func() {
+    f := Debounce(call, duration)
+    var lock sync.Mutex
+    return func() {
+        lock.Lock()
+        defer lock.Unlock()
+        f()
     }
 }
