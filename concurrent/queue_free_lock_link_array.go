@@ -23,7 +23,7 @@ type layer struct {
     status uint32
     _      [cpuCacheKillerPaddingLength]byte
 
-    waitRead sync.WaitGroup
+    waitReadOver sync.WaitGroup
     //waitNext sync.WaitGroup
 
     lid uint64
@@ -43,7 +43,7 @@ func (l *layer) id() uint64 {
 
 type lkArrQueue[T any] struct {
     zero      T
-    layerMask uint64 //层掩码
+    layerMask uint64 //层掩码,快速获取index
 
     produceId uint64
     _         [cpuCacheKillerPaddingLength]byte
@@ -190,7 +190,7 @@ func (q *lkArrQueue[T]) updateHead(layerId uint64) {
                 return
             }
 
-            head.waitRead.Wait()
+            head.waitReadOver.Wait()
             if atomic.CompareAndSwapPointer(&q.head, hp, head.next) {
                 q.unsetLayerBit(head, layerStatusChangeHead)
                 reclaimLayer(head)
@@ -323,7 +323,7 @@ func (q *lkArrQueue[T]) GetV(l *layer, idx uint64) T {
             t := (*T)(p)
             atomic.StorePointer(&l.arr[idx], nil)
             //atomic.AddInt32(&l.num, -1)
-            l.waitRead.Done()
+            l.waitReadOver.Done()
             return *t
         } else if i > 10 {
             runtime.Gosched()
@@ -348,7 +348,7 @@ var layerPool = sync.Pool{New: func() any { return &layer{} }}
 func newLayer(id uint64) *layer {
     l := layerPool.Get().(*layer)
     atomic.StoreUint64(&l.lid, id)
-    l.waitRead.Add(layerSize)
+    l.waitReadOver.Add(layerSize)
     //l.waitNext.Add(1)
     return l
 }
@@ -389,7 +389,7 @@ out:
 func newLinkArrQueue[T any]() Queue[T] {
     l := newLayer(0)
     id := uint64(layerSize - 1)
-    l.waitRead.Add(-layerSize)
+    l.waitReadOver.Add(-layerSize)
     return &lkArrQueue[T]{
         consumeId: id,
         produceId: id,

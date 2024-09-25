@@ -67,14 +67,14 @@ func (l *Int64Adder) addNoCompete(v int64) bool {
         }
         if atomic.CompareAndSwapInt32(&l.init, 0, 1) {
             //无扩容功能,使用该工具场景,并不会特别需要节省内存
-            ceils := make([]int64AdderCeil, slotNumber, slotNumber)
+            ceils := make([]int64AdderCeil, slotNumber)
             for i := range ceils {
                 ceils[i] = int64AdderCeil{int64: 0}
             }
             l.values = ceils
         }
     }
-    if len(l.values) == 0 {
+    if len(l.values) != slotNumber {
         //等待初始化
         for {
             if len(l.values) == slotNumber {

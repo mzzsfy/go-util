@@ -32,68 +32,37 @@ func Test_DequeueTimeout(t *testing.T) {
     t.Log(time.Now(), zipAny(queue.DequeueBlock()))
 }
 
-func Test_LkQueue1(b *testing.T) {
-    num := 100000
-    queue := NewQueue[int]()
-    for i := 0; i < num; i++ {
-        queue.Enqueue(1)
-    }
-    if queue.Size() != num {
-        b.Fatal("插入数据量数量不正确")
-        return
-    }
-    var x = Int64Adder{}
-    for i := 0; i < num; i++ {
-        _, exist := queue.Dequeue()
-        if exist {
-            x.IncrementSimple()
-        } else {
-            return
-        }
-    }
-    if x.SumInt() != num {
-        b.Fatal("消费数据量数量不正确", x.SumInt(), num)
-    }
-}
-
-func Test_LkQueue2(t *testing.T) {
-    gn := 10
-    num := 10000
-    n := num * gn
-    wg := sync.WaitGroup{}
-    wg.Add(gn)
-    queue := NewQueue[int](WithTypeArrayLink[int]())
-    for g := 0; g < gn; g++ {
-        go func() {
-            defer wg.Done()
+func Test_LkQueue(b *testing.T) {
+    num := 10000000
+    for _, o := range []struct {
+        name string
+        opt  Opt[int]
+    }{
+        {"lk", WithTypeLink[int]()},
+        {"lak", WithTypeArrayLink[int]()},
+    } {
+        b.Run(o.name, func(t *testing.T) {
+            queue := NewQueue[int](o.opt)
             for i := 0; i < num; i++ {
                 queue.Enqueue(1)
             }
-        }()
-    }
-    wg.Wait()
-    if queue.Size() != n {
-        t.Fatal("插入数据量数量不正确")
-        return
-    }
-    var x = Int64Adder{}
-    wg.Add(gn)
-    for g := 0; g < gn; g++ {
-        go func() {
-            defer wg.Done()
+            if queue.Size() != num {
+                b.Fatal("插入数据量数量不正确")
+                return
+            }
+            var x = Int64Adder{}
             for i := 0; i < num; i++ {
                 _, exist := queue.Dequeue()
                 if exist {
                     x.IncrementSimple()
                 } else {
-                    i--
+                    return
                 }
             }
-        }()
-    }
-    wg.Wait()
-    if x.SumInt() != n {
-        t.Fatal("消费数据量数量不正确", x.SumInt(), n)
+            if x.SumInt() != num {
+                b.Fatal("消费数据量数量不正确", x.SumInt(), num)
+            }
+        })
     }
 }
 
@@ -241,45 +210,55 @@ func Benchmark_LkQueue(b *testing.B) {
 }
 
 func Benchmark_LkQueue111(b *testing.B) {
-    b.Run("lk", func(b *testing.B) {
-        queue := NewQueue(WithTypeLink[int]())
-        wg := NewWaitGroup(0)
-        en := Int64Adder{}
-        de := Int64Adder{}
-        for i := 0; i < 10; i++ {
-            wg.Add(1)
-            go func() {
-                id := GoID()
-                for i := 0; i < b.N; i++ {
-                    en.Increment(id)
-                    queue.Enqueue(1)
-                }
-            }()
-            go func() {
-                defer wg.Done()
-                id := GoID()
-                for i := 0; i < b.N; i++ {
-                    x, ok := queue.Dequeue()
-                    if !ok {
-                        i--
-                        runtime.Gosched()
-                    } else {
-                        if x != 1 {
-                            b.Error("数据错误")
-                            b.FailNow()
-                            return
-                        }
-                        de.Increment(id)
+    type testCase struct {
+        name string
+        want Opt[int]
+    }
+    tests := []testCase{
+        {"lk", WithTypeLink[int]()},
+        {"lak", WithTypeArrayLink[int]()},
+    }
+    for _, qf := range tests {
+        b.Run(qf.name, func(b *testing.B) {
+            queue := NewQueue(qf.want)
+            wg := NewWaitGroup(0)
+            en := Int64Adder{}
+            de := Int64Adder{}
+            for i := 0; i < 10; i++ {
+                wg.Add(1)
+                go func() {
+                    id := GoID()
+                    for i := 0; i < b.N; i++ {
+                        en.Increment(id)
+                        queue.Enqueue(1)
                     }
-                }
-            }()
-        }
-        time.Sleep(10 * time.Millisecond)
-        wg.Wait()
-        if en.Sum() != de.Sum() {
-            b.Error("入队出队数量不匹配")
-        }
-    })
+                }()
+                go func() {
+                    defer wg.Done()
+                    id := GoID()
+                    for i := 0; i < b.N; i++ {
+                        x, ok := queue.Dequeue()
+                        if !ok {
+                            i--
+                            runtime.Gosched()
+                        } else {
+                            if x != 1 {
+                                b.Error("数据错误")
+                                b.FailNow()
+                                return
+                            }
+                            de.Increment(id)
+                        }
+                    }
+                }()
+            }
+            time.Sleep(10 * time.Millisecond)
+            wg.Wait()
+            if en.Sum() != de.Sum() {
+                b.Error("入队出队数量不匹配")
+            }
+        })
+    }
     b.Run("chan", func(b *testing.B) {
         queue := make(chan int, 10)
         wg := NewWaitGroup(0)
