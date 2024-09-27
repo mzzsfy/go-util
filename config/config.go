@@ -201,6 +201,9 @@ func GetByPathSlice(m []any, path string) any {
 
 // GetByPathAny 类似 GetByPath,任意类型的包装方法
 func GetByPathAny(obj any, path string) any {
+    if path == "" {
+        return obj
+    }
     return getByPath(reflect.ValueOf(obj), path)
 }
 func getByPath(vv reflect.Value, path string) any {
