@@ -160,33 +160,20 @@ type DataItem struct {
     key string
 }
 
-func (i DataItem) Any() any {
-    return GetByPathAny(i.m, i.key)
-}
-func (i DataItem) String() string {
-    return Item(i.key).DefaultString(i.m, "")
-}
+func (i DataItem) KeyName() string { return i.key }
+func (i DataItem) Any() any        { return GetByPathAny(i.m, i.key) }
+func (i DataItem) String() string  { return Item(i.key).DefaultString(i.m, "") }
 func (i DataItem) StringD(defaultValue string) string {
     return Item(i.key).DefaultString(i.m, defaultValue)
 }
-func (i DataItem) Int() int {
-    return Item(i.key).DefaultInt(i.m, 0)
-}
-func (i DataItem) IntD(defaultValue int) int {
-    return Item(i.key).DefaultInt(i.m, defaultValue)
-}
-func (i DataItem) Float() float64 {
-    return Item(i.key).DefaultFloat(i.m, 0)
-}
+func (i DataItem) Int() int                  { return Item(i.key).DefaultInt(i.m, 0) }
+func (i DataItem) IntD(defaultValue int) int { return Item(i.key).DefaultInt(i.m, defaultValue) }
+func (i DataItem) Float() float64            { return Item(i.key).DefaultFloat(i.m, 0) }
 func (i DataItem) FloatD(defaultValue float64) float64 {
     return Item(i.key).DefaultFloat(i.m, defaultValue)
 }
-func (i DataItem) Bool() bool {
-    return Item(i.key).DefaultBool(i.m, false)
-}
-func (i DataItem) BoolD(defaultValue bool) bool {
-    return Item(i.key).DefaultBool(i.m, defaultValue)
-}
+func (i DataItem) Bool() bool                   { return Item(i.key).DefaultBool(i.m, false) }
+func (i DataItem) BoolD(defaultValue bool) bool { return Item(i.key).DefaultBool(i.m, defaultValue) }
 func (i DataItem) Child(name string) DataItem {
     if name == "" {
         return i
