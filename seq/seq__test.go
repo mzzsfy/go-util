@@ -119,10 +119,10 @@ func Test_Rand(t *testing.T) {
 }
 
 func Test_Seq_Complete(t *testing.T) {
-    s := FromIntSeq().Take(1000).MapBiSerialNumber(100).Cache()
+    s := MapBiSerialNumber(FromIntSeq().Take(1000), 100).Cache()
     {
         it := IteratorInt()
-        s.SeqV().ForEach(func(i int) {
+        FromBiV(s).ForEach(func(i int) {
             i2, _ := it()
             if i != i2 {
                 t.Fail()
@@ -131,7 +131,7 @@ func Test_Seq_Complete(t *testing.T) {
     }
     {
         it := IteratorInt(100)
-        s.SeqK().ForEach(func(i int) {
+        FromBiK(s).ForEach(func(i int) {
             i2, _ := it()
             if i != i2 {
                 t.Fail()

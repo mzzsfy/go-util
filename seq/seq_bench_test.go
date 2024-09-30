@@ -22,18 +22,18 @@ func Benchmark_SeqEach(b *testing.B) {
         for i := 0; i < b.N; i++ {
             t(i)
         }
-    }).Complete()
+    }).ForEach(func(_ int) {})
 }
 func Benchmark_R_SeqRang(b *testing.B) {
-    FromIntSeq(b.N-1, 0).Complete()
+    FromIntSeq(b.N-1, 0)(func(_ int) {})
 }
 
 func Benchmark_SeqRang(b *testing.B) {
-    FromIntSeq(0, b.N-1).Complete()
+    FromIntSeq(0, b.N-1).ForEach(func(_ int) {})
 }
 
 func Benchmark_SeqTack(b *testing.B) {
-    FromIntSeq().Take(b.N).Complete()
+    FromIntSeq().Take(b.N).ForEach(func(_ int) {})
 }
 
 func Benchmark_R_For(b *testing.B) {
@@ -46,7 +46,7 @@ func Benchmark_R_SeqEach(b *testing.B) {
         for i := b.N; i > 0; i-- {
             t(i)
         }
-    }).Complete()
+    }).ForEach(func(_ int) {})
 }
 
 //func Benchmark_Cain_Buff_1(b *testing.B) {

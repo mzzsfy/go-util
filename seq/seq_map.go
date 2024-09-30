@@ -137,23 +137,112 @@ func (t Seq[T]) MapFlat(f func(T) Seq[any]) Seq[any] {
     return func(c func(any)) { t(func(t T) { f(t)(c) }) }
 }
 
-// MapFlatInt 扁平化
-func (t Seq[T]) MapFlatInt(f func(T) Seq[int]) Seq[int] {
-    return func(c func(int)) { t(func(t T) { f(t)(c) }) }
+//// MapFlatInt 扁平化
+//func (t Seq[T]) MapFlatInt(f func(T) Seq[int]) Seq[int] {
+//    return func(c func(int)) { t(func(t T) { f(t)(c) }) }
+//}
+//
+//// MapFlatString 扁平化
+//func (t Seq[T]) MapFlatString(f func(T) Seq[string]) Seq[string] {
+//    return func(c func(string)) { t(func(t T) { f(t)(c) }) }
+//}
+
+//// MapSliceN 每n个元素合并为[]T,由于golang泛型问题,不能使用Seq[[]T],使用 CastAny 转换为Seq[[]T]
+//func (t Seq[T]) MapSliceN(n int) Seq[any] {
+//    return t.MapSliceBy(func(t T, ts []T) bool { return len(ts) == n })
+//}
+//
+//// MapSliceBy 自定义元素合并为[]T,由于golang泛型问题,不能返回[]Seq[T],使用 CastAny 转换为Seq[[]T]
+//func (t Seq[T]) MapSliceBy(f func(T, []T) bool) Seq[any] {
+//    return func(c func(any)) {
+//        var ts []T
+//        t(func(t T) {
+//            ts = append(ts, t)
+//            if f(t, ts) {
+//                c(ts)
+//                ts = nil
+//            }
+//        })
+//        if len(ts) > 0 {
+//            c(ts)
+//        }
+//    }
+//}
+
+// Join 合并多个Seq
+func (t Seq[T]) Join(seqs ...Seq[T]) Seq[T] {
+    return func(c func(T)) {
+        t(func(t T) { c(t) })
+        for _, seq := range seqs {
+            seq(func(t T) { c(t) })
+        }
+    }
 }
 
-// MapFlatString 扁平化
-func (t Seq[T]) MapFlatString(f func(T) Seq[string]) Seq[string] {
-    return func(c func(string)) { t(func(t T) { f(t)(c) }) }
+//// JoinF 合并Seq
+//func (t Seq[T]) JoinF(seq Seq[any], cast func(any) T) Seq[T] {
+//    return func(c func(T)) {
+//        t(func(t T) { c(t) })
+//        seq(func(t any) { c(cast(t)) })
+//    }
+//}
+
+// Add 直接添加元素
+func (t Seq[T]) Add(ts ...T) Seq[T] {
+    return func(c func(T)) {
+        t(func(t T) { c(t) })
+        for _, e := range ts {
+            c(e)
+        }
+    }
 }
+
+//// AddF 直接添加需要转换的元素
+//func (t Seq[T]) AddF(cast func(any) T, ts ...any) Seq[T] {
+//    return func(c func(T)) {
+//        t(func(t T) { c(t) })
+//        for _, e := range ts {
+//            c(cast(e))
+//        }
+//    }
+//}
+
+// AddIf 满足条件才添加元素
+func (t Seq[T]) AddIf(condition bool, ts ...T) Seq[T] {
+    if !condition {
+        return t
+    }
+    return t.Add(ts...)
+}
+
+// AddIfF 满足条件才添加元素
+func (t Seq[T]) AddIfF(condition func(T) bool, ts ...T) Seq[T] {
+    return t.Join(FromSlice(ts).Filter(condition))
+}
+
+//// AddFIf 满足条件才添加需要转换的元素
+//func (t Seq[T]) AddFIf(condition bool, cast func(any) T, ts ...any) Seq[T] {
+//    if !condition {
+//        return t
+//    }
+//    return t.AddF(cast, ts...)
+//}
+//
+//// AddFIfF 满足条件才添加需要转换的元素
+//func (t Seq[T]) AddFIfF(condition func(Seq[T]) bool, cast func(any) T, ts ...any) Seq[T] {
+//    if !condition(t) {
+//        return t
+//    }
+//    return t.AddF(cast, ts...)
+//}
 
 // MapSliceN 每n个元素合并为[]T,由于golang泛型问题,不能使用Seq[[]T],使用 CastAny 转换为Seq[[]T]
-func (t Seq[T]) MapSliceN(n int) Seq[any] {
-    return t.MapSliceBy(func(t T, ts []T) bool { return len(ts) == n })
+func MapSliceN[T any](t Seq[T], n int) Seq[any] {
+    return MapSliceBy(t, func(t T, ts []T) bool { return len(ts) == n })
 }
 
 // MapSliceBy 自定义元素合并为[]T,由于golang泛型问题,不能返回[]Seq[T],使用 CastAny 转换为Seq[[]T]
-func (t Seq[T]) MapSliceBy(f func(T, []T) bool) Seq[any] {
+func MapSliceBy[T any](t Seq[T], f func(T, []T) bool) Seq[any] {
     return func(c func(any)) {
         var ts []T
         t(func(t T) {
@@ -169,72 +258,12 @@ func (t Seq[T]) MapSliceBy(f func(T, []T) bool) Seq[any] {
     }
 }
 
-// Join 合并多个Seq
-func (t Seq[T]) Join(seqs ...Seq[T]) Seq[T] {
-    return func(c func(T)) {
-        t(func(t T) { c(t) })
-        for _, seq := range seqs {
-            seq(func(t T) { c(t) })
-        }
-    }
+// MapFlatInt 扁平化
+func MapFlatInt[T any](t Seq[T], f func(T) Seq[int]) Seq[int] {
+    return func(c func(int)) { t(func(t T) { f(t)(c) }) }
 }
 
-// JoinF 合并Seq
-func (t Seq[T]) JoinF(seq Seq[any], cast func(any) T) Seq[T] {
-    return func(c func(T)) {
-        t(func(t T) { c(t) })
-        seq(func(t any) { c(cast(t)) })
-    }
-}
-
-// Add 直接添加元素
-func (t Seq[T]) Add(ts ...T) Seq[T] {
-    return func(c func(T)) {
-        t(func(t T) { c(t) })
-        for _, e := range ts {
-            c(e)
-        }
-    }
-}
-
-// AddF 直接添加需要转换的元素
-func (t Seq[T]) AddF(cast func(any) T, ts ...any) Seq[T] {
-    return func(c func(T)) {
-        t(func(t T) { c(t) })
-        for _, e := range ts {
-            c(cast(e))
-        }
-    }
-}
-
-// AddIf 满足条件才添加元素
-func (t Seq[T]) AddIf(condition bool, ts ...T) Seq[T] {
-    if !condition {
-        return t
-    }
-    return t.Add(ts...)
-}
-
-// AddIfF 满足条件才添加元素
-func (t Seq[T]) AddIfF(condition func(Seq[T]) bool, ts ...T) Seq[T] {
-    if !condition(t) {
-        return t
-    }
-    return t.Add(ts...)
-}
-
-// AddFIf 满足条件才添加需要转换的元素
-func (t Seq[T]) AddFIf(condition bool, cast func(any) T, ts ...any) Seq[T] {
-    if !condition {
-        return t
-    }
-    return t.AddF(cast, ts...)
-}
-
-// AddFIfF 满足条件才添加需要转换的元素
-func (t Seq[T]) AddFIfF(condition func(Seq[T]) bool, cast func(any) T, ts ...any) Seq[T] {
-    if !condition(t) {
-        return t
-    }
-    return t.AddF(cast, ts...)
+// MapFlatString 扁平化
+func MapFlatString[T any](t Seq[T], f func(T) Seq[string]) Seq[string] {
+    return func(c func(string)) { t(func(t T) { f(t)(c) }) }
 }

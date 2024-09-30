@@ -14,10 +14,15 @@ type BiSeq[K, V any] func(k func(K, V))
 func BiFrom[K, V any](f BiSeq[K, V]) BiSeq[K, V] {
     return f
 }
+
 func BiFromT[K, V any](k K, v V) BiSeq[K, V] {
     return func(t func(K, V)) {
         t(k, v)
     }
+}
+
+func BiFromSeq[K, V, T any](seq Seq[T], cast func(T) (K, V)) BiSeq[K, V] {
+    return func(t func(K, V)) { seq(func(t1 T) { t(cast(t1)) }) }
 }
 func BiFromIterator[K, V any](it BiIterator[K, V]) BiSeq[K, V] {
     return func(t func(K, V)) {
@@ -109,7 +114,7 @@ func BiFromMapRepeat[K comparable, V any](m map[K]V, limit ...int) BiSeq[K, V] {
     }
 }
 
-//======静态转换方法========
+//======静态转换方法,xxxK 表示操作左侧参数========
 
 // BiCastAny 从BiSeq[any,any]强制转换为BiSeq[K,V]
 func BiCastAny[K, V any](seq BiSeq[any, any]) BiSeq[K, V] {
@@ -117,13 +122,13 @@ func BiCastAny[K, V any](seq BiSeq[any, any]) BiSeq[K, V] {
 }
 
 // BiCastAnyK 从BiSeq[any,any]强制转换为BiSeq[K,V]
-func BiCastAnyK[K, V any](seq BiSeq[K, any]) BiSeq[K, V] {
-    return func(c func(K, V)) { seq(func(k K, v any) { c(k, v.(V)) }) }
+func BiCastAnyK[K, V any](seq BiSeq[any, V]) BiSeq[K, V] {
+    return func(c func(K, V)) { seq(func(k any, v V) { c(k.(K), v) }) }
 }
 
 // BiCastAnyV 从BiSeq[any,any]强制转换为BiSeq[K,V]
-func BiCastAnyV[K, V any](seq BiSeq[any, V]) BiSeq[K, V] {
-    return func(c func(K, V)) { seq(func(k any, v V) { c(k.(K), v) }) }
+func BiCastAnyV[V, K any](seq BiSeq[K, any]) BiSeq[K, V] {
+    return func(c func(K, V)) { seq(func(k K, v any) { c(k, v.(V)) }) }
 }
 
 // BiCastAnyT 从BiSeq[any,any]强制转换为BiSeq[K,V],简便写法
@@ -132,28 +137,13 @@ func BiCastAnyT[K, V any](seq BiSeq[any, any], _ K, _ V) BiSeq[K, V] {
 }
 
 // BiCastAnyVT 从BiSeq[any,any]强制转换为BiSeq[K,V],简便写法
-func BiCastAnyVT[K, V any](seq BiSeq[K, any], _ V) BiSeq[K, V] {
+func BiCastAnyVT[V, K any](seq BiSeq[K, any], _ V) BiSeq[K, V] {
     return func(c func(K, V)) { seq(func(k K, v any) { c(k, v.(V)) }) }
 }
 
 // BiCastAnyKT 从BiSeq[any,any]强制转换为BiSeq[K,V],简便写法
 func BiCastAnyKT[K, V any](seq BiSeq[any, V], _ K) BiSeq[K, V] {
     return func(c func(K, V)) { seq(func(k any, v V) { c(k.(K), v) }) }
-}
-
-// BiMap 从BiSeq[K,V]自定义转换为BiSeq[RK,RV]
-func BiMap[K, V, RK, RV any](seq BiSeq[K, V], cast func(K, V) (RK, RV)) BiSeq[RK, RV] {
-    return func(c func(RK, RV)) { seq(func(k K, v V) { c(cast(k, v)) }) }
-}
-
-// BiMapK 从BiSeq[K,V]自定义转换为BiSeq[RK,RV]
-func BiMapK[K, V, RK any](seq BiSeq[K, V], cast func(K, V) RK) BiSeq[RK, V] {
-    return func(c func(RK, V)) { seq(func(k K, v V) { c(cast(k, v), v) }) }
-}
-
-// BiMapV 从BiSeq[K,V]自定义转换为BiSeq[RK,RV]
-func BiMapV[K, V, RV any](seq BiSeq[K, V], cast func(K, V) RV) BiSeq[K, RV] {
-    return func(c func(K, RV)) { seq(func(k K, v V) { c(k, cast(k, v)) }) }
 }
 
 // BiJoin 合并多个Seq
@@ -180,8 +170,6 @@ func BiJoinBy[K1, V1, K2, V2, K, V any](seq1 BiSeq[K1, V1], cast1 func(K1, V1) (
         seq2(func(k K2, v V2) { c(cast2(k, v)) })
     }
 }
-
-//=====便捷方法======
 
 func BiToMap[K comparable, V any](seq BiSeq[K, V]) map[K]V {
     m := make(map[K]V)

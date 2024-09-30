@@ -26,7 +26,7 @@ func Test_Seq_Parallel(t *testing.T) {
     seq := FromSlice([]int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10})
     go func() {
         now := time.Now()
-        seq.AsyncEach(func(i int) {
+        seq.Parallel().ForEach(func(i int) {
             time.Sleep(allSleepDuration)
         })
         sub := time.Now().Sub(now)
@@ -38,7 +38,7 @@ func Test_Seq_Parallel(t *testing.T) {
     seq.Parallel().Map(func(i int) any {
         time.Sleep(allSleepDuration)
         return i
-    }).Complete()
+    }).ForEach(func(a any) {})
     sub := time.Now().Sub(now)
     if sub < allSleepDuration || sub.Truncate(allSleepDuration) != allSleepDuration {
         t.Fail()
@@ -176,52 +176,59 @@ func Test_Seq_Repeat(t *testing.T) {
     }
 }
 func Test_Seq_Recover(t *testing.T) {
-    BiCastAnyK[int, int](FromIntSeq().RecoverErr(func(a any) {
+    BiCastAnyK[int](BiMapK(MapBiInt(FromIntSeq().RecoverErr(func(a any) {
         t.Log("recover1", a)
         panic(a)
-    }).Parallel().MapBiInt(func(i int) int {
+    }).Parallel(), func(i int) int {
         return i
-    }).MapV(func(_ int, i int) any {
+    }), func(_ int, i int) any {
         return i
-    })).Finally(func() {
+    }).Finally(func() {
         t.Log("finally1")
     }).RecoverErr(func(a any) {
         t.Log("recover2", a)
     }).Finally(func() {
         t.Log("finally2")
-    }).ForEach(func(i, _ int) {
+    })).ForEach(func(i, _ int) {
         if i > 10 {
             panic("stop")
         }
     })
     t.Log("ok~")
-    BiCastAnyK[int, int](FromIntSeq().MapParallel(func(i int) any {
+    biSeq1 := BiMapExchangeKV(
+        BiMapK(BiMapExchangeKV(
+            MapBiInt(
+                FromIntSeq().MapParallel(func(i int) any {
+                    return i
+                }).RecoverErr(func(a any) {
+                    t.Log("recover1", a)
+                    panic(a)
+                }).Parallel().RecoverErr(func(a any) {
+                    t.Log("recover2", a)
+                    panic(a)
+                }).ParallelCustomize(func(i any, f func()) {
+                    go f()
+                }).RecoverErr(func(a any) {
+                    t.Log("recover3", a)
+                    panic(a)
+                }).MapInt(func(a any) int {
+                    return a.(int)
+                }), func(i int) int {
+                    return i
+                },
+            ).MapVParallel(func(k, v int) any {
+                return v
+            }),
+        ).RecoverErr(func(a any) {
+            t.Log("recover4", a)
+            panic(a)
+        }), func(a any, i int) int {
+            return a.(int)
+        }),
+    )
+    BiCastAnyV[int](BiMapV(biSeq1, func(_ int, i int) any {
         return i
-    }).MapInt(func(a any) int {
-        return a.(int)
-    }).RecoverErr(func(a any) {
-        t.Log("recover1", a)
-        panic(a)
-    }).Parallel().RecoverErr(func(a any) {
-        t.Log("recover2", a)
-        panic(a)
-    }).ParallelCustomize(func(i int, f func()) {
-        go f()
-    }).RecoverErr(func(a any) {
-        t.Log("recover3", a)
-        panic(a)
-    }).MapBiInt(func(i int) int {
-        return i
-    }).MapVParallel(func(k int, v int) any {
-        return v
-    }).RecoverErr(func(a any) {
-        t.Log("recover4", a)
-        panic(a)
-    }).ExchangeKV().MapKInt(func(a any, i int) int {
-        return a.(int)
-    }).ExchangeKV().MapV(func(_ int, i int) any {
-        return i
-    })).RecoverErr(func(a any) {
+    }).RecoverErrWithValue(func(a int, _, _ any) {
         t.Log("recover5", a)
         panic(a)
     }).Finally(func() {
@@ -230,7 +237,7 @@ func Test_Seq_Recover(t *testing.T) {
         t.Log("recover6", a)
     }).Finally(func() {
         t.Log("finally2")
-    }).ForEach(func(i, _ int) {
+    })).ForEach(func(i, _ int) {
         if i > 10 {
             panic("stop")
         }

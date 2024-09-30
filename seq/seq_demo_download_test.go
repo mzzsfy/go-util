@@ -10,27 +10,22 @@ import (
 func TestFileDownload1(t *testing.T) {
     preTest(t)
     it := IteratorInt(1)
-    From(func(t func(str string)) {
+    BiMapV(MapBiSerialNumber(From(func(t func(str string)) {
         for {
             t("")
         }
-    }).Take(44).MapBiSerialNumber(1).OnEachAfter(func(i int, a string) {
-        t.Logf("开始下载第%d个文件2\n", i)
-    }).OnEachN(5, func(k int, v string) {
-        t.Logf("有5个文件开始下载\n")
+    }).Take(44), 1).OnEach(func(i int, a string) {
+        t.Logf("开始下载第%d个文件\n", i)
     }).OnEach(func(i int, s string) {
         t.Logf("开始下载第%d个文件1\n", i)
-    }).Parallel(10).MapV(func(i int, s string) any {
+    }).Parallel(10), func(i int, s string) any {
         t.Logf("实际开始下载第%d个文件\n", i)
         time.Sleep(time.Millisecond * time.Duration(rand.Intn(100)))
         //下载文件,返回[]byte
         t.Logf("实际下载完成第%d个文件:%s\n", i, s)
         return []byte(s)
-    },
-    ).OnBefore(1, func(i int, a any) {
+    }).OnBefore(1, func(i int, a any) {
         t.Logf("第一个文件下载完成,%d\n", i)
-    }).OnEachN(3, func(k int, v any) {
-        t.Logf("有3个文件下载完成\n")
     }).OnEach(func(i int, a any) {
         t.Logf("下载完成,%d\n", i)
     }).OnLast(func(i *int, a *any) {
@@ -48,16 +43,12 @@ func TestFileDownload1(t *testing.T) {
 func TestFileDownload2(t *testing.T) {
     preTest(t)
     it := IteratorInt(1)
-    From(func(t func(str string)) {
+    MapBiSerialNumber(From(func(t func(str string)) {
         for {
             t("")
         }
-    }).Take(13).MapBiSerialNumber(1).OnEachAfter(func(i int, a string) {
-        t.Logf("开始下载第%d个文件2\n", i)
-    }).OnEachN(4, func(k int, v string) {
-        t.Logf("有4个文件开始下载\n")
-    }).OnEach(func(i int, s string) {
-        t.Logf("开始下载第%d个文件1\n", i)
+    }).Take(13), 1).OnEach(func(i int, a string) {
+        t.Logf("开始下载第%d个文件\n", i)
     }).MapVParallel(func(i int, s string) any {
         t.Logf("实际开始下载第%d个文件\n", i)
         time.Sleep(time.Millisecond * time.Duration(rand.Intn(1000)))
@@ -70,9 +61,7 @@ func TestFileDownload2(t *testing.T) {
         //并发数
         5,
         //强制转换
-    ).OnEachN(5, func(k int, v any) {
-        t.Logf("有5个文件下载完成\n")
-    }).OnBefore(1, func(i int, a any) {
+    ).OnBefore(1, func(i int, a any) {
         t.Logf("第一个文件下载完成,%d\n", i)
     }).OnEach(func(i int, a any) {
         t.Logf("下载完成,%d\n", i)
@@ -93,14 +82,12 @@ func TestFileDownload2(t *testing.T) {
 func TestFileDownload3(t *testing.T) {
     preTest(t)
     it := IteratorInt(1)
-    From(func(t func(str string)) {
+    MapBiSerialNumber(From(func(t func(str string)) {
         for {
             t("")
         }
-    }).Take(8).MapBiSerialNumber(1).OnEachAfter(func(i int, a string) {
-        t.Logf("开始下载第%d个文件2\n", i)
-    }).OnEachN(4, func(k int, v string) {
-        t.Logf("有4个文件开始下载\n")
+    }).Take(8), 1).OnEach(func(i int, a string) {
+        t.Logf("开始下载第%d个文件\n", i)
     }).OnEach(func(i int, s string) {
         t.Logf("开始下载第%d个文件1\n", i)
     }).MapVParallel(func(i int, s string) any {
@@ -115,9 +102,7 @@ func TestFileDownload3(t *testing.T) {
         //并发数
         3,
         //强制转换
-    ).OnEachN(5, func(k int, v any) {
-        t.Logf("有5个文件下载完成\n")
-    }).OnBefore(1, func(i int, a any) {
+    ).OnBefore(1, func(i int, a any) {
         t.Logf("第一个文件下载完成,%d\n", i)
     }).OnEach(func(i int, a any) {
         t.Logf("下载完成,%d\n", i)

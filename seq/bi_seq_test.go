@@ -39,7 +39,7 @@ func Test_BiParallel(t *testing.T) {
     go func() {
         seq := BiFrom(func(k func(int, int)) { FromIntSeq(1, 10).ForEach(func(i int) { k(i, i+1) }) })
         now := time.Now()
-        seq.AsyncEach(func(i int, j int) {
+        seq.Parallel().ForEach(func(i int, j int) {
             time.Sleep(duration)
         })
         sub := time.Now().Sub(now)
@@ -49,10 +49,10 @@ func Test_BiParallel(t *testing.T) {
     }()
     seq := BiFrom(func(k func(int, int)) { FromIntSeq(1, 10).ForEach(func(i int) { k(i, i+1) }) })
     now := time.Now()
-    seq.Parallel().Map(func(i int, j int) (any, any) {
+    BiMap(seq.Parallel(), func(i int, j int) (any, any) {
         time.Sleep(duration)
         return i, j
-    }).Complete()
+    }).ForEach(func(a any, a2 any) {})
     sub := time.Now().Sub(now)
     if sub < duration || sub.Truncate(duration) != duration {
         t.Fail()

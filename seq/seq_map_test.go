@@ -13,7 +13,7 @@ import (
 func Test_Seq_MapSliceN(t *testing.T) {
     n := 999
     seq := FromIntSeq().Take(n)
-    s := CastAny[[]int](seq.MapSliceN(3))
+    s := CastAny[[]int](MapSliceN(seq, 3))
     s.ForEach(func(is []int) {
         if len(is) != 3 {
             t.Fail()
@@ -175,10 +175,10 @@ func Test_Seq_ParallelOrdered3(t *testing.T) {
 }
 
 func Test_Seq_MergeBiInt(t *testing.T) {
-    s := FromIntSeq().Take(1000).MergeBiInt(IteratorInt(111)).Cache()
+    s := MergeBiInt(FromIntSeq().Take(1000), IteratorInt(111)).Cache()
     {
         it := IteratorInt()
-        s.SeqV().ForEach(func(i int) {
+        FromBiV(s).ForEach(func(i int) {
             i2, _ := it()
             if i != i2 {
                 t.Fail()
@@ -187,7 +187,7 @@ func Test_Seq_MergeBiInt(t *testing.T) {
     }
     {
         it := IteratorInt(111)
-        s.SeqK().ForEach(func(i int) {
+        FromBiK(s).ForEach(func(i int) {
             i2, _ := it()
             if i != i2 {
                 t.Fail()
@@ -199,7 +199,7 @@ func Test_Seq_MergeBiInt(t *testing.T) {
 func Test_Seq_MapFlat(t *testing.T) {
     testI := 0
     testRounds := 0
-    FromIntSeq().Take(100).MapFlatInt(func(i int) Seq[int] {
+    MapFlatInt(FromIntSeq().Take(100), func(i int) Seq[int] {
         return FromIntSeq(i).Take(10)
     }).ForEach(func(i int) {
         if testRounds+testI != i {

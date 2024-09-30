@@ -2,6 +2,7 @@ package seq
 
 import (
     "fmt"
+    "github.com/mzzsfy/go-util/helper"
     "strconv"
 )
 
@@ -11,84 +12,46 @@ var (
     Stop *_stop
 )
 
-func getToStringFn(i any) func(any) string {
-    switch i.(type) {
+func getToStringFn[T any](i T) any {
+    switch any(i).(type) {
     case string:
-        return func(t any) string {
-            return t.(string)
-        }
+        return func(t string) string { return t }
     case bool:
-        return func(t any) string {
-            return strconv.FormatBool(t.(bool))
-        }
+        return func(t bool) string { return strconv.FormatBool(t) }
     case float64:
-        return func(t any) string {
-            return strconv.FormatFloat(t.(float64), 'f', -1, 64)
-        }
+        return func(t float64) string { return strconv.FormatFloat(t, 'f', -1, 64) }
     case float32:
-        return func(t any) string {
-            return strconv.FormatFloat(float64(t.(float32)), 'f', -1, 32)
-        }
+        return func(t float32) string { return strconv.FormatFloat(float64(t), 'f', -1, 32) }
     case int:
-        return func(t any) string {
-            return strconv.Itoa(t.(int))
-        }
+        return func(t int) string { return helper.NumberToString(t) }
     case int64:
-        return func(t any) string {
-            return strconv.FormatInt(t.(int64), 10)
-        }
+        return func(t int64) string { return helper.NumberToString(t) }
     case int32:
-        return func(t any) string {
-            return strconv.Itoa(int(t.(int32)))
-        }
+        return func(t int32) string { return helper.NumberToString(t) }
     case int16:
-        return func(t any) string {
-            return strconv.Itoa(int(t.(int16)))
-        }
+        return func(t int16) string { return helper.NumberToString(t) }
     case int8:
-        return func(t any) string {
-            return strconv.Itoa(int(t.(int8)))
-        }
+        return func(t int8) string { return helper.NumberToString(t) }
     case uint:
-        return func(t any) string {
-            return strconv.FormatUint(uint64(t.(uint)), 10)
-        }
+        return func(t uint) string { return helper.NumberToString(t) }
     case uint64:
-        return func(t any) string {
-            return strconv.FormatUint(t.(uint64), 10)
-        }
+        return func(t uint64) string { return helper.NumberToString(t) }
     case uint32:
-        return func(t any) string {
-            return strconv.FormatUint(uint64(t.(uint32)), 10)
-        }
+        return func(t uint32) string { return helper.NumberToString(t) }
     case uint16:
-        return func(t any) string {
-            return strconv.FormatUint(uint64(t.(uint16)), 10)
-        }
+        return func(t uint16) string { return helper.NumberToString(t) }
     case uint8:
-        return func(t any) string {
-            return strconv.FormatUint(uint64(t.(uint8)), 10)
-        }
+        return func(t uint8) string { return helper.NumberToString(t) }
     case []byte:
-        return func(t any) string {
-            return string(t.([]byte))
-        }
+        return func(t []byte) string { return string(t) }
     case []rune:
-        return func(t any) string {
-            return string(t.([]rune))
-        }
+        return func(t []rune) string { return string(t) }
     case fmt.Stringer:
-        return func(t any) string {
-            return t.(fmt.Stringer).String()
-        }
+        return func(t fmt.Stringer) string { return t.String() }
     case error:
-        return func(t any) string {
-            return t.(error).Error()
-        }
+        return func(t error) string { return t.Error() }
     default:
-        return func(t any) string {
-            return fmt.Sprint(t)
-        }
+        return nil
     }
 }
 

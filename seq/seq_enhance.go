@@ -33,10 +33,10 @@ func (t Seq[T]) RecoverErr(f func(any)) Seq[T] {
     }
 }
 
-// Deprecated: 不要使用这个方法,方法名称有歧义,请使用 RecoverErr
-func (t Seq[T]) Catch(f func(any)) Seq[T] {
-    return t.RecoverErr(f)
-}
+////Deprecated: 不要使用这个方法,方法名称有歧义,请使用 RecoverErr
+//func (t Seq[T]) Catch(f func(any)) Seq[T] {
+//    return t.RecoverErr(f)
+//}
 
 // RecoverErrWithValue defer recover 的简单封装,保留最后一次调用的值
 func (t Seq[T]) RecoverErrWithValue(f func(T, any)) Seq[T] {
@@ -55,10 +55,10 @@ func (t Seq[T]) RecoverErrWithValue(f func(T, any)) Seq[T] {
     }
 }
 
-// Deprecated: 不要使用这个方法,方法名称有歧义,请使用 RecoverErrWithValue
-func (t Seq[T]) CatchWithValue(f func(T, any)) Seq[T] {
-    return t.RecoverErrWithValue(f)
-}
+//// Deprecated: 不要使用这个方法,方法名称有歧义,请使用 RecoverErrWithValue
+//func (t Seq[T]) CatchWithValue(f func(T, any)) Seq[T] {
+//    return t.RecoverErrWithValue(f)
+//}
 
 // Finally defer 的简单封装
 func (t Seq[T]) Finally(f func()) Seq[T] {
@@ -269,7 +269,7 @@ func (t Seq[T]) ParallelCustomize(fn func(T, func())) Seq[T] {
     }
 }
 
-// Sort 排序
+// Sort 排序,禁止无限流,会导致内存溢出
 func (t Seq[T]) Sort(less func(T, T) bool) Seq[T] {
     var r []T
     once := sync.Once{}
@@ -285,7 +285,7 @@ func (t Seq[T]) Sort(less func(T, T) bool) Seq[T] {
     }
 }
 
-// SortCustomize 自定义排序
+// SortCustomize 自定义排序,禁止无限流,会导致内存溢出
 func (t Seq[T]) SortCustomize(sort func([]T)) Seq[T] {
     var r []T
     once := sync.Once{}
@@ -301,7 +301,7 @@ func (t Seq[T]) SortCustomize(sort func([]T)) Seq[T] {
     }
 }
 
-// Reverse 逆序
+// Reverse 逆序,禁止无限流,会导致内存溢出
 func (t Seq[T]) Reverse() Seq[T] {
     var r []T
     once := sync.Once{}
@@ -334,7 +334,7 @@ func (t Seq[T]) Cache(init ...bool) Seq[T] {
     }
 }
 
-// Repeat 重复该Seq n次,如果不传递n,则无限重复,当前seq如果比较重,建议使用cache缓存
+// Repeat 重复该Seq n次,如果不传递n,则无限重复,当前seq如果比较重,建议先使用 Cache 缓存
 func (t Seq[T]) Repeat(n ...int) Seq[T] {
     return func(f func(T)) {
         if len(n) == 0 {

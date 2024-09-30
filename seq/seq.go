@@ -16,9 +16,7 @@ var DefaultParallelFunc = func(fn func()) { go fn() }
 //======生成,产生新的seq========
 
 // From 从函数生成Seq,是一个便捷方法
-func From[T any](f Seq[T]) Seq[T] {
-    return f
-}
+func From[T any](f Seq[T]) Seq[T] { return f }
 
 // FromSlice 从数组生成Seq
 func FromSlice[T any](arr []T) Seq[T] {
@@ -27,6 +25,18 @@ func FromSlice[T any](arr []T) Seq[T] {
             t(v)
         }
     }
+}
+
+func FromBi[T, K, V any](biSeq BiSeq[K, V], cast func(K, V) T) Seq[T] {
+    return func(t func(T)) { biSeq(func(k K, v V) { t(cast(k, v)) }) }
+}
+
+func FromBiK[K, V any](biSeq BiSeq[K, V]) Seq[K] {
+    return func(t func(K)) { biSeq(func(k K, _ V) { t(k) }) }
+}
+
+func FromBiV[V, K any](biSeq BiSeq[K, V]) Seq[V] {
+    return func(t func(V)) { biSeq(func(_ K, v V) { t(v) }) }
 }
 
 // FromSliceRepeat 从数组生成Seq,可以指定重复次数
@@ -167,7 +177,7 @@ func CastAnyT[T any](seq Seq[any], _ T) Seq[T] {
 }
 
 // Map 每个元素自定义转换
-func Map[T, E any](seq Seq[T], cast func(T) E) Seq[E] {
+func Map[E, T any](seq Seq[T], cast func(T) E) Seq[E] {
     return func(c func(E)) { seq(func(t T) { c(cast(t)) }) }
 }
 
