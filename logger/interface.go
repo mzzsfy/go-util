@@ -5,30 +5,52 @@ import (
     "io"
 )
 
-type Log interface {
+type LogRecord interface {
+    D(message string, args ...any) Log
+    I(message string, args ...any) Log
+    W(message string, args ...any) Log
+    E(message string, args ...any) Log
+    L(lv Level, message string, args ...any) Log
+}
+
+type LogRecordF interface {
+    TF(message string, f func() []any) Log
+    DF(message string, f func() []any) Log
+    IF(message string, f func() []any) Log
+    WF(message string, f func() []any) Log
+    EF(message string, f func() []any) Log
+    LF(lv Level, message string, f func() []any) Log
+}
+
+type LogBase interface {
     FullName() string
     Level() Level
     SetLevel(*Level) Log
-    T(message string, args ...any) Log
-    TF(message string, f func() []any) Log
-    D(message string, args ...any) Log
-    DF(message string, f func() []any) Log
-    I(message string, args ...any) Log
-    IF(message string, f func() []any) Log
-    W(message string, args ...any) Log
-    WF(message string, f func() []any) Log
-    E(message string, args ...any) Log
-    EF(message string, f func() []any) Log
-    L(lv Level, message string, args ...any) Log
-    LF(lv Level, message string, f func() []any) Log
-    // WithPlugin 产生一个新的,使用该Plugin的Log
-    WithPlugin(Plugin) Log
-    Plugin() []Plugin
+}
+
+type LogContext interface {
+    LogBase
     // WithContext 产生一个新的,使用该Context的Log
     WithContext(context.Context) Log
     Context() context.Context
     // UnUse 标记当前log不再使用
     UnUse()
+}
+
+type LogPlugin interface {
+    LogBase
+    // WithPlugin 设置插件
+    WithPlugin(Plugin) Log
+    Plugin() []Plugin
+    // UnUse 标记当前log不再使用
+    UnUse()
+}
+
+type Log interface {
+    LogRecord
+    LogRecordF
+    LogPlugin
+    LogContext
 }
 
 type Plugin interface{}

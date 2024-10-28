@@ -14,4 +14,4 @@ SetDefaultLogLevel()
 SetDefaultWriterTarget()
 ```
 
-tips: 在某些特殊场景(无法传递context)你可以使用 [storage.gls](../storage/README.md#gls) 来存储一些特殊信息,比如请求id,用户id等,然后在日志插件中获取这些信息,然后打印到日志中
+tip: 在某些特殊场景(无法传递context)你可以使用 [storage.gls](../storage/README.md#gls) 来存储一些特殊信息,比如请求id,用户id等,然后在日志插件中获取这些信息,然后打印到日志中

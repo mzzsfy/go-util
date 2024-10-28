@@ -79,9 +79,6 @@ func (l *logger) SetLevel(lv *Level) Log {
     return l
 }
 
-// T Trace
-func (l *logger) T(message string, args ...any) Log { return l.L(TraceLevel, message, args...) }
-
 // TF Trace 懒加载
 func (l *logger) TF(message string, f func() []any) Log { return l.LF(TraceLevel, message, f) }
 

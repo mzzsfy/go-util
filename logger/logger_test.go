@@ -209,7 +209,6 @@ func TestLogger1(t *testing.T) {
             defer wg.Done()
             for i := 0; i < 100; i++ {
                 i := i
-                Logger(name) /*.WithPlugin(plugin1)*/ .T("test", i).UnUse()
                 Logger(name) /*.WithPlugin(plugin1)*/ .D("test", i).UnUse()
                 Logger(name) /*.WithPlugin(plugin1)*/ .I("test", i).UnUse()
                 Logger(name) /*.WithPlugin(plugin1)*/ .W("test", i).UnUse()
