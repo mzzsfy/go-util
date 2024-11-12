@@ -259,6 +259,8 @@ func tilingMap(prefix string, vv reflect.Value, r map[string]any) {
             //fmt.Printf("map->%+v\n", reflect.Indirect(index).Interface())
             tilingMap(prefix+"."+fmt.Sprint(v), index, r)
         }
+    case reflect.Invalid:
+        //nil
     default:
         //非map和list的直接合并
         r[prefix] = vv.Interface()
