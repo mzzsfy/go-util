@@ -59,6 +59,27 @@ func (t *LocalTime) String() string {
 func (t *LocalTime) Time() time.Time {
     return time.Time(*t).Local()
 }
+func (t *LocalTime) Scan(value any) error {
+    switch v := value.(type) {
+    case string:
+        auto, err := ParseLocalTimeAuto(v)
+        if err != nil {
+            return err
+        }
+        *t = auto
+    case []byte:
+        auto, err := ParseLocalTimeAuto(string(v))
+        if err != nil {
+            return err
+        }
+        *t = auto
+    case time.Time:
+        *t = LocalTime(v)
+    default:
+        return fmt.Errorf("unsupported type %T", value)
+    }
+    return nil
+}
 
 func (t *LocalTime) Parse(str string) error {
     var err error
