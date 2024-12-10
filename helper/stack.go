@@ -20,10 +20,16 @@ type Stack struct {
     Line int
 }
 
+type Stacks []Stack
+
+func (s Stacks) String() string {
+    return FormatStack(s)
+}
+
 func CallerStackString(skip int, limit ...int) string {
     return FormatStack(CallerStack(skip, limit...))
 }
-func CallerStack(skip int, limit ...int) []Stack {
+func CallerStack(skip int, limit ...int) Stacks {
     var stacks []Stack
     l := 0
     if len(limit) > 0 {

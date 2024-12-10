@@ -68,7 +68,7 @@ func (fc *FuncCaller) CallWithRecover() (err Err) {
         for _, f := range v.fns {
             wg.Add(1)
             go func(f *fn) {
-                TryWithStack(f.f, func(e any, stack []Stack) { err = Err{Error: e, Stack: stack} })
+                TryWithStack(f.f, func(e any, stack Stacks) { err = Err{Error: e, Stack: stack} })
                 wg.Done()
             }(f)
         }

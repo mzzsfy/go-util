@@ -5,13 +5,13 @@ import (
 )
 
 func Test_TryWithStack_NoPanic(t *testing.T) {
-    TryWithStack(func() {}, func(e any, stack []Stack) {
+    TryWithStack(func() {}, func(e any, stack Stacks) {
         t.Errorf("Unexpected error: %v", e)
     })
 }
 
 func Test_TryWithStack_PanicWithoutError(t *testing.T) {
-    TryWithStack(func() { panic(nil) }, func(err any, stack []Stack) {
+    TryWithStack(func() { panic(nil) }, func(err any, stack Stacks) {
         if err != nil {
             t.Errorf("Expected nil error, got: %v", err)
         }
@@ -20,7 +20,7 @@ func Test_TryWithStack_PanicWithoutError(t *testing.T) {
 
 func Test_TryWithStack_PanicWithError(t *testing.T) {
     expectedError := "test error"
-    TryWithStack(func() { panic(expectedError) }, func(err any, stack []Stack) {
+    TryWithStack(func() { panic(expectedError) }, func(err any, stack Stacks) {
         if err != expectedError {
             t.Errorf("Expected error: %v, got: %v", expectedError, err)
         }
@@ -32,7 +32,7 @@ func Test_TryWithStack_PanicWithStack(t *testing.T) {
     t.Run("Test_TryWithStack_PanicWithStack", func(t *testing.T) {
         TryWithStack(func() {
             panic("test error")
-        }, func(err any, stack []Stack) {
+        }, func(err any, stack Stacks) {
             //t.Log("\n", FormatStack(stack))
             name := SimpleFunctionName(stack[0].PC)
             i := len(s) + 5
@@ -50,7 +50,7 @@ func Test_TryWithStack_PanicWithStack(t *testing.T) {
             func() {
                 panic("test error")
             }()
-        }, func(err any, stack []Stack) {
+        }, func(err any, stack Stacks) {
             //t.Log("\n", FormatStack(stack))
             name := SimpleFunctionName(stack[0].PC)
             i := len(s) + 5
@@ -74,7 +74,7 @@ func Test_TryWithStack_PanicWithStack(t *testing.T) {
                     panic("test error")
                 }()
             }()
-        }, func(err any, stack []Stack) {
+        }, func(err any, stack Stacks) {
             //t.Log("\n", FormatStack(stack))
             name := SimpleFunctionName(stack[0].PC)
             i := len(s) + 5

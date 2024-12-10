@@ -8,10 +8,10 @@ var (
 
 type Err struct {
     Error any
-    Stack []Stack
+    Stack Stacks
 }
 
-func TryWithStack(f func(), callback func(recoverValue any, stack []Stack)) {
+func TryWithStack(f func(), callback func(recoverValue any, stack Stacks)) {
     defer func() {
         if err := recover(); err != nil {
             stack := CallerStack(2)
@@ -21,7 +21,7 @@ func TryWithStack(f func(), callback func(recoverValue any, stack []Stack)) {
             }
             TryWithStack(func() {
                 removeStack, _, _, _ = runtime.Caller(1)
-            }, func(err any, stack []Stack) {})
+            }, func(err any, stack Stacks) {})
             cleanStack(&stack)
             callback(err, stack)
         }
@@ -29,7 +29,7 @@ func TryWithStack(f func(), callback func(recoverValue any, stack []Stack)) {
     f()
 }
 
-func cleanStack(stack *[]Stack) bool {
+func cleanStack(stack *Stacks) bool {
     for i, s := range *stack {
         if s.PC == removeStack {
             *stack = append((*stack)[:i], (*stack)[i+1:]...)
