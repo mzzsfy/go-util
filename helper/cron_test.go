@@ -2,6 +2,7 @@ package helper
 
 import (
     "math"
+    "math/rand"
     "strconv"
     "testing"
     "time"
@@ -276,7 +277,7 @@ func Test_ParseCron(t *testing.T) {
         if err != nil {
             t.Errorf("unexpected error: %v", err)
         }
-        v := v1.(*schedulerCron)
+        v := v1.(*cronTimer)
         second := uint64(0)
         for j := 0; j < 60; j += 5 {
             second |= 1 << uint64(j)
@@ -305,7 +306,7 @@ func Test_ParseCron(t *testing.T) {
         if err != nil {
             t.Errorf("unexpected error: %v", err)
         }
-        v := v1.(*schedulerCron)
+        v := v1.(*cronTimer)
         if v.second != 1 {
             t.Errorf("expected:\n %b, got:\n %b", 1, v.second)
         }
@@ -429,8 +430,23 @@ func Test_Cron_nextTime(t *testing.T) {
         if next != expect {
             t.Errorf("expected: %v, got: %v", expect.Format(DateTimeLayout), next.Format(DateTimeLayout))
         }
+        next = next.Add(time.Duration(2500+rand.Intn(2000)) * time.Millisecond)
         next = c.NextTime(expect)
         expect = time.Date(2020, 1, 1, 0, 0, 10, 0, time.Local)
+        if next != expect {
+            t.Errorf("expected: %v, got: %v", expect.Format(DateTimeLayout), next.Format(DateTimeLayout))
+        }
+    })
+    t.Run("Cron_nextTime_step_min", func(t *testing.T) {
+        c, _ := ParseCron("*/5 * * * ?")
+        next := c.NextTime(time.Date(2020, 1, 1, 0, 1, 1, 0, time.Local))
+        expect := time.Date(2020, 1, 1, 0, 5, 0, 0, time.Local)
+        if next != expect {
+            t.Errorf("expected: %v, got: %v", expect.Format(DateTimeLayout), next.Format(DateTimeLayout))
+        }
+        next = next.Add(time.Duration(2500+rand.Intn(55_000+2000)) * time.Millisecond)
+        next = c.NextTime(expect)
+        expect = time.Date(2020, 1, 1, 0, 10, 0, 0, time.Local)
         if next != expect {
             t.Errorf("expected: %v, got: %v", expect.Format(DateTimeLayout), next.Format(DateTimeLayout))
         }
@@ -442,6 +458,7 @@ func Test_Cron_nextTime(t *testing.T) {
         if next != expect {
             t.Errorf("expected: %v, got: %v", expect.Format(DateTimeLayout), next.Format(DateTimeLayout))
         }
+        next = next.Add(time.Duration(2500+rand.Intn(23*3600_000+2000)) * time.Millisecond)
         next = c.NextTime(expect)
         expect = time.Date(2020, 1, 11, 0, 0, 0, 0, time.Local)
         if next != expect {
@@ -565,8 +582,8 @@ func Test_Cron_nextTime(t *testing.T) {
     t.Run("Cron_nextTime_year_month_week2", func(t *testing.T) {
         c, _ := ParseCron("0 0 0 * 6 0,1,2")
         c1, _ := ParseCron("0 0 0 * 6 7,1,2")
-        if c.(*schedulerCron).week != c1.(*schedulerCron).week {
-            t.Error("week not equal", c.(*schedulerCron).week, c1.(*schedulerCron).week)
+        if c.(*cronTimer).week != c1.(*cronTimer).week {
+            t.Error("week not equal", c.(*cronTimer).week, c1.(*cronTimer).week)
         }
     })
     t.Run("Cron_nextTime_year", func(t *testing.T) {

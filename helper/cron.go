@@ -212,7 +212,7 @@ func parseRange(item string, min, max uint64) (start int64, end int64, e error) 
     return
 }
 
-type schedulerCron struct {
+type cronTimer struct {
     corn  string
     year  []int
     month uint16
@@ -243,7 +243,7 @@ func checkNumber(b int8, Range uint64) bool {
     return Range>>b&1 != 0
 }
 
-func (s *schedulerCron) NextTime(t time.Time) time.Time {
+func (s *cronTimer) NextTime(t time.Time) time.Time {
     year, month, day := t.Date()
     hour, minu, sec := t.Clock()
     var fixed bool
@@ -251,16 +251,16 @@ func (s *schedulerCron) NextTime(t time.Time) time.Time {
     //修正原始时间
     if !checkNumber(int8(sec), s.second) {
         sec1, _ := getNextNumber(int8(sec+1), s.second)
+        fixed = sec != sec1
         if sec1 < sec {
-            fixed = true
             minu++
         }
         sec = sec1
     }
     if !checkNumber(int8(minu), s.minute) {
         minu1, _ := getNextNumber(int8(minu+1), s.minute)
+        fixed = fixed || minu != minu1
         if minu1 < minu {
-            fixed = true
             hour++
             sec, _ = getNextNumber(int8(0), s.second)
         }
@@ -268,8 +268,8 @@ func (s *schedulerCron) NextTime(t time.Time) time.Time {
     }
     if !checkNumber(int8(hour), uint64(s.hour)) {
         hour1, _ := getNextNumber(int8(hour+1), uint64(s.hour))
+        fixed = fixed || hour != hour1
         if hour1 < hour {
-            fixed = true
             day++
             minu, _ = getNextNumber(int8(0), s.minute)
             sec, _ = getNextNumber(int8(0), s.second)
@@ -278,8 +278,8 @@ func (s *schedulerCron) NextTime(t time.Time) time.Time {
     }
     if !checkNumber(int8(day), uint64(s.day)) {
         day1, _ := getNextNumber(int8(day+1), uint64(s.day))
+        fixed = fixed || day != day1
         if day1 < day {
-            fixed = true
             month++
             hour, _ = getNextNumber(int8(0), s.second)
             minu, _ = getNextNumber(int8(0), s.minute)
@@ -289,8 +289,8 @@ func (s *schedulerCron) NextTime(t time.Time) time.Time {
     }
     if !checkNumber(int8(month), uint64(s.month)) {
         month1, _ := getNextNumber(int8(month+1), uint64(s.month))
+        fixed = fixed || int(month) != month1
         if month1 < int(month) {
-            fixed = true
             year++
             month = time.Month(month1)
             day, _ = getNextNumber(int8(0), uint64(s.day))
@@ -356,7 +356,7 @@ func (s *schedulerCron) NextTime(t time.Time) time.Time {
     return time.Date(year, month, day, hour, minu, sec, 0, s.local)
 }
 
-func (s *schedulerCron) nextDay(day, month, year int) (int, int, int) {
+func (s *cronTimer) nextDay(day, month, year int) (int, int, int) {
     circulate := false
     nextYear := false
     for {
@@ -472,7 +472,7 @@ func ParseCron(cron string) (CustomSchedulerTime, error) {
     if len(items) == 5 {
         items = append([]string{"0"}, items...)
     }
-    s := &schedulerCron{
+    s := &cronTimer{
         corn:  cron,
         local: tz,
     }
