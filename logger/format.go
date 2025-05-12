@@ -114,6 +114,7 @@ func appendAny(sb Buffer, arg any) {
     case bool:
         if v {
             sb.Write(helper.StringToBytes("true"))
+            return
         }
         sb.Write(helper.StringToBytes("false"))
     case int:
