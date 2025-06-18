@@ -2,17 +2,17 @@ package helper
 
 import "context"
 
-type StatusKey[T comparable] interface {
+type StatusKey[T any] interface {
     InitValue() T
 }
 
 // StatusValue 在程序运行中,方便的更新状态值 DefStatusItem(ctx, k1).Set(11)
-type StatusValue[T comparable] interface {
+type StatusValue[T any] interface {
     Value() T
     Set(v T) StatusValue[T]
 }
 
-type statusValue[T comparable] struct {
+type statusValue[T any] struct {
     v T
 }
 
@@ -25,7 +25,7 @@ func (t *statusValue[T]) Set(v T) StatusValue[T] {
     return t
 }
 
-type statusKey[T comparable] struct {
+type statusKey[T any] struct {
     f func() T
 }
 
@@ -33,11 +33,11 @@ func (t statusKey[T]) InitValue() T {
     return t.f()
 }
 
-func DefStatusKeyFn[T comparable](f func() T) StatusKey[T] {
+func DefStatusKeyFn[T any](f func() T) StatusKey[T] {
     return &statusKey[T]{f}
 }
 
-func DefStatusKeyStatic[T comparable](t T) StatusKey[T] {
+func DefStatusKeyStatic[T any](t T) StatusKey[T] {
     return &statusKey[T]{func() T { return t }}
 }
 
@@ -83,7 +83,7 @@ type EachStatusHolder interface {
 }
 
 // DefStatusItem 创建或者获取 StatusValue,因为golang泛型限制,不能使用 StatusHolder.Get(key) 来获取值
-func DefStatusItem[T comparable](status StatusHolder, key StatusKey[T]) StatusValue[T] {
+func DefStatusItem[T any](status StatusHolder, key StatusKey[T]) StatusValue[T] {
     value := status.Get(key)
     if r, ok := value.(StatusValue[T]); ok {
         return r
@@ -117,6 +117,6 @@ func StatusHolderFromCtx(ctx context.Context) StatusHolder {
 }
 
 // DefStatusItemFromCtx 从context中获取 StatusValue的便捷方式,你需要先存入上下文 ctx = SaveNewStatusHolder(ctx)
-func DefStatusItemFromCtx[T comparable](ctx context.Context, key StatusKey[T]) StatusValue[T] {
+func DefStatusItemFromCtx[T any](ctx context.Context, key StatusKey[T]) StatusValue[T] {
     return DefStatusItem(StatusHolderFromCtx(ctx), key)
 }
