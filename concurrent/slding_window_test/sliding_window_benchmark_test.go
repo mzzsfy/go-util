@@ -1,4 +1,4 @@
-package mian
+package slding_window_test
 
 import (
     "fmt"
@@ -6,7 +6,6 @@ import (
     "time"
 
     c "github.com/mzzsfy/go-util/concurrent"
-    "golang.org/x/time/rate"
 )
 
 // 基准测试参数
@@ -39,8 +38,8 @@ func BenchmarkSlidingWindow(b *testing.B) {
 func BenchmarkSlidingWindow_RateLimiter(b *testing.B) {
     for _, param := range benchmarkParams {
         b.Run(param.name, func(b *testing.B) {
-            // rate.Limiter使用每秒允许的事件数和桶大小
-            limiter := rate.NewLimiter(rate.Limit(param.allowNumber), int(param.allowNumber))
+            // Limiter使用每秒允许的事件数和桶大小
+            limiter := NewLimiter(Limit(param.allowNumber), int(param.allowNumber))
             b.ResetTimer()
             for i := 0; i < b.N; i++ {
                 limiter.Allow()
@@ -66,7 +65,7 @@ func BenchmarkSlidingWindow_Parallel(b *testing.B) {
 func BenchmarkSlidingWindow_RateLimiter_Parallel(b *testing.B) {
     for _, param := range benchmarkParams {
         b.Run(param.name, func(b *testing.B) {
-            limiter := rate.NewLimiter(rate.Limit(param.allowNumber), int(param.allowNumber))
+            limiter := NewLimiter(Limit(param.allowNumber), int(param.allowNumber))
             b.ResetTimer()
             b.RunParallel(func(pb *testing.PB) {
                 for pb.Next() {
@@ -101,7 +100,7 @@ func BenchmarkSlidingWindow_WithinLimit(b *testing.B) {
 func BenchmarkSlidingWindow_WithinLimit_RateLimiter(b *testing.B) {
     for _, param := range benchmarkParams {
         b.Run(param.name, func(b *testing.B) {
-            limiter := rate.NewLimiter(rate.Limit(param.allowNumber), int(param.allowNumber))
+            limiter := NewLimiter(Limit(param.allowNumber), int(param.allowNumber))
 
             // 预热
             for i := 0; i < 100; i++ {
@@ -146,7 +145,7 @@ func BenchmarkSlidingWindow_BeyondLimit(b *testing.B) {
 func BenchmarkSlidingWindow_BeyondLimit_RateLimiter(b *testing.B) {
     for _, param := range benchmarkParams {
         b.Run(param.name, func(b *testing.B) {
-            limiter := rate.NewLimiter(rate.Limit(param.allowNumber), int(param.allowNumber))
+            limiter := NewLimiter(Limit(param.allowNumber), int(param.allowNumber))
 
             // 先消耗完所有令牌并稍微超出
             for i := 0; i < int(param.allowNumber)+20; i++ {
@@ -184,7 +183,7 @@ func BenchmarkSlidingWindow_HighConcurrency_RateLimiter(b *testing.B) {
     for _, param := range benchmarkParams {
         b.Run(param.name, func(b *testing.B) {
             // 使用更高的速率进行高并发测试
-            limiter := rate.NewLimiter(rate.Limit(param.allowNumber*10), int(param.allowNumber*10))
+            limiter := NewLimiter(Limit(param.allowNumber*10), int(param.allowNumber*10))
 
             b.ResetTimer()
             b.RunParallel(func(pb *testing.PB) {

@@ -1,11 +1,7 @@
-module test
+module slding_window_test
 
-go 1.23.0
-
-toolchain go1.24.1
+go 1.18
 
 replace github.com/mzzsfy/go-util v0.0.1 => ../../
-
-require golang.org/x/time v0.12.0
 
 require github.com/mzzsfy/go-util v0.0.1

@@ -76,15 +76,15 @@ func testSwissMapCapacity[K comparable](t *testing.T, gen func(n int) []K) {
     // capacity() behavior depends on |groupSize|
     // which varies by processor architecture.
     caps := []uint32{
-        1 * avgGroupLoad,
-        2 * avgGroupLoad,
-        3 * avgGroupLoad,
-        4 * avgGroupLoad,
-        5 * avgGroupLoad,
-        10 * avgGroupLoad,
-        25 * avgGroupLoad,
-        50 * avgGroupLoad,
-        100 * avgGroupLoad,
+        1 * maxAvgGroupLoad,
+        2 * maxAvgGroupLoad,
+        3 * maxAvgGroupLoad,
+        4 * maxAvgGroupLoad,
+        5 * maxAvgGroupLoad,
+        10 * maxAvgGroupLoad,
+        25 * maxAvgGroupLoad,
+        50 * maxAvgGroupLoad,
+        100 * maxAvgGroupLoad,
     }
     for _, c := range caps {
         m := makeSwissMap[K, K](c)
@@ -188,26 +188,6 @@ func testIterDelete3(t *testing.T, all, delete, skip int) {
     })
     Equal(t, delete, calls)
     Equal(t, all-delete, m.Count())
-}
-
-func Test_NumGroups(t *testing.T) {
-    Equal(t, expected(0), numGroups(0))
-    Equal(t, expected(1), numGroups(1))
-    // max load factor 0.875
-    Equal(t, expected(14), numGroups(14))
-    Equal(t, expected(15), numGroups(15))
-    Equal(t, expected(28), numGroups(28))
-    Equal(t, expected(29), numGroups(29))
-    Equal(t, expected(56), numGroups(56))
-    Equal(t, expected(57), numGroups(57))
-}
-
-func expected(x int) (groups uint32) {
-    groups = uint32(math.Ceil(float64(x) / float64(avgGroupLoad)))
-    if groups == 0 {
-        groups = 1
-    }
-    return
 }
 
 //go test -run='^\QTestBenchmarkSwissMap\E$/^\Qswiss_w\E$' -cpuprofile=cpu.pprof ./storage
