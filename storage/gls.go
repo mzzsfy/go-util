@@ -194,7 +194,7 @@ var testInterval = 10
 func check() {
     testI++
     if testI >= testInterval {
-        cpuAddNum := runtime.NumCPU() + 8
+        cpuAddNum := runtime.NumCPU() + 64
         if runtime.NumGoroutine() < glsMap.Count()+cpuAddNum {
             runtime.Gosched()
             if runtime.NumGoroutine() < glsMap.Count()+cpuAddNum {
