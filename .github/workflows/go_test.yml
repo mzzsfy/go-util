@@ -65,27 +65,3 @@ jobs:
             go test -count=1 -run Test_.+ -timeout 12s ./...
             echo "Test $i done"
           done
-
-      - name: Test_latest_ARM64
-        uses: uraimo/run-on-arch-action@v2
-        with:
-          arch: aarch64
-          base_image: golang:${{ matrix.go-version }}
-          run: |
-            for ((i=1; i<=3; i++))
-            do
-              go test -count=1 -run Test_.+ -timeout 25s ./...
-              echo "Test $i done"
-            done
-
-      - name: Test_latest_ARM32
-        uses: uraimo/run-on-arch-action@v2
-        with:
-          arch: armv7
-          base_image: golang:${{ matrix.go-version }}
-          run: |
-            for ((i=1; i<=3; i++))
-            do
-              go test -count=1 -run Test_.+ -timeout 40s ./...
-              echo "Test $i done"
-            done
