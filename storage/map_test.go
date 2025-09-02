@@ -17,6 +17,8 @@ func Test_AllMap(t *testing.T) {
         {"Swiss", MapTypeSwiss[string, int](0).createMap, MapTypeSwiss[uint32, int](0).createMap},
         {"SwissConcurrent", MapTypeSwissConcurrent[string, int]().createMap, MapTypeSwissConcurrent[uint32, int]().createMap},
         {"Array", MapTypeArray[string, int](0).createMap, MapTypeArray[uint32, int](0).createMap},
+        {"ArrayConcurrent", MapTypeConcurrentWrapper(MapTypeArray[string, int](0)).createMap, MapTypeArray[uint32, int](0).createMap},
+        {"GoConcurrent", MapTypeConcurrentWrapper(MapTypeGo[string, int](0)).createMap, MapTypeArray[uint32, int](0).createMap},
     } {
         t.Run(m.name+"_strings=0", func(t *testing.T) {
             testMap(t, genStringData(16, 0), m.m)
@@ -114,17 +116,19 @@ func BenchmarkMap(b *testing.B) {
     }
 }
 
+const avgGroupLoad = 7
+
 func testMapCapacity[K comparable](t *testing.T, gen func(n int) []K, makeMap func() Map[K, int]) {
     caps := []uint32{
-        1 * maxAvgGroupLoad,
-        2 * maxAvgGroupLoad,
-        3 * maxAvgGroupLoad,
-        4 * maxAvgGroupLoad,
-        5 * maxAvgGroupLoad,
-        10 * maxAvgGroupLoad,
-        25 * maxAvgGroupLoad,
-        50 * maxAvgGroupLoad,
-        100 * maxAvgGroupLoad,
+        1 * avgGroupLoad,
+        2 * avgGroupLoad,
+        3 * avgGroupLoad,
+        4 * avgGroupLoad,
+        5 * avgGroupLoad,
+        10 * avgGroupLoad,
+        25 * avgGroupLoad,
+        50 * avgGroupLoad,
+        100 * avgGroupLoad,
     }
     for _, c := range caps {
         m := makeMap()
@@ -295,4 +299,55 @@ func testMapIter[K comparable](t *testing.T, keys []K, m Map[K, int]) {
         True(t, ok)
         Equal(t, -i, act)
     }
+}
+
+func Equal(t *testing.T, a, b interface{}) {
+    t.Helper()
+    if a != b {
+        t.Errorf("expected %v, got %v", a, b)
+    }
+}
+
+func True(t *testing.T, a bool) {
+    t.Helper()
+    if !a {
+        t.Errorf("expected true, got false")
+    }
+}
+
+func uniq[K comparable](keys []K) []K {
+    s := make(map[K]struct{}, len(keys))
+    for _, k := range keys {
+        s[k] = struct{}{}
+    }
+    u := make([]K, 0, len(keys))
+    for k := range s {
+        u = append(u, k)
+    }
+    return u
+}
+
+func genStringData(size, count int) (keys []string) {
+    src := rand.New(rand.NewSource(int64(size * count)))
+    letters := []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+    r := make([]rune, size*count)
+    for i := range r {
+        r[i] = letters[src.Intn(len(letters))]
+    }
+    keys = make([]string, count)
+    for i := range keys {
+        keys[i] = string(r[:size])
+        r = r[size:]
+    }
+    return
+}
+
+func genUint32Data(count int) (keys []uint32) {
+    keys = make([]uint32, count)
+    var x uint32
+    for i := range keys {
+        x += (rand.Uint32() % 128) + 1
+        keys[i] = x
+    }
+    return
 }

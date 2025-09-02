@@ -1,6 +1,8 @@
 module test
 
-go 1.18
+go 1.23.0
+
+toolchain go1.24.1
 
 replace github.com/mzzsfy/go-util v0.0.1 => ../../
 

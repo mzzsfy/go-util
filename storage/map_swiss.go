@@ -3,5 +3,9 @@
 package storage
 
 func MapTypeSwiss[K comparable, V any](size uint32) MakeMap[K, V] {
-    return MapTypeConcurrentWrapper(MapTypeGo(size))
+    return MapTypeGo[K, V](int(size))
+}
+
+func MapTypeSwissConcurrent[K comparable, V any]() MakeMap[K, V] {
+    return MapTypeConcurrentWrapper(MapTypeGo[K, V](8))
 }
