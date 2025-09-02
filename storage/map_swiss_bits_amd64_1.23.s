@@ -1,5 +1,5 @@
 //nolint
-//go:build amd64
+//go:build !go1.24 && amd64
 
 #include "textflag.h"
 

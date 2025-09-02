@@ -1,4 +1,4 @@
-//go:build !amd64 || nosimd
+//go:build !go1.24 && (!amd64 || nosimd)
 
 package storage
 
