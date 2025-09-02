@@ -194,17 +194,17 @@ var testInterval = 10
 func check() {
     testI++
     if testI >= testInterval {
-        cpuAddNum := runtime.NumCPU() + 64
-        if runtime.NumGoroutine() < glsMap.Count()+cpuAddNum {
+        if runtime.NumGoroutine() < glsMap.Count() {
             runtime.Gosched()
-            if runtime.NumGoroutine() < glsMap.Count()+cpuAddNum {
+            cpuAddNum := runtime.NumCPU() + 32
+            if runtime.NumGoroutine()+cpuAddNum < glsMap.Count() {
                 runtime.GC()
                 runtime.Gosched()
                 checkLock.Lock()
                 defer checkLock.Unlock()
                 runtime.GC()
                 numGoroutine := runtime.NumGoroutine()
-                if numGoroutine < glsMap.Count()+cpuAddNum {
+                if numGoroutine+cpuAddNum < glsMap.Count() {
                     var ids []int64
                     glsMap.Iter(func(k int64, v Map[uint64, any]) (stop bool) {
                         ids = append(ids, k)
