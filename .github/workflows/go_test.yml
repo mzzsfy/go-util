@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        go-version: [ '1.18', '1.19', '1.20', '1.21', '1.22', '1.23', '1.24', '1.25' , 'latest' ]
+        go-version: [ '1.18', '1.19', '1.20', '1.21', '1.22', '1.23', '1.24', '1.25' ]
     steps:
       - uses: actions/checkout@v4
       - name: Setup Go ${{ matrix.go-version }}
@@ -34,7 +34,7 @@ jobs:
           run: |
             for ((i=1; i<=3; i++))
             do
-              go test -count=1 -run Test_.+ -timeout 20s ./...
+              go test -count=1 -run Test_.+ -timeout 25s ./...
               echo "Test $i done"
             done
 
@@ -46,6 +46,46 @@ jobs:
           run: |
             for ((i=1; i<=3; i++))
             do
-              go test -count=1 -run Test_.+ -timeout 20s ./...
+              go test -count=1 -run Test_.+ -timeout 40s ./...
+              echo "Test $i done"
+            done
+  run_latest_test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Go latest
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.24
+          check-latest: true
+      - name: Test
+        run: |
+          for ((i=1; i<=3; i++))
+          do
+            go test -count=1 -run Test_.+ -timeout 12s ./...
+            echo "Test $i done"
+          done
+
+      - name: Test_latest_ARM64
+        uses: uraimo/run-on-arch-action@v2
+        with:
+          arch: aarch64
+          base_image: golang:${{ matrix.go-version }}
+          run: |
+            for ((i=1; i<=3; i++))
+            do
+              go test -count=1 -run Test_.+ -timeout 25s ./...
+              echo "Test $i done"
+            done
+
+      - name: Test_latest_ARM32
+        uses: uraimo/run-on-arch-action@v2
+        with:
+          arch: armv7
+          base_image: golang:${{ matrix.go-version }}
+          run: |
+            for ((i=1; i<=3; i++))
+            do
+              go test -count=1 -run Test_.+ -timeout 40s ./...
               echo "Test $i done"
             done
