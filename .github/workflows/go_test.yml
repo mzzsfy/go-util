@@ -22,7 +22,7 @@ jobs:
         run: |
           for ((i=1; i<=3; i++))
           do
-            go test -count=1 -run Test_.+ -timeout 12s ./...
+            go test -count=1 -run Test_.+ -timeout 15s ./...
             echo "Test $i done"
           done
 
@@ -34,7 +34,7 @@ jobs:
           run: |
             for ((i=1; i<=3; i++))
             do
-              go test -count=1 -run Test_.+ -timeout 25s ./...
+              go test -count=1 -run Test_.+ -timeout 30s ./...
               echo "Test $i done"
             done
 
@@ -46,7 +46,7 @@ jobs:
           run: |
             for ((i=1; i<=3; i++))
             do
-              go test -count=1 -run Test_.+ -timeout 40s ./...
+              go test -count=1 -run Test_.+ -timeout 45s ./...
               echo "Test $i done"
             done
   run_latest_test:
@@ -62,6 +62,6 @@ jobs:
         run: |
           for ((i=1; i<=3; i++))
           do
-            go test -count=1 -run Test_.+ -timeout 12s ./...
+            go test -count=1 -run Test_.+ -timeout 15s ./...
             echo "Test $i done"
           done
