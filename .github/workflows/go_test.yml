@@ -56,11 +56,11 @@ jobs:
       - name: Setup Go latest
         uses: actions/setup-go@v5
         with:
-          go-version: 1.24
+          go-version: 1.25
           check-latest: true
       - name: Test
         run: |
-          for ((i=1; i<=3; i++))
+          for ((i=1; i<=10; i++))
           do
             go test -count=1 -run Test_.+ -timeout 15s ./...
             echo "Test $i done"
