@@ -73,6 +73,12 @@ func Test_Seq_ParallelOrdered1(t *testing.T) {
     }
 }
 
+func TestSeq_ParallelOrdered2_100(t *testing.T) {
+    for i := 0; i < 100; i++ {
+        t.Run("Test_Seq_ParallelOrdered2", Test_Seq_ParallelOrdered2)
+    }
+}
+
 func Test_Seq_ParallelOrdered2(t *testing.T) {
     start := time.Now()
     it := IteratorInt()
@@ -100,6 +106,15 @@ func Test_Seq_ParallelOrdered2(t *testing.T) {
         //t.Log("sleep", i, s.Truncate(time.Microsecond*100).String())
         time.Sleep(s)
         atomic.AddInt32(&nowConcurrent, -1)
+        c = atomic.LoadInt32(&nowConcurrent)
+        if c > atomic.LoadInt32(&maxConcurrent) {
+            lock.Lock()
+            x := atomic.LoadInt32(&maxConcurrent)
+            if x <= c {
+                maxConcurrent = c
+            }
+            lock.Unlock()
+        }
         //t.Log("sleep over", i, s.Truncate(time.Microsecond*100).String())
         return i
     }, 2, concurrent).ForEach(func(ia any) {
