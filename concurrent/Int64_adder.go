@@ -72,12 +72,13 @@ func (l *Int64Adder) addNoCompete(v int64) bool {
                 ceils[i] = int64AdderCeil{int64: 0}
             }
             l.values = ceils
+            return false
         }
     }
-    if len(l.values) != slotNumber || atomic.LoadInt32(&l.init) == 0 {
+    if len(l.values) == 0 || l.init == 0 {
         //等待初始化
         for i := 0; ; i++ {
-            if len(l.values) == slotNumber && atomic.LoadInt32(&l.init) > 0 {
+            if len(l.values) != 0 && atomic.LoadInt32(&l.init) != 0 {
                 break
             }
             if i > 10 {
