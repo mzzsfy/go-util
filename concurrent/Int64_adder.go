@@ -74,20 +74,22 @@ func (l *Int64Adder) addNoCompete(v int64) bool {
             l.values = ceils
         }
     }
-    if len(l.values) != slotNumber {
+    if len(l.values) != slotNumber || atomic.LoadInt32(&l.init) == 0 {
         //等待初始化
-        for {
-            if len(l.values) == slotNumber {
+        for i := 0; ; i++ {
+            if len(l.values) == slotNumber && atomic.LoadInt32(&l.init) > 0 {
                 break
             }
-            runtime.Gosched()
+            if i > 10 {
+                runtime.Gosched()
+            }
         }
     }
     return false
 }
 
-func (l *Int64Adder) addCompete(goid int64, v int64) int64 {
-    return atomic.AddInt64(&l.values[int(goid)&modNumber].int64, v)
+func (l *Int64Adder) addCompete(goid int64, v int64) {
+    atomic.AddInt64(&l.values[int(goid)&modNumber].int64, v)
 }
 
 func (l *Int64Adder) Decrement(goid int64) {
