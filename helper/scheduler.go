@@ -2,11 +2,12 @@ package helper
 
 import (
     "fmt"
-    "github.com/mzzsfy/go-util/concurrent"
     "math"
     "sync"
     "sync/atomic"
     "time"
+
+    "github.com/mzzsfy/go-util/concurrent"
 )
 
 type joinError struct {
@@ -357,8 +358,6 @@ func (s *Scheduler) log() string {
     }
     return string(b)
 }
-
-//todo:cron表达式支持
 
 func (s *Scheduler) expansion() {
     defer s.pendingLock.Unlock()

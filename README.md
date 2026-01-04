@@ -53,8 +53,11 @@
 - [storage](./storage)  
   map等存储工具,swissMap,gls等
 
-- [logger](./logger)  
+- [logger](./logger)
   日志工具
 
-- [helper](./helper)  
+- [helper](./helper)
   一些工具,如: 字符串处理,时间日期处理,cron任务,延时任务 等
+
+- [di](./di)
+  高性能依赖注入容器,支持完整的生命周期管理、配置注入和钩子系统

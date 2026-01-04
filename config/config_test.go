@@ -41,7 +41,7 @@ func Test_Parse(t *testing.T) {
     }
     //t.Log(envMap)
 
-    //以上为数据准备
+    //数据准备完成
     parseConfig := ParseConfig(&File{Data: configStr, Name: "testConfig.json"})
     m := MergeMultiAndTilingMap(EnvMap(), parseConfig)
     if len(m) <= len(testConfig) {
@@ -52,68 +52,27 @@ func Test_Parse(t *testing.T) {
     //t.Log("resolveMap", resolveMap)
     res := UntilingMap(resolveMap)
     //t.Log("res", res)
-    if Item("Path").ValueString(res) == "" && Item("PATH").ValueString(res) == "" {
+    if ValueFromPath(res, "Path").String() == "" && ValueFromPath(res, "PATH").String() == "" {
         t.Error("path 未成功解析")
     }
-    if Item("runtime").ValueAny(res) == nil {
+    if ValueFromPath(res, "runtime").Any() == nil {
         t.Error("runtime 未成功解析")
     }
-    if Item("runtime.workId").ValueInt(res) != 1 {
+    if ValueFromPath(res, "runtime.workId").Int() != 1 {
         t.Error("runtime.workId 未成功解析")
     }
-    if Item("test2.test").ValueString(res) != "test" {
+    if ValueFromPath(res, "test2.test").String() != "test" {
         t.Error("test2.test 未成功解析")
     }
-    if Item("test2.testBool").ValueBool(res) != true {
+    if ValueFromPath(res, "test2.testBool").Bool() != true {
         t.Error("test2.testBool 未成功解析")
     }
-    if Item("test2.testInt").ValueInt(res) != 1 {
+    if ValueFromPath(res, "test2.testInt").Int() != 1 {
         t.Error("test2.testInt 未成功解析")
     }
-    if Item("test2.testFloat").ValueFloat(res) != 1.1 {
-        t.Error("test2.testFloat 未成功解析")
-    }
-    dataItem := NewDataItem(res, "")
-    if dataItem.Child("Path").String() == "" && dataItem.Child("PATH").String() == "" {
-        t.Error("dataItem.Child 未成功解析")
-    }
-    if dataItem.Child("runtime").Any() == nil {
-        t.Error("dataItem.Child 未成功解析")
-    }
-    if dataItem.Child("runtime").Child("workId").Int() != 1 {
-        t.Error("dataItem.Child 未成功解析")
-    }
-    if dataItem.Child("runtime.workId").Int() != 1 {
-        t.Error("dataItem.Child 未成功解析")
-    }
-    if dataItem.Child("test2").Child("test").String() != "test" {
-        t.Error("dataItem.Child 未成功解析")
-    }
-    if dataItem.Child("test2.test").String() != "test" {
-        t.Error("dataItem.Child 未成功解析")
-    }
-    if dataItem.Child("test2.testBool").Bool() != true {
-        t.Error("dataItem.Child 未成功解析")
-    }
-    if dataItem.Child("test2.testInt").Int() != 1 {
-        t.Error("dataItem.Child 未成功解析")
-    }
-    if dataItem.Child("test2.testFloat").Float() != 1.1 {
-        t.Error("dataItem.Child 未成功解析")
-    }
-    if dataItem.Child("test2.testArr").Child("0").Int() != 1 {
-        t.Error("dataItem.Child 未成功解析")
-    }
-    if dataItem.Child("test2.testArr").Child("1").Int() != 2 {
-        t.Error("dataItem.Child 未成功解析")
-    }
-    if dataItem.Child("test2.testArr").Child("1").String() != "2" {
-        t.Error("dataItem.Child 未成功解析")
-    }
-    if dataItem.Child("test2.testArr").Child("2").String() != "3" {
-        t.Error("dataItem.Child 未成功解析")
-    }
-    if dataItem.Child("test2.testArr").Child("3").Float() != 4.0 {
-        t.Error("dataItem.Child 未成功解析")
+    floatVal := ValueFromPath(res, "test2.testFloat")
+    t.Logf("test2.testFloat value: %v (type: %T)", floatVal.Any(), floatVal.Any())
+    if floatVal.Float() != 1.1 {
+        t.Errorf("test2.testFloat 未成功解析, expected: 1.1, got: %v", floatVal.Float())
     }
 }

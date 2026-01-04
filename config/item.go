@@ -5,48 +5,159 @@ import (
     "strconv"
 )
 
-type Item string
-
-func (i Item) String() string {
-    return "configItem(" + string(i) + ")"
+func ValueFromPath(m any, path string) Value {
+    a := GetByPathAny(m, path)
+    if a == nil {
+        return valueNil{}
+    }
+    switch v := a.(type) {
+    case string:
+        return valueString(v)
+    default:
+        return valueAny{a}
+    }
 }
 
-func (i Item) ValueAny(m any) any {
-    return GetByPathAny(m, string(i))
+// ValueFrom 从any获取值
+func ValueFrom(a any) Value {
+    if a == nil {
+        return valueNil{}
+    }
+    switch v := a.(type) {
+    case string:
+        return valueString(v)
+    default:
+        return valueAny{a}
+    }
 }
 
-func (i Item) ValueString(m any) string {
-    return i.DefaultString(m, "")
+type Value interface {
+    Any() any
+    AnyD(any) any
+    String() string
+    StringD(defaultValue string) string
+    Int() int
+    IntD(defaultValue int) int
+    Float() float64
+    FloatD(defaultValue float64) float64
+    Bool() bool
+    BoolD(defaultValue bool) bool
+    Child(name string) Value
 }
 
-func (i Item) DefaultString(m any, defaultValue string) string {
-    v := GetByPathAny(m, string(i))
-    if v == nil {
+type valueNil struct{}
+
+func (v valueNil) Any() any {
+    return nil
+}
+func (v valueNil) AnyD(a any) any {
+    return a
+}
+func (v valueNil) String() string {
+    return "<nil>"
+}
+func (v valueNil) StringD(defaultValue string) string {
+    return defaultValue
+}
+func (v valueNil) Int() int {
+    panic("nil can not be converted to int")
+}
+func (v valueNil) IntD(defaultValue int) int {
+    return defaultValue
+}
+func (v valueNil) Float() float64 {
+    panic("nil can not be converted to float")
+}
+func (v valueNil) FloatD(defaultValue float64) float64 {
+    return defaultValue
+}
+func (v valueNil) Bool() bool {
+    panic("nil can not be converted to bool")
+}
+func (v valueNil) BoolD(defaultValue bool) bool {
+    return defaultValue
+}
+func (v valueNil) Child(name string) Value {
+    return valueNil{}
+}
+
+type valueString string
+
+func (v valueString) Any() any {
+    return string(v)
+}
+func (v valueString) AnyD(a any) any {
+    if v != "" {
+        return string(v)
+    }
+    return a
+}
+func (v valueString) String() string {
+    return string(v)
+}
+func (v valueString) StringD(defaultValue string) string {
+    return string(v)
+}
+func (v valueString) Int() int {
+    i, err := strconv.Atoi(string(v))
+    if err != nil {
+        return 0
+    }
+    return i
+}
+func (v valueString) IntD(defaultValue int) int {
+    i, err := strconv.Atoi(string(v))
+    if err != nil {
         return defaultValue
     }
-    if s, ok := v.(string); ok {
-        if s == "" {
-            return defaultValue
-        }
-        return s
+    return i
+}
+func (v valueString) Float() float64 {
+    f, err := strconv.ParseFloat(string(v), 64)
+    if err != nil {
+        return 0
     }
-    r := fmt.Sprint(v)
-    if r == "" {
+    return f
+}
+func (v valueString) FloatD(defaultValue float64) float64 {
+    f, err := strconv.ParseFloat(string(v), 64)
+    if err != nil {
         return defaultValue
     }
-    return r
+    return f
+}
+func (v valueString) Bool() bool {
+    return string(v) == "true" || string(v) == "yes"
+}
+func (v valueString) BoolD(defaultValue bool) bool {
+    return string(v) == "true" || string(v) == "yes"
+}
+func (v valueString) Child(name string) Value {
+    return valueNil{}
 }
 
-func (i Item) ValueInt(m any) int {
-    return i.DefaultInt(m, 0)
-}
+type valueAny struct{ value any }
 
-func (i Item) DefaultInt(m any, defaultValue int) int {
-    v := GetByPathAny(m, string(i))
-    if v == nil {
-        return defaultValue
+func (v valueAny) Any() any {
+    return v.value
+}
+func (v valueAny) AnyD(a any) any {
+    if v.value == nil {
+        return a
     }
-    switch v1 := v.(type) {
+    return v.value
+}
+func (v valueAny) String() string {
+    return fmt.Sprintf("%v", v.value)
+}
+func (v valueAny) StringD(defaultValue string) string {
+    return fmt.Sprintf("%v", v.value)
+}
+func (v valueAny) Int() int {
+    return v.IntD(0)
+}
+func (v valueAny) IntD(defaultValue int) int {
+    switch v1 := v.value.(type) {
     case int:
         return v1
     case int8:
@@ -71,37 +182,14 @@ func (i Item) DefaultInt(m any, defaultValue int) int {
         return int(v1)
     case float64:
         return int(v1)
-    case string:
-        p, err := strconv.ParseInt(v1, 10, 64)
-        if err != nil {
-            return defaultValue
-        }
-        return int(p)
-    default:
-        return defaultValue
     }
+    return defaultValue
 }
-
-func (i Item) ValueFloat(m any) float64 {
-    return i.DefaultFloat(m, 0)
+func (v valueAny) Float() float64 {
+    return v.FloatD(0)
 }
-
-func (i Item) DefaultFloat(m any, defaultValue float64) float64 {
-    v := GetByPathAny(m, string(i))
-    if v == nil {
-        return defaultValue
-    }
-    switch v1 := v.(type) {
-    case float32:
-        return float64(v1)
-    case float64:
-        return v1
-    case string:
-        p, err := strconv.ParseFloat(v1, 64)
-        if err != nil {
-            return defaultValue
-        }
-        return p
+func (v valueAny) FloatD(defaultValue float64) float64 {
+    switch v1 := v.value.(type) {
     case int:
         return float64(v1)
     case int8:
@@ -122,64 +210,26 @@ func (i Item) DefaultFloat(m any, defaultValue float64) float64 {
         return float64(v1)
     case uint64:
         return float64(v1)
-    default:
-        return defaultValue
+    case float32:
+        return float64(v1)
+    case float64:
+        return v1
     }
+    return defaultValue
 }
-
-func (i Item) ValueBool(m any) bool {
-    return i.DefaultBool(m, false)
+func (v valueAny) Bool() bool {
+    return v.BoolD(false)
 }
-
-func (i Item) DefaultBool(m any, defaultValue bool) bool {
-    v := GetByPathAny(m, string(i))
-    if v == nil {
-        return defaultValue
-    }
-    if b, ok := v.(bool); ok {
-        return b
-    }
-    if s, ok := v.(string); ok {
-        return s == "true" || s == "yes"
-    }
-    if i1, ok := v.(int); ok {
-        return i1 > 0
-    }
-    if i1, ok := v.(uint); ok {
-        return i1 > 0
+func (v valueAny) BoolD(defaultValue bool) bool {
+    switch v1 := v.value.(type) {
+    case bool:
+        return v1
+    case string:
+        return v1 == "true" || v1 == "yes"
     }
     return defaultValue
 }
 
-func NewDataItem(data any, key string) DataItem {
-    return DataItem{data, key}
-}
-
-type DataItem struct {
-    m   any
-    key string
-}
-
-func (i DataItem) KeyName() string { return i.key }
-func (i DataItem) Any() any        { return GetByPathAny(i.m, i.key) }
-func (i DataItem) String() string  { return Item(i.key).DefaultString(i.m, "") }
-func (i DataItem) StringD(defaultValue string) string {
-    return Item(i.key).DefaultString(i.m, defaultValue)
-}
-func (i DataItem) Int() int                  { return Item(i.key).DefaultInt(i.m, 0) }
-func (i DataItem) IntD(defaultValue int) int { return Item(i.key).DefaultInt(i.m, defaultValue) }
-func (i DataItem) Float() float64            { return Item(i.key).DefaultFloat(i.m, 0) }
-func (i DataItem) FloatD(defaultValue float64) float64 {
-    return Item(i.key).DefaultFloat(i.m, defaultValue)
-}
-func (i DataItem) Bool() bool                   { return Item(i.key).DefaultBool(i.m, false) }
-func (i DataItem) BoolD(defaultValue bool) bool { return Item(i.key).DefaultBool(i.m, defaultValue) }
-func (i DataItem) Child(name string) DataItem {
-    if name == "" {
-        return i
-    }
-    if i.key == "" {
-        return DataItem{i.m, name}
-    }
-    return DataItem{i.m, i.key + "." + name}
+func (v valueAny) Child(name string) Value {
+    return ValueFromPath(v.value, name)
 }

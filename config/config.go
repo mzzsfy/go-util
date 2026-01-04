@@ -11,24 +11,7 @@ import (
 
 var (
     // Parser 需要手动注册解析工具
-    Parser = map[string]func(data []byte) map[string]any{
-        //"json": func(data []byte) map[string]any {
-        //    r := make(map[string]any)
-        //    err := json.Unmarshal(data, &r)
-        //    if err != nil {
-        //        return nil
-        //    }
-        //    return r
-        //},
-        //"yaml": func(data []byte) map[string]any {
-        //    r := make(map[string]any)
-        //    err := yaml.Unmarshal(data, r)
-        //    if err != nil {
-        //        return nil
-        //    }
-        //    return r
-        //},
-    }
+    Parser          = map[string]func(data []byte) map[string]any{}
     FileTypeHandler = []func(string) string{
         func(name string) string {
             if strings.HasSuffix(name, ".yml") {
@@ -53,10 +36,31 @@ type File struct {
 func ParseConfigs2Map(files ...*File) (map[string]any, error) {
     ds := ParseConfigs(files)
     l := len(ds)
-    for i := 1; i < l; i++ {
-        ds[i] = MergeAndTilingMap(ds[i-1], ds[i])
+    if l == 0 {
+        return nil, fmt.Errorf("no config files provided")
     }
-    return UntilingMap(ResolveMap(ds[l-1])), nil
+
+    // 先将所有配置平铺，然后合并，再解析占位符
+    tiledMaps := make([]map[string]any, l)
+    for i, m := range ds {
+        tiledMaps[i] = TilingMap(m)
+    }
+
+    // 合并平铺后的配置
+    for i := 1; i < l; i++ {
+        // 合并平铺后的map
+        for k, v := range tiledMaps[i-1] {
+            if _, exists := tiledMaps[i][k]; !exists {
+                tiledMaps[i][k] = v
+            }
+        }
+    }
+
+    // 在最终平铺的结构上解析占位符
+    resolved := ResolveMap(tiledMaps[l-1])
+
+    // 转换回嵌套结构
+    return UntilingMap(resolved), nil
 }
 
 // ParseConfigs 解析多个配置文件
@@ -92,58 +96,104 @@ func fileType(name string) string {
 
 // ResolveMap 处理${xxx:default}占位符,无法处理的保留原始值,只支持单层结构的map,使用 TilingMap 转换为单层结构
 func ResolveMap(data map[string]any) map[string]any {
-    for k, v := range data {
-        vv := reflect.Indirect(reflect.ValueOf(v))
-        if vv.Kind() == reflect.String {
-            s := vv.Interface().(string)
-            if strings.Contains(s, "${") {
-                data[k] = resolveStringFromMap(s, data)
+    // 需要多次解析，直到没有更多变化
+    maxIterations := 10
+    for iteration := 0; iteration < maxIterations; iteration++ {
+        changed := false
+        for k, v := range data {
+            vv := reflect.Indirect(reflect.ValueOf(v))
+            if vv.Kind() == reflect.String {
+                s := vv.Interface().(string)
+                if strings.Contains(s, "${") {
+                    resolvedValue := resolveStringFromMap(s, data)
+                    // 检查是否实际发生了变化
+                    if resolvedValue != s {
+                        data[k] = resolvedValue
+                        changed = true
+                    }
+                }
             }
+        }
+        // 如果没有变化，可以提前退出
+        if !changed {
+            break
         }
     }
     return data
 }
 func resolveStringFromMap(s string, m map[string]any) any {
-    startIndex := strings.LastIndex(s, "${")
-    var df string
-    var pre string
-    var aft string
-    var test = s
-    if startIndex >= 0 {
+    // 处理嵌套的 ${} 占位符
+    // 使用计数器防止无限循环
+    maxIterations := 50
+    iteration := 0
+
+    for {
+        if iteration >= maxIterations {
+            // 防止无限循环
+            break
+        }
+
+        startIndex := strings.Index(s, "${")
+        if startIndex == -1 {
+            break
+        }
+
         endIndex := startIndex + strings.Index(s[startIndex:], "}")
         if endIndex < 0 {
-            goto x
+            break // 没有结束括号
         }
-        pre = s[:startIndex]
-        aft = s[endIndex+1:]
-        test = s[startIndex+2 : endIndex]
-        before, after, found := strings.Cut(test, ":")
+
+        // 提取占位符内容
+        placeholder := s[startIndex+2 : endIndex]
+        before, after, found := strings.Cut(placeholder, ":")
+
+        var value any
         if found {
-            test = before
-            df = after
+            // 有默认值
+            // 避免递归引用：如果键的值是包含自身的占位符，则使用默认值
+            currentValue, exists := m[before]
+            if exists && strings.Contains(fmt.Sprintf("%v", currentValue), "${"+before) {
+                // 如果是递归引用，使用默认值
+                value = after
+            } else {
+                value = m[before]
+                if value == nil || value == "" {
+                    value = after
+                }
+            }
+        } else {
+            // 没有默认值
+            value = m[before]
         }
-        if strings.Contains(test, "${") {
-            test = fmt.Sprint(resolveStringFromMap(test, m))
+
+        if value == nil {
+            value = ""
         }
+
+        // 将值转换为字符串
+        var valueStr string
+        if s1, ok := value.(string); ok {
+            valueStr = s1
+        } else {
+            valueStr = fmt.Sprint(value)
+        }
+
+        // 替换占位符
+        s = s[:startIndex] + valueStr + s[endIndex+1:]
+        iteration++
     }
-x:
-    r := m[test]
-    if r == nil || r == "" {
-        r = df
+
+    return s
+}
+
+// getOriginalKey 用于检测递归引用
+func getOriginalKey(originalS, currentS, key string) string {
+    // 简单检查是否是递归引用
+    // 如果 currentS 中包含 "${key:" 或 "${key}" 形式的引用，则认为是递归引用
+    if strings.Contains(currentS, "${"+key+":") || strings.Contains(currentS, "${"+key+"}") {
+        return key
     }
-    var r1 string
-    if s1, ok := r.(string); ok {
-        r1 = s1
-    } else {
-        r1 = fmt.Sprint(r)
-    }
-    if pre != "" || aft != "" {
-        r1 = pre + r1 + aft
-    }
-    if strings.ContainsAny(r1, "${") {
-        return resolveStringFromMap(r1, m)
-    }
-    return r1
+    return ""
 }
 
 // MergeAndTilingMap 平铺并合并2个map

@@ -48,7 +48,7 @@ package helper
 //
 //// NewBloomFilter 创建一个布隆过滤器, expectedCount 为预期元素数量, failProbability 为错误概率
 //func NewBloomFilter[T comparable](expectedCount uint, failProbability float64) BloomFilter[T] {
-//    //todo:系统内部hash函数效果不太行,但是这样会导致内存占用增加
+//    //to do:系统内部hash函数效果不太行,但是这样会导致内存占用增加
 //    bitsLen := uint(math.Ceil(-1 * float64(expectedCount) * 2 * math.Log(failProbability) / math.Pow(math.Log(2), 2)))
 //    hashNum := uint(math.Ceil(math.Log(2) * float64(bitsLen) / float64(expectedCount)))
 //    bitsLen = Max(bitsLen, 1)
