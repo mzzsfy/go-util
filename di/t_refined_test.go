@@ -157,6 +157,33 @@ func testBasicDIRefined(t *testing.T) {
             t.Errorf("期望3个实例, 实际%d个", len(allServices))
         }
     })
+
+    t.Run("基于接口的多实例管理", func(t *testing.T) {
+        //GetNamedAll 使用接口获取全部实例(使用原始类型注册)
+        container := New()
+        // 注册服务
+        err := container.ProvideNamedWith("service1", func(c Container) (*ServiceImpl, error) {
+            return &ServiceImpl{Value: "ServiceImpl1"}, nil
+        })
+        if err != nil {
+            t.Fatalf("注册服务1失败: %v", err)
+        }
+
+        err = container.ProvideNamedWith("service2", func(c Container) (*ServiceImpl, error) {
+            return &ServiceImpl{Value: "ServiceImpl2"}, nil
+        })
+        if err != nil {
+            t.Fatalf("注册服务2失败: %v", err)
+        }
+
+        allServices, err := GetNamedAll[interface{ DoSomething() string }](container)
+        if err != nil {
+            t.Fatalf("GetAll失败: %v", err)
+        }
+        if len(allServices) != 2 {
+            t.Errorf("期望2个实例, 实际%d个", len(allServices))
+        }
+    })
 }
 
 // testCircularDependency 测试循环依赖检测

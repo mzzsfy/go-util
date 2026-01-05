@@ -830,27 +830,33 @@ func (c *container) GetNamedAll(serviceType any) (map[string]any, error) {
     default:
         t = reflect.TypeOf(serviceType)
     }
-
+    // 检查是否在黑名单中)
+    returnTypeStr := t.String()
+    for _, blackType := range blackTypeList {
+        if blackType.String() == returnTypeStr {
+            return nil, fmt.Errorf("cannot use GetNamedAll for type %s", t)
+        }
+    }
     name := t.String()
-    prefix := name + "#"
     results := make(map[string]any)
 
     // 查找所有匹配类型的提供者
     for key, entry := range c.providers {
-        if key == name || strings.HasPrefix(key, prefix) {
+        //使用反射依次检查所有符合的类型
+        if entry.reflectType.AssignableTo(t) {
             var serviceName string
             if key == name {
                 serviceName = "" // 默认名称
             } else {
                 // 从 "type#name" 中提取 name
-                serviceName = key[len(prefix):]
+                _, serviceName, _ = strings.Cut(key, "#")
             }
 
             instance, err := c.GetNamed(entry.reflectType, serviceName)
             if err != nil {
                 return nil, err
             }
-            results[serviceName] = instance
+            results[key] = instance
         }
     }
 
