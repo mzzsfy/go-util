@@ -95,3 +95,17 @@ func WithContainerAfterDestroy(f func(Container, EntryInfo)) ContainerOption {
         c.afterDestroy = append(c.afterDestroy, f)
     }
 }
+
+// WithOnStart 设置启动前钩子（在Start方法调用时执行）
+func WithOnStart(f func(Container) error) ContainerOption {
+    return func(c *container) {
+        c.onStartup = append(c.onStartup, f)
+    }
+}
+
+// WithAfterStart 设置启动后钩子（在Start方法调用后执行）
+func WithAfterStart(f func(Container) error) ContainerOption {
+    return func(c *container) {
+        c.afterStartup = append(c.afterStartup, f)
+    }
+}

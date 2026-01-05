@@ -21,6 +21,10 @@ type Container interface {
 
     // HasNamed 检查带名称的服务是否已注册
     HasNamed(serviceType any, name string) bool
+
+    // Start 启动容器，调用启动钩子
+    Start() error
+
     // Shutdown 关闭容器，调用所有服务的 Shutdown 方法
     Shutdown(context.Context) error
     // ShutdownOnSignals 监听信号并自动关闭

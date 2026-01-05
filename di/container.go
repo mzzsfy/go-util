@@ -12,6 +12,7 @@ import (
     "time"
 
     "github.com/mzzsfy/go-util/config"
+    "github.com/mzzsfy/go-util/helper"
 )
 
 // container 实现 Container 接口
@@ -41,6 +42,11 @@ type container struct {
     // 性能监控字段
     stats   containerStats // 统计信息
     statsMu sync.RWMutex
+
+    // 启动相关字段
+    onStartup    []func(Container) error // 启动前钩子
+    afterStartup []func(Container) error // 启动后钩子
+    started      bool                    // 是否已启动
 }
 
 type containerStats struct {
@@ -65,6 +71,8 @@ func New() Container {
         instances:    make(map[string]any),
         loading:      make(map[string]bool),
         configSource: NewMapConfigSource(),
+        onStartup:    make([]func(Container) error, 0),
+        afterStartup: make([]func(Container) error, 0),
     }
 }
 
@@ -75,6 +83,8 @@ func NewWithOptions(opts ...ContainerOption) Container {
         instances:    make(map[string]any),
         loading:      make(map[string]bool),
         configSource: NewMapConfigSource(),
+        onStartup:    make([]func(Container) error, 0),
+        afterStartup: make([]func(Container) error, 0),
     }
 
     for _, opt := range opts {
@@ -495,6 +505,52 @@ func (c *container) HasNamed(serviceType any, name string) bool {
     return false
 }
 
+// Start 启动容器
+func (c *container) Start() error {
+    // 使用双重检查锁定模式
+    c.mu.RLock()
+    if c.started {
+        c.mu.RUnlock()
+        return helper.StringError("container is already started")
+    }
+    c.mu.RUnlock()
+
+    // 获取写锁进行启动操作
+    c.mu.Lock()
+    if c.started {
+        c.mu.Unlock()
+        return helper.StringError("container is already started")
+    }
+
+    // 标记为正在启动，防止其他goroutine同时执行钩子
+    c.started = true
+    c.mu.Unlock()
+
+    // 执行启动前钩子（此时容器标记为已启动，但钩子可能失败）
+    for i, hook := range c.onStartup {
+        if err := hook(c); err != nil {
+            // 启动失败，重置状态
+            c.mu.Lock()
+            c.started = false
+            c.mu.Unlock()
+            return fmt.Errorf("startup hook %d failed: %w", i, err)
+        }
+    }
+
+    // 执行启动后钩子
+    for i, hook := range c.afterStartup {
+        if err := hook(c); err != nil {
+            // 启动失败，重置状态
+            c.mu.Lock()
+            c.started = false
+            c.mu.Unlock()
+            return fmt.Errorf("after startup hook %d failed: %w", i, err)
+        }
+    }
+
+    return nil
+}
+
 func (c *container) Shutdown(ctx context.Context) error {
     c.mu.Lock()
     defer c.mu.Unlock()
@@ -520,6 +576,9 @@ func (c *container) Shutdown(ctx context.Context) error {
     c.statsMu.Lock()
     c.stats = containerStats{}
     c.statsMu.Unlock()
+
+    // 重置启动状态
+    c.started = false
 
     return nil
 }
