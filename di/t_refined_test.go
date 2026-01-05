@@ -28,8 +28,8 @@ type ServiceC struct {
     Value string
 }
 
-// TestRefinedDI 细化DI测试，覆盖更多场景和边界条件
-func TestRefinedDI(t *testing.T) {
+// Test_RefinedDI 细化DI测试，覆盖更多场景和边界条件
+func Test_RefinedDI(t *testing.T) {
     t.Run("基础功能细化", testBasicDIRefined)
     t.Run("循环依赖检测", testCircularDependency)
     t.Run("配置注入边界条件", testConfigInjectionBoundaries)

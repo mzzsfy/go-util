@@ -8,8 +8,8 @@ import (
     "time"
 )
 
-// TestEdgeCases 边界条件和异常场景测试
-func TestEdgeCases(t *testing.T) {
+// Test_EdgeCases 边界条件和异常场景测试
+func Test_EdgeCases(t *testing.T) {
     t.Run("空值和零值处理", testEmptyValues)
     t.Run("类型系统边界", testTypeBoundaries)
     t.Run("并发异常场景", testConcurrencyExceptions)

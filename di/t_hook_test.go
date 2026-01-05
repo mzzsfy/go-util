@@ -6,8 +6,8 @@ import (
     "testing"
 )
 
-// TestHooks 测试钩子功能
-func TestHooks(t *testing.T) {
+// Test_Hooks 测试钩子功能
+func Test_Hooks(t *testing.T) {
     t.Run("Provider级别钩子", testProviderHooks)
     t.Run("Container级别钩子", testContainerHooks)
     t.Run("混合钩子", testMixedHooks)

@@ -8,8 +8,8 @@ import (
     "time"
 )
 
-// TestComprehensive 所有功能的综合测试
-func TestComprehensive(t *testing.T) {
+// Test_Comprehensive 所有功能的综合测试
+func Test_Comprehensive(t *testing.T) {
     t.Run("基础DI功能", testBasicDI)
     t.Run("配置管理功能", testConfigManagement)
     t.Run("配置注入功能", testConfigInjection)
