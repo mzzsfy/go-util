@@ -424,27 +424,27 @@ func TestGlobalFunctions(t *testing.T) {
     } else {
         t.Error("全局容器没有ConfigModifySource接口")
     }
-    value := Value("test-key")
+    value := global.Value("test-key")
     if value.String() != "test-value" {
         t.Errorf("全局配置设置失败, 期望test-value, 实际=%s", value.String())
     }
 
     // 测试全局统计函数
-    providers := GetProviders()
+    providers := global.GetProviders()
     if providers == nil {
         t.Error("GetProviders不应该返回nil")
     }
 
-    stats := GetStats()
+    stats := global.GetStats()
     if stats.CreatedInstances != 0 {
         t.Error("全局容器应该没有实例")
     }
 
     // 测试其他全局函数
-    GetProviderCount()
-    GetInstanceCount()
-    GetAverageCreateDuration()
-    ResetStats()
+    global.GetProviderCount()
+    global.GetInstanceCount()
+    global.GetAverageCreateDuration()
+    global.ResetStats()
 }
 
 // TestMapConfigSource 测试Map配置源

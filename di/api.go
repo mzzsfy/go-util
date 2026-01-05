@@ -2,9 +2,6 @@ package di
 
 import (
     "reflect"
-    "time"
-
-    "github.com/mzzsfy/go-util/config"
 )
 
 // 全局容器实例
@@ -87,39 +84,4 @@ func Has[T any](c Container) bool {
 // HasNamed 检查带名称的服务是否已注册
 func HasNamed[T any](c Container, name string) bool {
     return c.HasNamed(reflect.TypeOf((*T)(nil)).Elem(), name)
-}
-
-// GetProviders 获取所有注册的提供者信息（使用全局容器）
-func GetProviders() map[string]string {
-    return globalContainer.GetProviders()
-}
-
-// GetStats 获取容器统计信息（使用全局容器）
-func GetStats() ContainerStats {
-    return globalContainer.GetStats()
-}
-
-// GetProviderCount 获取注册的提供者数量（使用全局容器）
-func GetProviderCount() int {
-    return globalContainer.GetProviderCount()
-}
-
-// GetInstanceCount 获取当前缓存的实例数量（使用全局容器）
-func GetInstanceCount() int {
-    return globalContainer.GetInstanceCount()
-}
-
-// GetAverageCreateDuration 获取平均创建耗时（使用全局容器）
-func GetAverageCreateDuration() time.Duration {
-    return globalContainer.GetAverageCreateDuration()
-}
-
-// ResetStats 重置统计信息（使用全局容器）
-func ResetStats() {
-    globalContainer.ResetStats()
-}
-
-// Value 获取配置值（使用全局容器）
-func Value(key string) config.Value {
-    return globalContainer.Value(key)
 }
