@@ -207,6 +207,17 @@ func (c *container) create(entry providerEntry, name string) (any, error) {
         Name:     name,
     }
 
+    // 检查条件函数 (provider级别的 beforeCreate)
+    for _, f := range entry.config.beforeCreate {
+        if v, err := f(c, info); err != nil {
+            return nil, fmt.Errorf("not create %s with name '%s':%w", entry.reflectType, name, err)
+        } else if v != nil {
+            instance = v
+            info.Instance = v
+        }
+    }
+    entry.config.beforeCreate = nil
+
     // 执行容器级别的 beforeCreate 钩子
     for _, f := range c.beforeCreate {
         if v, err := f(c, info); err != nil {
@@ -215,16 +226,6 @@ func (c *container) create(entry providerEntry, name string) (any, error) {
             instance = v
         }
     }
-
-    // 检查条件函数 (provider级别的 beforeCreate)
-    for _, f := range entry.config.beforeCreate {
-        if v, err := f(c, info); err != nil {
-            return nil, fmt.Errorf("not create %s with name '%s':%w", entry.reflectType, name, err)
-        } else if v != nil {
-            instance = v
-        }
-    }
-
     // 使用双重检查锁定模式避免并发问题
     c.mu.RLock()
     if instance1, exists1 := c.instances[key]; exists1 {
@@ -357,13 +358,10 @@ func (c *container) createInstance(entry providerEntry, name string, instance an
         key := typeKey(entry.reflectType, name)
         c.instances[key] = instance
     }
-    // 注册关闭钩子
-    if lifecycle, ok := instance.(ServiceLifecycle); ok {
-        c.shutdown = append(c.shutdown, lifecycle.Shutdown)
-    }
-
     // 注册销毁钩子（同时支持容器级别和 provider 级别）
-    hasDestroyHooks := len(entry.config.beforeDestroy) > 0 || len(entry.config.afterDestroy) > 0 ||
+    beforeDestroy := entry.config.beforeDestroy
+    afterDestroy := entry.config.afterDestroy
+    hasDestroyHooks := len(entry.config.beforeDestroy) > 0 || len(afterDestroy) > 0 ||
         len(c.beforeDestroy) > 0 || len(c.afterDestroy) > 0
 
     if hasDestroyHooks {
@@ -372,7 +370,6 @@ func (c *container) createInstance(entry providerEntry, name string, instance an
             Instance: instance,
             Name:     name,
         }
-
         // 创建一个包装函数来执行销毁钩子
         destroyHook := func(ctx context.Context) error {
             // 执行容器级别的 beforeDestroy 钩子
@@ -380,11 +377,24 @@ func (c *container) createInstance(entry providerEntry, name string, instance an
                 f(c, destroyInfo)
             }
             // 执行 provider级别的 beforeDestroy 钩子
-            for _, f := range entry.config.beforeDestroy {
+            for _, f := range beforeDestroy {
                 f(c, destroyInfo)
             }
+            // 执行实例的 Destroy 钩子
+            if lifecycle, ok := instance.(DestroyCallback); ok {
+                err := lifecycle.OnDestroyCallback()
+                if err != nil {
+                    return fmt.Errorf("DestroyCallback failed for %s with name '%s':%w", entry.reflectType, name, err)
+                }
+            }
+            if lifecycle, ok := instance.(ServiceLifecycle); ok {
+                err := lifecycle.Shutdown(ctx)
+                if err != nil {
+                    return fmt.Errorf("shutdown failed for %s with name '%s':%w", entry.reflectType, name, err)
+                }
+            }
             // 执行 provider级别的 afterDestroy 钩子
-            for _, f := range entry.config.afterDestroy {
+            for _, f := range afterDestroy {
                 f(c, destroyInfo)
             }
             // 执行容器级别的 afterDestroy 钩子
@@ -394,6 +404,8 @@ func (c *container) createInstance(entry providerEntry, name string, instance an
             return nil
         }
         c.shutdown = append(c.shutdown, destroyHook)
+        entry.config.beforeDestroy = nil
+        entry.config.afterDestroy = nil
     }
 
     c.mu.Unlock()
@@ -545,7 +557,8 @@ func (c *container) Start() error {
             return fmt.Errorf("after startup hook %d failed: %w", i, err)
         }
     }
-
+    c.onStartup = nil
+    c.afterStartup = nil
     return nil
 }
 

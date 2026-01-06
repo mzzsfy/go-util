@@ -56,6 +56,10 @@ type ServiceLifecycle interface {
     Shutdown(context.Context) error
 }
 
+type DestroyCallback interface {
+    OnDestroyCallback() error
+}
+
 // ShutdownHook 服务关闭钩子
 type ShutdownHook func(context.Context) error
 
