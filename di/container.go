@@ -365,13 +365,15 @@ func (c *container) createInstance(entry providerEntry, name string, instance an
         len(c.beforeDestroy) > 0 || len(c.afterDestroy) > 0
 
     if hasDestroyHooks {
-        // 创建 EntryInfo 用于销毁钩子调用
-        destroyInfo := EntryInfo{
-            Instance: instance,
-            Name:     name,
-        }
         // 创建一个包装函数来执行销毁钩子
         destroyHook := func(ctx context.Context) error {
+            containerContext := ContainerContext{parent: ctx}
+            //todo: 提取error
+            destroyInfo := EntryInfo{
+                Instance: instance,
+                Name:     name,
+                Ctx:      containerContext,
+            }
             // 执行容器级别的 beforeDestroy 钩子
             for _, f := range c.beforeDestroy {
                 f(c, destroyInfo)

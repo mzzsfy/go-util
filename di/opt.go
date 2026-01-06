@@ -1,9 +1,45 @@
 package di
 
+import (
+    "context"
+    "time"
+)
+
+type ContainerContext struct {
+    parent context.Context
+    err    error
+}
+
+func (c ContainerContext) Deadline() (deadline time.Time, ok bool) {
+    if c.parent != nil {
+        return c.parent.Deadline()
+    }
+    return time.Time{}, false
+}
+
+func (c ContainerContext) Done() <-chan struct{} {
+    if c.parent != nil {
+        return c.parent.Done()
+    }
+    return nil
+}
+
+func (c ContainerContext) Err() error {
+    return c.err
+}
+
+func (c ContainerContext) Value(key any) any {
+    if c.parent != nil {
+        return c.parent.Value(key)
+    }
+    return nil
+}
+
 // EntryInfo 包含服务实例和名称信息
 type EntryInfo struct {
     Name     string
     Instance any
+    Ctx      ContainerContext
 }
 
 // ProviderOption 服务提供者选项函数
@@ -96,16 +132,22 @@ func WithContainerAfterDestroy(f func(Container, EntryInfo)) ContainerOption {
     }
 }
 
-// WithOnStart 设置启动前钩子（在Start方法调用时执行）
-func WithOnStart(f func(Container) error) ContainerOption {
+// WithContainerOnStart 设置启动前钩子（在Start方法调用时执行）
+func WithContainerOnStart(f func(Container) error) ContainerOption {
     return func(c *container) {
         c.onStartup = append(c.onStartup, f)
     }
 }
 
-// WithAfterStart 设置启动后钩子（在Start方法调用后执行）
-func WithAfterStart(f func(Container) error) ContainerOption {
+// WithContainerAfterStart 设置启动后钩子（在Start方法调用后执行）
+func WithContainerAfterStart(f func(Container) error) ContainerOption {
     return func(c *container) {
         c.afterStartup = append(c.afterStartup, f)
+    }
+}
+
+func WithContainerShutdown(f ShutdownHook) ContainerOption {
+    return func(c *container) {
+        c.shutdown = append(c.shutdown, f)
     }
 }

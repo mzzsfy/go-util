@@ -41,7 +41,7 @@ func Test_Start_WithHooks(t *testing.T) {
         hookCalled := false
 
         container := New(
-            WithOnStart(func(c Container) error {
+            WithContainerOnStart(func(c Container) error {
                 hookCalled = true
                 return nil
             }),
@@ -61,7 +61,7 @@ func Test_Start_WithHooks(t *testing.T) {
         hookCalled := false
 
         container := New(
-            WithAfterStart(func(c Container) error {
+            WithContainerAfterStart(func(c Container) error {
                 hookCalled = true
                 return nil
             }),
@@ -81,19 +81,19 @@ func Test_Start_WithHooks(t *testing.T) {
         var executionOrder []string
 
         container := New(
-            WithOnStart(func(c Container) error {
+            WithContainerOnStart(func(c Container) error {
                 executionOrder = append(executionOrder, "startup-1")
                 return nil
             }),
-            WithOnStart(func(c Container) error {
+            WithContainerOnStart(func(c Container) error {
                 executionOrder = append(executionOrder, "startup-2")
                 return nil
             }),
-            WithAfterStart(func(c Container) error {
+            WithContainerAfterStart(func(c Container) error {
                 executionOrder = append(executionOrder, "after-1")
                 return nil
             }),
-            WithAfterStart(func(c Container) error {
+            WithContainerAfterStart(func(c Container) error {
                 executionOrder = append(executionOrder, "after-2")
                 return nil
             }),
@@ -121,7 +121,7 @@ func Test_Start_WithHooks(t *testing.T) {
 func Test_Start_ErrorHandling(t *testing.T) {
     t.Run("启动前钩子返回错误", func(t *testing.T) {
         container := New(
-            WithOnStart(func(c Container) error {
+            WithContainerOnStart(func(c Container) error {
                 return fmt.Errorf("startup error")
             }),
         )
@@ -138,7 +138,7 @@ func Test_Start_ErrorHandling(t *testing.T) {
 
     t.Run("启动后钩子返回错误", func(t *testing.T) {
         container := New(
-            WithAfterStart(func(c Container) error {
+            WithContainerAfterStart(func(c Container) error {
                 return fmt.Errorf("after startup error")
             }),
         )
@@ -155,13 +155,13 @@ func Test_Start_ErrorHandling(t *testing.T) {
 
     t.Run("多个钩子中第一个错误", func(t *testing.T) {
         container := New(
-            WithOnStart(func(c Container) error {
+            WithContainerOnStart(func(c Container) error {
                 return nil
             }),
-            WithOnStart(func(c Container) error {
+            WithContainerOnStart(func(c Container) error {
                 return fmt.Errorf("second hook error")
             }),
-            WithOnStart(func(c Container) error {
+            WithContainerOnStart(func(c Container) error {
                 t.Error("第三个钩子不应该被调用")
                 return nil
             }),
@@ -214,7 +214,7 @@ func Test_Start_Concurrent(t *testing.T) {
         var mu sync.Mutex
 
         container := New(
-            WithOnStart(func(c Container) error {
+            WithContainerOnStart(func(c Container) error {
                 mu.Lock()
                 hookCallCount++
                 mu.Unlock()
@@ -276,7 +276,7 @@ func Test_Start_WithContainerOperations(t *testing.T) {
 
         // 现在创建另一个容器，使用启动钩子来验证功能
         container2 := New(
-            WithOnStart(func(c Container) error {
+            WithContainerOnStart(func(c Container) error {
                 // 在钩子中检查容器状态
                 hookExecuted = true
                 return nil
@@ -295,7 +295,7 @@ func Test_Start_WithContainerOperations(t *testing.T) {
 
     t.Run("启动后钩子可以访问已启动状态", func(t *testing.T) {
         container := New(
-            WithAfterStart(func(c Container) error {
+            WithContainerAfterStart(func(c Container) error {
                 return nil
             }),
         )
@@ -428,10 +428,10 @@ func Test_Start_Performance(t *testing.T) {
         // 构建带有大量钩子的容器
         opts := make([]ContainerOption, 0, 2000)
         for i := 0; i < 1000; i++ {
-            opts = append(opts, WithOnStart(func(c Container) error {
+            opts = append(opts, WithContainerOnStart(func(c Container) error {
                 return nil
             }))
-            opts = append(opts, WithAfterStart(func(c Container) error {
+            opts = append(opts, WithContainerAfterStart(func(c Container) error {
                 return nil
             }))
         }
