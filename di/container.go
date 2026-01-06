@@ -685,10 +685,18 @@ func (c *container) injectStruct(target reflect.Value) error {
         // 检查di.config标签 - 配置注入
         configTag, hasConfigTag := fieldType.Tag.Lookup("di.config")
         if hasConfigTag {
-            // 配置注入：提取配置key和可能的默认值
-            configKey, defaultValue := parseConfigInjection(configTag)
+            var actualValue any
 
-            actualValue := c.getConfigValue(configKey).AnyD(defaultValue)
+            // 检查是否包含变量替换语法 ${}
+            if strings.Contains(configTag, "${") {
+                // 使用变量替换解析
+                resolvedValue := c.resolveConfigValue(configTag)
+                actualValue = resolvedValue
+            } else {
+                // 传统格式：提取配置key和可能的默认值
+                configKey, defaultValue := parseConfigInjection(configTag)
+                actualValue = c.getConfigValue(configKey).AnyD(defaultValue)
+            }
 
             // 设置字段值
             if err := setFieldValue(fieldValue, actualValue); err != nil {
@@ -704,14 +712,107 @@ func (c *container) injectStruct(target reflect.Value) error {
 // 支持格式：
 // - "keyName" - 只有key，无默认值
 // - "keyName:defaultValue" - key和默认值
+// - "prefix${key:default}suffix" - 变量替换，支持多个变量
 func parseConfigInjection(tag string) (key string, defaultValue string) {
-    colonIdx := strings.Index(tag, ":")
-    if colonIdx == -1 {
-        // 没有默认值
+    // 检查是否包含${}语法
+    if !strings.Contains(tag, "${") {
+        // 传统格式：keyName 或 keyName:defaultValue
+        colonIdx := strings.Index(tag, ":")
+        if colonIdx == -1 {
+            return tag, ""
+        }
+        return tag[:colonIdx], tag[colonIdx+1:]
+    }
+
+    // 处理${key:default}格式
+    // 提取第一个${key:default}块
+    start := strings.Index(tag, "${")
+    end := strings.Index(tag[start:], "}")
+    if start == -1 || end == -1 {
+        // 格式错误，返回原始值
         return tag, ""
     }
-    // 有默认值
-    return tag[:colonIdx], tag[colonIdx+1:]
+
+    // 计算结束位置
+    end += start
+
+    // 提取变量部分：${key:default}
+    varPart := tag[start+2 : end]
+
+    // 解析变量中的key和default
+    colonIdx := strings.Index(varPart, ":")
+    if colonIdx == -1 {
+        key = varPart
+        defaultValue = ""
+    } else {
+        key = varPart[:colonIdx]
+        defaultValue = varPart[colonIdx+1:]
+    }
+
+    return key, defaultValue
+}
+
+// resolveConfigValue 解析配置值，支持变量替换
+// 支持格式：
+// - "simpleKey" -> 直接获取配置值
+// - "prefix${key:default}suffix" -> 替换变量后拼接
+func (c *container) resolveConfigValue(tag string) string {
+    // 检查是否包含变量
+    if !strings.Contains(tag, "${") {
+        // 没有变量，直接作为key获取配置值
+        value := c.getConfigValue(tag)
+        return value.StringD("")
+    }
+
+    // 处理变量替换
+    result := ""
+    remaining := tag
+
+    for {
+        start := strings.Index(remaining, "${")
+        if start == -1 {
+            // 没有更多变量，添加剩余部分
+            result += remaining
+            break
+        }
+
+        // 添加变量前的固定文本
+        result += remaining[:start]
+        remaining = remaining[start:]
+
+        end := strings.Index(remaining, "}")
+        if end == -1 {
+            // 格式错误，直接添加剩余部分
+            result += remaining
+            break
+        }
+
+        // 提取变量部分：${key:default}
+        varPart := remaining[2:end]
+
+        // 解析key和default
+        var key, defaultValue string
+        colonIdx := strings.Index(varPart, ":")
+        if colonIdx == -1 {
+            key = varPart
+            defaultValue = ""
+        } else {
+            key = varPart[:colonIdx]
+            defaultValue = varPart[colonIdx+1:]
+        }
+
+        // 获取配置值
+        value := c.getConfigValue(key)
+        resolvedValue := value.StringD(defaultValue)
+
+        // 添加解析后的值
+        result += resolvedValue
+
+        // 移动到下一个位置
+        remaining = remaining[end+1:]
+    }
+
+    return result
 }
 
 // getConfigValue 获取配置值

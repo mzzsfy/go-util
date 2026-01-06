@@ -76,6 +76,7 @@ func main() {
 type Config struct {
     DatabaseURL string `di.config:"db.url:localhost:5432"`
     Debug       bool   `di.config:"debug:false"`
+    Callback    string `di.config:"https://${callback.url:localhost:8080}"`
 }
 
 container.ProvideNamedWith("config", func(c di.Container) (*Config, error) {
@@ -86,6 +87,7 @@ container.ProvideNamedWith("config", func(c di.Container) (*Config, error) {
 config, _ := di.GetNamed[*Config](container, "config")
 // config.DatabaseURL = "localhost:5432" (默认值)
 // config.Debug = false (默认值)
+// config.Callback = https://localhost:8080 (默认值)
 ```
 
 ### 钩子系统

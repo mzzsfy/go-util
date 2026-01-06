@@ -486,3 +486,174 @@ func Test_Start_MultipleContainers(t *testing.T) {
 
     })
 }
+
+// Test_Start_WithConfigInjection 测试启动钩子中的配置注入
+func Test_Start_WithConfigInjection(t *testing.T) {
+    t.Run("启动钩子中使用配置注入", func(t *testing.T) {
+        // 设置配置源
+        configSource := NewMapConfigSource()
+        configSource.Set("callback.url", "example.com:8080")
+        configSource.Set("service.name", "test-service")
+
+        container := New()
+        container.SetConfigSource(configSource)
+
+        // 创建一个在启动钩子中使用的结构体
+        type ConfigStruct struct {
+            CallbackURL string `di.config:"https://${callback.url:localhost:9000}"`
+            ServiceName string `di.config:"service.name:default-service"`
+            Port        int    `di.config:"server.port:8080"`
+        }
+
+        // 添加启动钩子，在钩子中创建并注入配置
+        err := container.ProvideNamedWith("config", func(c Container) (*ConfigStruct, error) {
+            config := &ConfigStruct{}
+            // 手动触发配置注入（模拟在启动钩子中的场景）
+            return config, nil
+        })
+        if err != nil {
+            t.Fatalf("注册配置服务失败: %v", err)
+        }
+
+        // 启动容器
+        err = container.Start()
+        if err != nil {
+            t.Fatalf("启动失败: %v", err)
+        }
+
+        // 获取配置实例
+        config, err := GetNamed[*ConfigStruct](container, "config")
+        if err != nil {
+            t.Fatalf("获取配置失败: %v", err)
+        }
+
+        // 验证配置注入结果
+        if config.CallbackURL != "https://example.com:8080" {
+            t.Errorf("期望CallbackURL为'https://example.com:8080'，实际'%s'", config.CallbackURL)
+        }
+
+        if config.ServiceName != "test-service" {
+            t.Errorf("期望ServiceName为'test-service'，实际'%s'", config.ServiceName)
+        }
+
+        if config.Port != 8080 {
+            t.Errorf("期望Port为8080，实际%d", config.Port)
+        }
+    })
+
+    t.Run("变量替换与默认值", func(t *testing.T) {
+        // 设置配置源，但不设置某些值以测试默认值
+        configSource := NewMapConfigSource()
+        configSource.Set("existing.key", "existing-value")
+
+        container := New()
+        container.SetConfigSource(configSource)
+
+        type ConfigStruct struct {
+            URL1 string `di.config:"http://${missing.url:localhost:8080}"`
+            URL2 string `di.config:"https://${existing.key}/api"`
+            URL3 string `di.config:"${missing1:default1}-${missing2:default2}"`
+        }
+
+        err := container.ProvideNamedWith("config", func(c Container) (*ConfigStruct, error) {
+            return &ConfigStruct{}, nil
+        })
+        if err != nil {
+            t.Fatalf("注册配置服务失败: %v", err)
+        }
+
+        config, err := GetNamed[*ConfigStruct](container, "config")
+        if err != nil {
+            t.Fatalf("获取配置失败: %v", err)
+        }
+
+        // 验证默认值
+        if config.URL1 != "http://localhost:8080" {
+            t.Errorf("期望URL1为'http://localhost:8080'，实际'%s'", config.URL1)
+        }
+
+        if config.URL2 != "https://existing-value/api" {
+            t.Errorf("期望URL2为'https://existing-value/api'，实际'%s'", config.URL2)
+        }
+
+        if config.URL3 != "default1-default2" {
+            t.Errorf("期望URL3为'default1-default2'，实际'%s'", config.URL3)
+        }
+    })
+
+    t.Run("复杂变量替换场景", func(t *testing.T) {
+        configSource := NewMapConfigSource()
+        configSource.Set("host", "api.example.com")
+        configSource.Set("port", "443")
+        configSource.Set("path", "/v1/users")
+
+        container := New()
+        container.SetConfigSource(configSource)
+
+        type ConfigStruct struct {
+            FullURL string `di.config:"https://${host:localhost}:${port:8080}${path:/api}"`
+        }
+
+        err := container.ProvideNamedWith("config", func(c Container) (*ConfigStruct, error) {
+            return &ConfigStruct{}, nil
+        })
+        if err != nil {
+            t.Fatalf("注册配置服务失败: %v", err)
+        }
+
+        config, err := GetNamed[*ConfigStruct](container, "config")
+        if err != nil {
+            t.Fatalf("获取配置失败: %v", err)
+        }
+
+        expected := "https://api.example.com:443/v1/users"
+        if config.FullURL != expected {
+            t.Errorf("期望FullURL为'%s'，实际'%s'", expected, config.FullURL)
+        }
+    })
+
+    t.Run("启动钩子中动态配置", func(t *testing.T) {
+        // 测试在启动钩子执行期间，配置注入能够正常工作
+        configSource := NewMapConfigSource()
+        configSource.Set("app.version", "1.0.0")
+        configSource.Set("app.env", "production")
+
+        container := New()
+        container.SetConfigSource(configSource)
+
+        // 创建一个需要配置注入的服务
+        type AppConfig struct {
+            Version string `di.config:"app.version:unknown"`
+            Env     string `di.config:"app.env:development"`
+        }
+
+        // 注册服务，容器会自动处理配置注入
+        err := container.ProvideNamedWith("appConfig", func(c Container) (*AppConfig, error) {
+            return &AppConfig{}, nil
+        })
+        if err != nil {
+            t.Fatalf("注册配置服务失败: %v", err)
+        }
+
+        // 启动容器
+        err = container.Start()
+        if err != nil {
+            t.Fatalf("启动失败: %v", err)
+        }
+
+        // 获取配置实例
+        config, err := GetNamed[*AppConfig](container, "appConfig")
+        if err != nil {
+            t.Fatalf("获取配置失败: %v", err)
+        }
+
+        // 验证配置注入结果
+        if config.Version != "1.0.0" {
+            t.Errorf("期望version为'1.0.0'，实际'%s'", config.Version)
+        }
+
+        if config.Env != "production" {
+            t.Errorf("期望env为'production'，实际'%s'", config.Env)
+        }
+    })
+}
