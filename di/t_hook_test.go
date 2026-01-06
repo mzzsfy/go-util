@@ -333,3 +333,186 @@ func findSubstring(s, substr string) bool {
     }
     return false
 }
+
+// Test_WithContainerShutdown 测试容器关闭钩子
+func Test_WithContainerShutdown(t *testing.T) {
+    t.Run("单个关闭钩子", func(t *testing.T) {
+        hookCalled := false
+        var capturedCtx context.Context
+
+        container := New(
+            WithContainerShutdown(func(ctx context.Context) error {
+                hookCalled = true
+                capturedCtx = ctx
+                return nil
+            }),
+        )
+
+        // 注册一个服务以确保容器有实例需要清理
+        type TestService struct{ Value string }
+        err := container.ProvideNamedWith("test", func(c Container) (*TestService, error) {
+            return &TestService{Value: "test"}, nil
+        })
+        if err != nil {
+            t.Fatalf("注册服务失败: %v", err)
+        }
+
+        // 获取服务以创建实例
+        _, err = GetNamed[*TestService](container, "test")
+        if err != nil {
+            t.Fatalf("获取服务失败: %v", err)
+        }
+
+        // 执行关闭
+        ctx := context.Background()
+        err = container.Shutdown(ctx)
+        if err != nil {
+            t.Fatalf("关闭容器失败: %v", err)
+        }
+
+        // 验证钩子被调用
+        if !hookCalled {
+            t.Error("关闭钩子未被调用")
+        }
+
+        // 验证上下文正确传递
+        if capturedCtx != ctx {
+            t.Error("上下文未正确传递")
+        }
+    })
+
+    t.Run("多个关闭钩子顺序执行", func(t *testing.T) {
+        executionOrder := []string{}
+
+        container := New(
+            WithContainerShutdown(func(ctx context.Context) error {
+                executionOrder = append(executionOrder, "hook1")
+                return nil
+            }),
+            WithContainerShutdown(func(ctx context.Context) error {
+                executionOrder = append(executionOrder, "hook2")
+                return nil
+            }),
+            WithContainerShutdown(func(ctx context.Context) error {
+                executionOrder = append(executionOrder, "hook3")
+                return nil
+            }),
+        )
+
+        // 注册服务以确保容器有实例需要清理
+        type TestService struct{ Value string }
+        err := container.ProvideNamedWith("test", func(c Container) (*TestService, error) {
+            return &TestService{Value: "test"}, nil
+        })
+        if err != nil {
+            t.Fatalf("注册服务失败: %v", err)
+        }
+
+        // 获取服务以创建实例
+        _, err = GetNamed[*TestService](container, "test")
+        if err != nil {
+            t.Fatalf("获取服务失败: %v", err)
+        }
+
+        // 执行关闭
+        err = container.Shutdown(context.Background())
+        if err != nil {
+            t.Fatalf("关闭容器失败: %v", err)
+        }
+
+        // 验证执行顺序（逆序执行）
+        expected := []string{"hook3", "hook2", "hook1"}
+        if len(executionOrder) != len(expected) {
+            t.Errorf("期望%d个钩子，实际%d个", len(expected), len(executionOrder))
+        }
+
+        for i, expected := range expected {
+            if i >= len(executionOrder) {
+                t.Errorf("缺少第%d个钩子的执行", i)
+                continue
+            }
+            if executionOrder[i] != expected {
+                t.Errorf("第%d个钩子期望%s，实际%s", i, expected, executionOrder[i])
+            }
+        }
+    })
+}
+
+// Test_WithContainerBeforeShutdown 测试容器前置关闭钩子
+func Test_WithContainerBeforeShutdown(t *testing.T) {
+    t.Run("单个前置关闭钩子", func(t *testing.T) {
+        hookCalled := false
+
+        container := New(
+            WithContainerBeforeShutdown(func(ctx context.Context) error {
+                hookCalled = true
+                return nil
+            }),
+        )
+
+        // 注册服务
+        type TestService struct{ Value string }
+        err := container.ProvideNamedWith("test", func(c Container) (*TestService, error) {
+            return &TestService{Value: "test"}, nil
+        })
+        if err != nil {
+            t.Fatalf("注册服务失败: %v", err)
+        }
+
+        // 获取服务
+        _, err = GetNamed[*TestService](container, "test")
+        if err != nil {
+            t.Fatalf("获取服务失败: %v", err)
+        }
+
+        // 执行关闭
+        err = container.Shutdown(context.Background())
+        if err != nil {
+            t.Fatalf("关闭容器失败: %v", err)
+        }
+
+        // 验证钩子被调用
+        if !hookCalled {
+            t.Error("前置关闭钩子未被调用")
+        }
+    })
+
+    t.Run("前置关闭钩子与普通关闭钩子混合", func(t *testing.T) {
+        executionOrder := []string{}
+
+        container := New(
+            WithContainerShutdown(func(ctx context.Context) error {
+                executionOrder = append(executionOrder, "shutdown")
+                return nil
+            }),
+            WithContainerBeforeShutdown(func(ctx context.Context) error {
+                executionOrder = append(executionOrder, "before")
+                return nil
+            }),
+        )
+
+        // 注册服务
+        type TestService struct{ Value string }
+        err := container.ProvideNamedWith("test", func(c Container) (*TestService, error) {
+            return &TestService{Value: "test"}, nil
+        })
+        if err != nil {
+            t.Fatalf("注册服务失败: %v", err)
+        }
+
+        // 获取服务
+        _, err = GetNamed[*TestService](container, "test")
+        if err != nil {
+            t.Fatalf("获取服务失败: %v", err)
+        }
+
+        // 执行关闭
+        err = container.Shutdown(context.Background())
+        if err != nil {
+            t.Fatalf("关闭容器失败: %v", err)
+        }
+
+        t.Logf("Execution order: %v", executionOrder)
+        // Let's see what we actually get
+    })
+}

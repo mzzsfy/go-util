@@ -146,6 +146,16 @@ func WithContainerAfterStart(f func(Container) error) ContainerOption {
     }
 }
 
+func WithContainerBeforeShutdown(f ShutdownHook) ContainerOption {
+    return func(c *container) {
+        // Create new slice with the new hook at the beginning, then append existing hooks
+        // This matches the original intent but fixes the copy bug
+        hooks := make([]ShutdownHook, 0, len(c.shutdown)+1)
+        hooks = append(hooks, f)
+        hooks = append(hooks, c.shutdown...)
+        c.shutdown = hooks
+    }
+}
 func WithContainerShutdown(f ShutdownHook) ContainerOption {
     return func(c *container) {
         c.shutdown = append(c.shutdown, f)
