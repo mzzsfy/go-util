@@ -92,7 +92,7 @@ func testContainerHooks(t *testing.T) {
     globalBeforeDestroy := 0
     globalAfterDestroy := 0
 
-    container := NewWithOptions(
+    container := New(
         WithContainerBeforeCreate(func(c Container, info EntryInfo) (any, error) {
             globalBeforeCreate++
             t.Logf("Container BeforeCreate called (count: %d)", globalBeforeCreate)
@@ -151,7 +151,7 @@ func testMixedHooks(t *testing.T) {
     containerLog := []string{}
     providerLog := []string{}
 
-    container := NewWithOptions(
+    container := New(
         WithContainerBeforeCreate(func(c Container, info EntryInfo) (any, error) {
             containerLog = append(containerLog, "container-before")
             return nil, nil

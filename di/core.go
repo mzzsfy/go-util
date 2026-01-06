@@ -21,7 +21,8 @@ type Container interface {
 
     // HasNamed 检查带名称的服务是否已注册
     HasNamed(serviceType any, name string) bool
-
+    // AppendOption 添加容器选项,启动后不可使用
+    AppendOption(opt ...ContainerOption) error
     // Start 启动容器，调用启动钩子
     Start() error
 

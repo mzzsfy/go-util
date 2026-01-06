@@ -65,19 +65,7 @@ type providerEntry struct {
 }
 
 // New 创建新的 DI 容器
-func New() Container {
-    return &container{
-        providers:    make(map[string]providerEntry),
-        instances:    make(map[string]any),
-        loading:      make(map[string]bool),
-        configSource: NewMapConfigSource(),
-        onStartup:    make([]func(Container) error, 0),
-        afterStartup: make([]func(Container) error, 0),
-    }
-}
-
-// NewWithOptions 创建带有选项的 DI 容器
-func NewWithOptions(opts ...ContainerOption) Container {
+func New(opts ...ContainerOption) Container {
     c := &container{
         providers:    make(map[string]providerEntry),
         instances:    make(map[string]any),
@@ -135,9 +123,9 @@ func (c *container) ProvideNamedWith(name string, provider any, opts ...Provider
     }
 
     // 应用选项，默认为 LoadModeDefault
-    config := providerConfig{}
+    p := providerConfig{}
     for _, opt := range opts {
-        opt(&config)
+        opt(&p)
     }
 
     c.providers[key] = providerEntry{
@@ -150,7 +138,7 @@ func (c *container) ProvideNamedWith(name string, provider any, opts ...Provider
             }
             return results[0].Interface(), nil
         },
-        config: config,
+        config: p,
     }
 
     // 更新统计
@@ -162,7 +150,7 @@ func (c *container) ProvideNamedWith(name string, provider any, opts ...Provider
     c.mu.Unlock()
 
     // 如果是立即加载模式，额外调用一次,保证创建实例
-    if config.loadMode == LoadModeImmediate {
+    if p.loadMode == LoadModeImmediate {
         _, err := c.GetNamed(returnType, name)
         if err != nil {
             return err
@@ -503,6 +491,16 @@ func (c *container) HasNamed(serviceType any, name string) bool {
         return c.parent.HasNamed(serviceType, name)
     }
     return false
+}
+
+func (c *container) AppendOption(opt ...ContainerOption) error {
+    if c.started {
+        return helper.StringError("cannot add options to a started container")
+    }
+    for _, option := range opt {
+        option(c)
+    }
+    return nil
 }
 
 // Start 启动容器

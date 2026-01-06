@@ -40,7 +40,7 @@ func Test_Start_WithHooks(t *testing.T) {
     t.Run("启动前钩子", func(t *testing.T) {
         hookCalled := false
 
-        container := NewWithOptions(
+        container := New(
             WithOnStart(func(c Container) error {
                 hookCalled = true
                 return nil
@@ -60,7 +60,7 @@ func Test_Start_WithHooks(t *testing.T) {
     t.Run("启动后钩子", func(t *testing.T) {
         hookCalled := false
 
-        container := NewWithOptions(
+        container := New(
             WithAfterStart(func(c Container) error {
                 hookCalled = true
                 return nil
@@ -80,7 +80,7 @@ func Test_Start_WithHooks(t *testing.T) {
     t.Run("钩子执行顺序", func(t *testing.T) {
         var executionOrder []string
 
-        container := NewWithOptions(
+        container := New(
             WithOnStart(func(c Container) error {
                 executionOrder = append(executionOrder, "startup-1")
                 return nil
@@ -120,7 +120,7 @@ func Test_Start_WithHooks(t *testing.T) {
 // Test_Start_ErrorHandling 测试错误处理
 func Test_Start_ErrorHandling(t *testing.T) {
     t.Run("启动前钩子返回错误", func(t *testing.T) {
-        container := NewWithOptions(
+        container := New(
             WithOnStart(func(c Container) error {
                 return fmt.Errorf("startup error")
             }),
@@ -137,7 +137,7 @@ func Test_Start_ErrorHandling(t *testing.T) {
     })
 
     t.Run("启动后钩子返回错误", func(t *testing.T) {
-        container := NewWithOptions(
+        container := New(
             WithAfterStart(func(c Container) error {
                 return fmt.Errorf("after startup error")
             }),
@@ -154,7 +154,7 @@ func Test_Start_ErrorHandling(t *testing.T) {
     })
 
     t.Run("多个钩子中第一个错误", func(t *testing.T) {
-        container := NewWithOptions(
+        container := New(
             WithOnStart(func(c Container) error {
                 return nil
             }),
@@ -213,7 +213,7 @@ func Test_Start_Concurrent(t *testing.T) {
         hookCallCount := 0
         var mu sync.Mutex
 
-        container := NewWithOptions(
+        container := New(
             WithOnStart(func(c Container) error {
                 mu.Lock()
                 hookCallCount++
@@ -275,7 +275,7 @@ func Test_Start_WithContainerOperations(t *testing.T) {
         }
 
         // 现在创建另一个容器，使用启动钩子来验证功能
-        container2 := NewWithOptions(
+        container2 := New(
             WithOnStart(func(c Container) error {
                 // 在钩子中检查容器状态
                 hookExecuted = true
@@ -294,7 +294,7 @@ func Test_Start_WithContainerOperations(t *testing.T) {
     })
 
     t.Run("启动后钩子可以访问已启动状态", func(t *testing.T) {
-        container := NewWithOptions(
+        container := New(
             WithAfterStart(func(c Container) error {
                 return nil
             }),
@@ -436,7 +436,7 @@ func Test_Start_Performance(t *testing.T) {
             }))
         }
 
-        container := NewWithOptions(opts...)
+        container := New(opts...)
 
         start := time.Now()
         err := container.Start()
