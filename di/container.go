@@ -1055,7 +1055,9 @@ func (c *container) GetNamedAll(serviceType any) (map[string]any, error) {
             instance, err := c.GetNamed(entry.reflectType, serviceName)
             if err != nil {
                 // 忽略条件失败
-                if !errors.Is(err, ErrorConditionFail) {
+                if errors.Is(err, ErrorConditionFail) {
+                    continue
+                } else {
                     return nil, err
                 }
             }
