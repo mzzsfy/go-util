@@ -3,6 +3,8 @@ package di
 import (
     "context"
     "time"
+
+    "github.com/mzzsfy/go-util/helper"
 )
 
 type ContainerContext struct {
@@ -107,6 +109,9 @@ type ContainerOption func(*container)
 // WithContainerBeforeCreate 设置容器级别的创建前钩子
 func WithContainerBeforeCreate(f func(Container, EntryInfo) (any, error)) ContainerOption {
     return func(c *container) {
+        if c.started {
+            panic(helper.StringError("cannot add options to a started container"))
+        }
         c.beforeCreate = append(c.beforeCreate, f)
     }
 }
@@ -114,6 +119,9 @@ func WithContainerBeforeCreate(f func(Container, EntryInfo) (any, error)) Contai
 // WithContainerAfterCreate 设置容器级别的创建后钩子
 func WithContainerAfterCreate(f func(Container, EntryInfo) (any, error)) ContainerOption {
     return func(c *container) {
+        if c.started {
+            panic(helper.StringError("cannot add options to a started container"))
+        }
         c.afterCreate = append(c.afterCreate, f)
     }
 }
@@ -121,6 +129,9 @@ func WithContainerAfterCreate(f func(Container, EntryInfo) (any, error)) Contain
 // WithContainerBeforeDestroy 设置容器级别的销毁前钩子
 func WithContainerBeforeDestroy(f func(Container, EntryInfo)) ContainerOption {
     return func(c *container) {
+        if c.started {
+            panic(helper.StringError("cannot add options to a started container"))
+        }
         c.beforeDestroy = append(c.beforeDestroy, f)
     }
 }
@@ -128,6 +139,9 @@ func WithContainerBeforeDestroy(f func(Container, EntryInfo)) ContainerOption {
 // WithContainerAfterDestroy 设置容器级别的销毁后钩子
 func WithContainerAfterDestroy(f func(Container, EntryInfo)) ContainerOption {
     return func(c *container) {
+        if c.started {
+            panic(helper.StringError("cannot add options to a started container"))
+        }
         c.afterDestroy = append(c.afterDestroy, f)
     }
 }
@@ -135,6 +149,9 @@ func WithContainerAfterDestroy(f func(Container, EntryInfo)) ContainerOption {
 // WithContainerOnStart 设置启动前钩子（在Start方法调用时执行）
 func WithContainerOnStart(f func(Container) error) ContainerOption {
     return func(c *container) {
+        if c.started {
+            panic(helper.StringError("cannot add options to a started container"))
+        }
         c.onStartup = append(c.onStartup, f)
     }
 }
@@ -142,6 +159,9 @@ func WithContainerOnStart(f func(Container) error) ContainerOption {
 // WithContainerAfterStart 设置启动后钩子（在Start方法调用后执行）
 func WithContainerAfterStart(f func(Container) error) ContainerOption {
     return func(c *container) {
+        if c.started {
+            panic(helper.StringError("cannot add options to a started container"))
+        }
         c.afterStartup = append(c.afterStartup, f)
     }
 }

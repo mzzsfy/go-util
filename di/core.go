@@ -30,6 +30,7 @@ type Container interface {
     Shutdown(context.Context) error
     // ShutdownOnSignals 监听信号并自动关闭
     ShutdownOnSignals(signals ...os.Signal)
+    Done() <-chan struct{}
 
     // CreateChildScope 创建子容器（作用域）
     CreateChildScope() Container

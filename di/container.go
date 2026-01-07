@@ -44,6 +44,7 @@ type container struct {
     statsMu sync.RWMutex
 
     // 启动相关字段
+    done         chan struct{}
     onStartup    []func(Container) error // 启动前钩子
     afterStartup []func(Container) error // 启动后钩子
     started      bool                    // 是否已启动
@@ -71,6 +72,7 @@ func New(opts ...ContainerOption) Container {
         instances:    make(map[string]any),
         loading:      make(map[string]bool),
         configSource: NewMapConfigSource(),
+        done:         make(chan struct{}),
         onStartup:    make([]func(Container) error, 0),
         afterStartup: make([]func(Container) error, 0),
     }
@@ -507,14 +509,18 @@ func (c *container) HasNamed(serviceType any, name string) bool {
     return false
 }
 
-func (c *container) AppendOption(opt ...ContainerOption) error {
-    if c.started {
-        return helper.StringError("cannot add options to a started container")
-    }
-    for _, option := range opt {
-        option(c)
-    }
-    return nil
+func (c *container) AppendOption(opt ...ContainerOption) (err error) {
+    func(c *container) {
+        defer func() {
+            if r := recover(); r != nil {
+                err = fmt.Errorf("panic while appending options: %v", r)
+            }
+        }()
+        for _, option := range opt {
+            option(c)
+        }
+    }(c)
+    return
 }
 
 // Start 启动容器
@@ -532,6 +538,15 @@ func (c *container) Start() error {
     if c.started {
         c.mu.Unlock()
         return helper.StringError("container is already started")
+    }
+
+    // 检查容器是否已被关闭（done通道已关闭）
+    select {
+    case <-c.done:
+        // 容器已被关闭，重新创建done通道以支持重启
+        c.done = make(chan struct{})
+    default:
+        // 容器未关闭，继续正常启动流程
     }
 
     // 标记为正在启动，防止其他goroutine同时执行钩子
@@ -568,17 +583,25 @@ func (c *container) Shutdown(ctx context.Context) error {
     c.mu.Lock()
     defer c.mu.Unlock()
 
-    // 执行关闭钩子（逆序）
-    for i := len(c.shutdown) - 1; i >= 0; i-- {
-        if err := c.shutdown[i](ctx); err != nil {
-            fmt.Printf("warning: shutdown hook failed: %v\n", err)
+    // 检查是否已经关闭
+    select {
+    case <-c.Done():
+        return helper.StringError("container is already shutting down")
+    default:
+    }
+    var err error
+
+    for _, hook := range c.shutdown {
+        if hookErr := hook(ctx); hookErr != nil {
+            err = fmt.Errorf("shutdown failed: %w", hookErr)
         }
     }
 
-    // 清理
+    // 清理资源
     c.providers = make(map[string]providerEntry)
     c.instances = make(map[string]any)
     c.shutdown = nil
+    c.started = false // 重置启动状态，允许重启
 
     // 清理配置数据
     c.configMu.Lock()
@@ -589,11 +612,8 @@ func (c *container) Shutdown(ctx context.Context) error {
     c.statsMu.Lock()
     c.stats = containerStats{}
     c.statsMu.Unlock()
-
-    // 重置启动状态
-    c.started = false
-
-    return nil
+    close(c.done)
+    return err
 }
 
 func (c *container) ShutdownOnSignals(signals ...os.Signal) {
@@ -613,6 +633,9 @@ func (c *container) ShutdownOnSignals(signals ...os.Signal) {
         os.Exit(0)
     }()
 }
+func (c *container) Done() <-chan struct{} {
+    return c.done
+}
 
 func (c *container) CreateChildScope() Container {
     // 子容器继承父容器的配置源（共享同一个配置源）
@@ -620,13 +643,17 @@ func (c *container) CreateChildScope() Container {
     inheritedConfigSource := c.configSource
     c.configMu.RUnlock()
 
-    return &container{
+    c2 := &container{
         providers:    make(map[string]providerEntry),
         instances:    make(map[string]any),
         loading:      make(map[string]bool),
         parent:       c,
+        done:         make(chan struct{}),
         configSource: inheritedConfigSource,
     }
+    //关闭子容器
+    c.shutdown = append(c.shutdown, func(ctx context.Context) error { return c2.Shutdown(ctx) })
+    return c2
 }
 
 func typeKey(t reflect.Type, name string) string {

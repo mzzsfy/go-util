@@ -810,12 +810,12 @@ func testLifecycleManagement(t *testing.T) {
         // 关闭容器
         container.Shutdown(context.Background())
 
-        // 验证逆序执行
+        // 验证正序执行
         if len(callOrder) != 2 {
             t.Errorf("应该有2个钩子被调用，实际%d个", len(callOrder))
         }
-        if len(callOrder) >= 2 && (callOrder[0] != 2 || callOrder[1] != 1) {
-            t.Errorf("钩子应该逆序执行，实际顺序: %v", callOrder)
+        if len(callOrder) >= 2 && (callOrder[0] != 1 || callOrder[1] != 2) {
+            t.Errorf("钩子应该正序执行，实际顺序: %v", callOrder)
         }
     })
 

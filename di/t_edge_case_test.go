@@ -335,8 +335,14 @@ func testLifecycleExceptions(t *testing.T) {
         })
         _, _ = GetNamed[string](container, "test")
 
+        // 启动容器
+        err := container.Start()
+        if err != nil {
+            t.Fatalf("启动容器失败: %v", err)
+        }
+
         // 关闭应该继续执行其他钩子，即使有错误
-        err := container.Shutdown(context.Background())
+        err = container.Shutdown(context.Background())
         // Shutdown方法通常会忽略单个钩子错误，继续执行
         if err != nil {
             t.Logf("关闭返回错误（可能）: %v", err)
@@ -358,17 +364,120 @@ func testLifecycleExceptions(t *testing.T) {
         })
         _, _ = GetNamed[string](container, "test")
 
+        // 启动容器
+        err := container.Start()
+        if err != nil {
+            t.Fatalf("启动容器失败: %v", err)
+        }
+
         // 第一次关闭
         err1 := container.Shutdown(context.Background())
         if err1 != nil {
             t.Fatalf("第一次关闭失败: %v", err1)
         }
 
-        // 第二次关闭
+        // 第二次关闭 - 应该返回"container is already shutting down"错误
         err2 := container.Shutdown(context.Background())
-        // 重复关闭应该成功（无操作）
-        if err2 != nil {
-            t.Logf("第二次关闭返回错误（可能）: %v", err2)
+        if err2 == nil {
+            t.Error("第二次关闭应该返回错误")
+        } else {
+            t.Logf("第二次关闭返回错误（预期）: %v", err2)
+        }
+    })
+
+    // 测试3: 未启动容器关闭（现在应该成功）
+    t.Run("未启动容器关闭", func(t *testing.T) {
+        container := New()
+
+        // 注册服务但不启动
+        container.ProvideNamedWith("test", func(c Container) (string, error) {
+            return "test", nil
+        })
+
+        // 关闭未启动的容器应该成功（清理资源）
+        err := container.Shutdown(context.Background())
+        if err != nil {
+            t.Fatalf("关闭未启动的容器应该成功，但失败了: %v", err)
+        }
+
+        // 验证容器已被清空
+        if container.GetProviderCount() != 0 {
+            t.Error("关闭后应该清空提供者")
+        }
+    })
+
+    // 测试4: 启动后再次启动
+    t.Run("重复启动", func(t *testing.T) {
+        container := New()
+
+        // 启动容器
+        err := container.Start()
+        if err != nil {
+            t.Fatalf("第一次启动失败: %v", err)
+        }
+
+        // 尝试再次启动
+        err = container.Start()
+        if err == nil {
+            t.Error("重复启动应该返回错误")
+        } else {
+            t.Logf("重复启动返回错误（预期）: %v", err)
+        }
+    })
+
+    // 测试5: 关闭后重新启动
+    t.Run("关闭后重新启动", func(t *testing.T) {
+        container := New()
+
+        // 注册服务
+        container.ProvideNamedWith("test", func(c Container) (string, error) {
+            return "test", nil
+        })
+
+        // 启动容器
+        err := container.Start()
+        if err != nil {
+            t.Fatalf("第一次启动失败: %v", err)
+        }
+
+        // 获取服务实例
+        val, err := GetNamed[string](container, "test")
+        if err != nil {
+            t.Fatalf("获取服务失败: %v", err)
+        }
+        if val != "test" {
+            t.Errorf("期望'test', 实际'%s'", val)
+        }
+
+        // 关闭容器
+        err = container.Shutdown(context.Background())
+        if err != nil {
+            t.Fatalf("关闭失败: %v", err)
+        }
+
+        // 验证容器已清空
+        if container.GetProviderCount() != 0 {
+            t.Error("关闭后应该清空提供者")
+        }
+
+        // 重新启动容器
+        err = container.Start()
+        if err != nil {
+            t.Fatalf("重新启动失败: %v", err)
+        }
+
+        // 重新注册服务（因为关闭后清空了）
+        container.ProvideNamedWith("test2", func(c Container) (string, error) {
+            return "test2", nil
+        })
+
+        // 获取新服务
+        val2, err := GetNamed[string](container, "test2")
+        if err != nil {
+            t.Fatalf("重新启动后获取服务失败: %v", err)
+        }
+        if val2 != "test2" {
+            t.Errorf("期望'test2', 实际'%s'", val2)
         }
     })
 }
