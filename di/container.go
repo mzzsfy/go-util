@@ -2,6 +2,7 @@ package di
 
 import (
     "context"
+    "errors"
     "fmt"
     "os"
     "os/signal"
@@ -498,8 +499,7 @@ func (c *container) HasNamed(serviceType any, name string) bool {
     c.mu.RLock()
     defer c.mu.RUnlock()
 
-    // 检查缓存实例或提供者
-    if _, exists := c.instances[key]; exists {
+    if _, exists := c.providers[key]; exists {
         return true
     }
     // 检查父容器
@@ -1054,7 +1054,10 @@ func (c *container) GetNamedAll(serviceType any) (map[string]any, error) {
 
             instance, err := c.GetNamed(entry.reflectType, serviceName)
             if err != nil {
-                return nil, err
+                // 忽略条件失败
+                if !errors.Is(err, ErrorConditionFail) {
+                    return nil, err
+                }
             }
             results[key] = instance
         }
