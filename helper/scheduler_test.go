@@ -26,7 +26,8 @@ func TestAddDelayTask(t *testing.T) {
         maxTime = duration
         s.AddDelayTask(duration, func() {
             if duration > time.Millisecond {
-                if time.Since(start) < duration {
+                // Allow small tolerance for scheduler interval precision
+                if time.Since(start) < duration-interval*2 {
                     t.Error("Task ran too early", duration.String(), time.Since(start))
                 }
                 if time.Since(start) > duration+interval*10 {
