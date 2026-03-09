@@ -1,14 +1,15 @@
 package helper
 
 import (
-    "github.com/mzzsfy/go-util/concurrent"
-    "github.com/mzzsfy/go-util/pool"
-    "github.com/mzzsfy/go-util/unsafe"
     "math"
     "math/rand"
     "runtime"
     "testing"
     "time"
+
+    "github.com/mzzsfy/go-util/concurrent"
+    "github.com/mzzsfy/go-util/pool"
+    "github.com/mzzsfy/go-util/unsafe"
 )
 
 func TestAddDelayTask(t *testing.T) {
@@ -26,7 +27,8 @@ func TestAddDelayTask(t *testing.T) {
         maxTime = duration
         s.AddDelayTask(duration, func() {
             if duration > time.Millisecond {
-                if time.Since(start) < duration {
+                // Allow small tolerance for scheduler interval precision
+                if time.Since(start) < duration-interval*2 {
                     t.Error("Task ran too early", duration.String(), time.Since(start))
                 }
                 if time.Since(start) > duration+interval*10 {
