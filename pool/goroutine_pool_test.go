@@ -69,9 +69,9 @@ func Benchmark_Go(b *testing.B) {
     x := int32(n)
     wg := sync.WaitGroup{}
     wg.Add(n)
-    var goid atomic.Int64
+    var goid int64
     go func() {
-        goid.Store(unsafe.GoID())
+        atomic.StoreInt64(&goid, unsafe.GoID())
     }()
     for i := 0; i < n; i++ {
         go func() {
@@ -84,7 +84,7 @@ func Benchmark_Go(b *testing.B) {
     if b.N > 600000 {
         time.Sleep(time.Millisecond * 50)
         go func() {
-            b.Log("goid start", goid.Load(), "end", unsafe.GoID(), "new", unsafe.GoID()-goid.Load())
+            b.Log("goid start", atomic.LoadInt64(&goid), "end", unsafe.GoID(), "new", unsafe.GoID()-atomic.LoadInt64(&goid))
         }()
     }
     if x != 0 {
@@ -102,9 +102,9 @@ func BenchmarkGopool_Go(b *testing.B) {
     x := int32(n)
     wg.Add(n)
     gopool := NewGopool()
-    var goid atomic.Int64
+    var goid int64
     go func() {
-        goid.Store(unsafe.GoID())
+        atomic.StoreInt64(&goid, unsafe.GoID())
     }()
     for i := 0; i < n; i++ {
         gopool.Go(func() {
@@ -117,7 +117,7 @@ func BenchmarkGopool_Go(b *testing.B) {
     if b.N > 600000 {
         time.Sleep(time.Millisecond * 50)
         go func() {
-            b.Log("goid start", goid.Load(), "end", unsafe.GoID(), "new", unsafe.GoID()-goid.Load())
+            b.Log("goid start", atomic.LoadInt64(&goid), "end", unsafe.GoID(), "new", unsafe.GoID()-atomic.LoadInt64(&goid))
         }()
     }
     if x != 0 {

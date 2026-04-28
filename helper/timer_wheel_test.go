@@ -18,7 +18,7 @@ type panicRecord struct {
 
 // execTracker 统一的执行追踪器，替代 mockExecutor/newCountingExecutor/newBoolExecutor/mockPanicHandler
 type execTracker struct {
-    count  atomic.Int32
+    count  int32
     mu     sync.Mutex
     tasks  []Task
     panics []panicRecord
@@ -27,7 +27,7 @@ type execTracker struct {
 
 // executor 通用执行器：计数并记录任务
 func (et *execTracker) executor(task Task) {
-    et.count.Add(1)
+    atomic.AddInt32(&et.count, 1)
     et.mu.Lock()
     et.tasks = append(et.tasks, task)
     et.mu.Unlock()
@@ -94,7 +94,7 @@ func countSlotRemaining(w *TimerWheel) int {
 
 // newPanicTestCtx 创建带 panic 捕获的时间轮测试上下文，用于 ScheduleCustom panic 测试
 type panicTestCtx struct {
-    panicCalls       atomic.Int32
+    panicCalls       int32
     handlerRecovered atomic.Value
     notified         chan struct{}
     W                *TimerWheel
@@ -106,7 +106,7 @@ func newPanicTestCtx(tick time.Duration) *panicTestCtx {
     c.W = NewTimerWheel(
         WithTickInterval(tick),
         WithPanicHandler(func(_ Task, recovered any) {
-            c.panicCalls.Add(1)
+            atomic.AddInt32(&c.panicCalls, 1)
             c.handlerRecovered.Store(recovered)
             select {
             case c.notified <- struct{}{}:
@@ -189,25 +189,25 @@ func TestTimerWheel_Schedule(t *testing.T) {
     t.Run("ZeroDelay_DefaultExecutor_Regression", func(t *testing.T) {
         t.Parallel()
         // 验证零延迟单次任务在默认异步 executor 下 fn 不被提前清空（Bug 回归）
-        var ran atomic.Int32
+        var ran int32
         w := NewTimerWheel(WithTickInterval(50 * time.Millisecond))
         defer w.Stop()
 
         const n = 100
         for i := 0; i < n; i++ {
             w.Schedule(0, FuncTask(func() {
-                ran.Add(1)
+                atomic.AddInt32(&ran, 1)
             }))
         }
 
         deadline := time.After(2 * time.Second)
         for {
-            if ran.Load() >= n {
+            if atomic.LoadInt32(&ran) >= n {
                 break
             }
             select {
             case <-deadline:
-                t.Fatalf("零延迟任务执行数不足: %d, 预期 %d（fn 可能被提前清空）", ran.Load(), n)
+                t.Fatalf("零延迟任务执行数不足: %d, 预期 %d（fn 可能被提前清空）", atomic.LoadInt32(&ran), n)
             default:
                 time.Sleep(10 * time.Millisecond)
             }
@@ -294,7 +294,7 @@ func TestTimerWheel_Schedule(t *testing.T) {
             }
             // 短时间内不应执行
             time.Sleep(500 * time.Millisecond)
-            if et.count.Load() > 0 {
+            if atomic.LoadInt32(&et.count) > 0 {
                 t.Error("长延迟任务不应该在这么短时间内执行")
             }
         })
@@ -335,7 +335,7 @@ func TestTimerWheel_Schedule(t *testing.T) {
         w := newTestWheel(t, 100*time.Millisecond, et.executor)
         w.Schedule(50*time.Millisecond, FuncTask(func() {}))
         time.Sleep(300 * time.Millisecond)
-        if et.count.Load() == 0 {
+        if atomic.LoadInt32(&et.count) == 0 {
             t.Error("任务未执行")
         }
     })
@@ -353,7 +353,7 @@ func TestTimerWheel_ScheduleRepeating(t *testing.T) {
         interval := 100 * time.Millisecond
         w.ScheduleRepeating(interval, FuncTask(func() {}))
         time.Sleep(interval*5 + tick*2)
-        if count := et.count.Load(); count < 3 {
+        if count := atomic.LoadInt32(&et.count); count < 3 {
             t.Errorf("重复任务执行次数不足: %d, 预期至少 3 次", count)
         }
     })
@@ -368,9 +368,9 @@ func TestTimerWheel_ScheduleRepeating(t *testing.T) {
         // 等待几次执行后取消
         time.Sleep(interval*2 + tick)
         handle.Cancel()
-        countBeforeCancel := et.count.Load()
+        countBeforeCancel := atomic.LoadInt32(&et.count)
         time.Sleep(interval * 3)
-        countAfterWait := et.count.Load()
+        countAfterWait := atomic.LoadInt32(&et.count)
         if countAfterWait > countBeforeCancel+1 {
             t.Errorf("取消后仍有新执行: 之前 %d, 之后 %d", countBeforeCancel, countAfterWait)
         }
@@ -404,26 +404,26 @@ func TestTimerWheel_ScheduleRepeating(t *testing.T) {
         // 验证重复任务在任务体执行时间超过 interval 时不会并发重入（回归）
         tick := 50 * time.Millisecond
         interval := 100 * time.Millisecond
-        var maxConcurrent, currentConcurrent, totalRuns atomic.Int32
+        var maxConcurrent, currentConcurrent, totalRuns int32
         w := NewTimerWheel(WithTickInterval(tick), WithExecutor(func(task Task) { task.Run() }))
         defer w.Stop()
         w.ScheduleRepeating(interval, FuncTask(func() {
-            cur := currentConcurrent.Add(1)
-            totalRuns.Add(1)
+            cur := atomic.AddInt32(&currentConcurrent, 1)
+            atomic.AddInt32(&totalRuns, 1)
             for {
-                old := maxConcurrent.Load()
-                if cur <= old || maxConcurrent.CompareAndSwap(old, cur) {
+                old := atomic.LoadInt32(&maxConcurrent)
+                if cur <= old || atomic.CompareAndSwapInt32(&maxConcurrent, old, cur) {
                     break
                 }
             }
             // 模拟慢任务：执行时间是 interval 的 2 倍
             time.Sleep(interval * 2)
-            currentConcurrent.Add(-1)
+            atomic.AddInt32(&currentConcurrent, -1)
         }))
         time.Sleep(interval*8 + tick*4)
-        t.Logf("总执行次数: %d, 最大并发: %d", totalRuns.Load(), maxConcurrent.Load())
-        if maxConcurrent.Load() > 1 {
-            t.Errorf("重复任务并发重入: 最大并发数 %d, 预期 1", maxConcurrent.Load())
+        t.Logf("总执行次数: %d, 最大并发: %d", atomic.LoadInt32(&totalRuns), atomic.LoadInt32(&maxConcurrent))
+        if atomic.LoadInt32(&maxConcurrent) > 1 {
+            t.Errorf("重复任务并发重入: 最大并发数 %d, 预期 1", atomic.LoadInt32(&maxConcurrent))
         }
     })
 }
@@ -446,7 +446,7 @@ func TestTimerWheel_ScheduleCustom(t *testing.T) {
             return now.Add(80 * time.Millisecond)
         }, FuncTask(func() {}))
         time.Sleep(500 * time.Millisecond)
-        if count := et.count.Load(); count > 3 {
+        if count := atomic.LoadInt32(&et.count); count > 3 {
             t.Errorf("任务执行次数过多: %d, 预期最多 3 次", count)
         }
     })
@@ -469,7 +469,7 @@ func TestTimerWheel_ScheduleCustom(t *testing.T) {
             return time.Time{}
         }, FuncTask(func() {}))
         time.Sleep(tick*4 + 100*time.Millisecond)
-        if got := et.count.Load(); got != 3 {
+        if got := atomic.LoadInt32(&et.count); got != 3 {
             t.Errorf("首次立即执行后的重调度次数错误: %d, 预期 3", got)
         }
         assertTaskCount(t, w, 0, "立即执行链路结束后计数错误")
@@ -490,7 +490,7 @@ func TestTimerWheel_ScheduleCustom(t *testing.T) {
             return now.Add(-time.Millisecond)
         }, FuncTask(func() {}))
         time.Sleep(tick * 3)
-        if et.count.Load() == 0 {
+        if atomic.LoadInt32(&et.count) == 0 {
             t.Error("持续过去时间的任务未被执行")
         }
         time.Sleep(tick * 2)
@@ -501,19 +501,19 @@ func TestTimerWheel_ScheduleCustom(t *testing.T) {
         t.Parallel()
         // 超过即时重调度上限后的计数处理
         tick := 20 * time.Millisecond
-        var runCount, scheduleCalls atomic.Int32
-        var taskDone atomic.Bool
+        var runCount, scheduleCalls int32
+        var taskDone uint32
         done := make(chan struct{}, 1)
         w := NewTimerWheel(
             WithTickInterval(tick),
-            WithExecutor(func(task Task) { runCount.Add(1); task.Run() }),
+            WithExecutor(func(task Task) { atomic.AddInt32(&runCount, 1); task.Run() }),
         )
         defer w.Stop()
         const stopAfter = 1300
         w.ScheduleCustom(func(now time.Time) time.Time {
-            call := scheduleCalls.Add(1)
+            call := atomic.AddInt32(&scheduleCalls, 1)
             if call > stopAfter {
-                taskDone.Store(true)
+                atomic.StoreUint32(&taskDone, 1)
                 select {
                 case done <- struct{}{}:
                 default:
@@ -524,13 +524,13 @@ func TestTimerWheel_ScheduleCustom(t *testing.T) {
         }, FuncTask(func() {}))
         waitFor(t, done, 3*time.Second, "任务未在预期时间内终止，可能未触发强制推迟或出现死循环")
         time.Sleep(tick * 4)
-        if !taskDone.Load() {
+        if atomic.LoadUint32(&taskDone) == 0 {
             t.Fatal("任务未按预期结束")
         }
-        if got := runCount.Load(); got < 1025 {
+        if got := atomic.LoadInt32(&runCount); got < 1025 {
             t.Fatalf("任务执行次数过少: %d，预期至少超过 maxImmediateReschedule", got)
         }
-        if got := scheduleCalls.Load(); got < 1026 {
+        if got := atomic.LoadInt32(&scheduleCalls); got < 1026 {
             t.Fatalf("调度函数调用次数过少: %d，预期至少超过 maxImmediateReschedule", got)
         }
         assertTaskCount(t, w, 0, "任务结束后计数错误")
@@ -542,21 +542,21 @@ func TestTimerWheel_ScheduleCustom(t *testing.T) {
         t.Parallel()
         // 验证 schedule 返回零值终止时，最后一次执行必须真正完成（回归）
         tick := 50 * time.Millisecond
-        var execCount atomic.Int32
-        var lastRunCompleted atomic.Bool
+        var execCount int32
+        var lastRunCompleted uint32
         done := make(chan struct{}, 1)
 
         w := NewTimerWheel(WithTickInterval(tick))
         defer w.Stop()
 
         w.ScheduleCustom(func(now time.Time) time.Time {
-            if execCount.Load() >= 3 {
+            if atomic.LoadInt32(&execCount) >= 3 {
                 return time.Time{}
             }
             return now.Add(tick)
         }, FuncTask(func() {
-            count := execCount.Add(1)
-            lastRunCompleted.Store(true)
+            count := atomic.AddInt32(&execCount, 1)
+            atomic.StoreUint32(&lastRunCompleted, 1)
             if count == 3 {
                 select {
                 case done <- struct{}{}:
@@ -568,10 +568,10 @@ func TestTimerWheel_ScheduleCustom(t *testing.T) {
         waitFor(t, done, 3*time.Second, "未在预期时间内收到第 3 次执行通知")
 
         time.Sleep(tick * 4)
-        if got := execCount.Load(); got != 3 {
+        if got := atomic.LoadInt32(&execCount); got != 3 {
             t.Errorf("执行次数错误: %d, 预期 3", got)
         }
-        if !lastRunCompleted.Load() {
+        if atomic.LoadUint32(&lastRunCompleted) == 0 {
             t.Error("最后一次执行的 fn 未真正完成")
         }
         assertTaskCount(t, w, 0, "终止后计数错误")
@@ -592,7 +592,7 @@ func TestTimerWheel_Cancel(t *testing.T) {
         handle.Cancel()
         // 等待足够长让原任务本应执行
         time.Sleep(300 * time.Millisecond)
-        if et.count.Load() > 0 {
+        if atomic.LoadInt32(&et.count) > 0 {
             t.Error("已取消的任务不应该执行")
         }
         // 幂等性：多次取消不应该 panic
@@ -626,8 +626,8 @@ func TestTimerWheel_Cancel(t *testing.T) {
         handle := w.ScheduleRepeating(5*time.Second, FuncTask(func() {}))
         handle.Cancel()
         time.Sleep(500 * time.Millisecond)
-        if et.count.Load() > 0 {
-            t.Errorf("取消的重复任务仍然执行了 %d 次", et.count.Load())
+        if atomic.LoadInt32(&et.count) > 0 {
+            t.Errorf("取消的重复任务仍然执行了 %d 次", atomic.LoadInt32(&et.count))
         }
         assertClean(t, w, "取消后")
     })
@@ -683,7 +683,7 @@ func TestTimerWheel_Stop(t *testing.T) {
         w.Schedule(500*time.Millisecond, FuncTask(func() {}))
         w.Stop()
         time.Sleep(600 * time.Millisecond)
-        t.Logf("停止后任务执行次数: %d", et.count.Load())
+        t.Logf("停止后任务执行次数: %d", atomic.LoadInt32(&et.count))
         // 幂等性：多次停止不应该 panic
         for i := 0; i < 5; i++ {
             w.Stop()
@@ -698,7 +698,7 @@ func TestTimerWheel_Stop(t *testing.T) {
         w.Stop()
         handle := w.Schedule(100*time.Millisecond, FuncTask(func() {}))
         time.Sleep(200 * time.Millisecond)
-        if et.count.Load() > 0 {
+        if atomic.LoadInt32(&et.count) > 0 {
             t.Error("Stop 后的任务不应该执行")
         }
         // 返回的句柄应该是已取消状态，多次取消不应该 panic
@@ -717,9 +717,9 @@ func TestTimerWheel_Stop(t *testing.T) {
         // 等待任务进入时间轮但未到期
         time.Sleep(tick)
         w.Stop()
-        executedBefore := et.count.Load()
+        executedBefore := atomic.LoadInt32(&et.count)
         time.Sleep(500 * time.Millisecond)
-        executedAfter := et.count.Load()
+        executedAfter := atomic.LoadInt32(&et.count)
         if executedAfter > executedBefore+1 {
             t.Errorf("Stop 后仍有任务执行: 之前 %d, 之后 %d", executedBefore, executedAfter)
         }
@@ -752,7 +752,7 @@ func TestTimerWheel_Stop(t *testing.T) {
         atomic.StoreUint32(&w.stopped, 1)
         w.processLayerTasks(layer, currentIdx, false)
 
-        if got := et.count.Load(); got != 0 {
+        if got := atomic.LoadInt32(&et.count); got != 0 {
             t.Fatalf("stopped 后 cascade 任务仍被执行: %d", got)
         }
         assertTaskCount(t, w, 0, "stopped 后 counted 未回收")
@@ -834,23 +834,23 @@ func TestTimerWheel_Panic(t *testing.T) {
         ctx := newPanicTestCtx(20 * time.Millisecond)
         defer ctx.W.Stop()
 
-        var victimRuns atomic.Int32
-        var healthyRuns atomic.Int32
+        var victimRuns int32
+        var healthyRuns int32
         healthyDone := make(chan struct{}, 1)
 
-        var scheduleCalls atomic.Int32
+        var scheduleCalls int32
         // 受害任务：第3次 schedule 调用时 panic
         ctx.W.ScheduleCustom(func(now time.Time) time.Time {
-            call := scheduleCalls.Add(1)
+            call := atomic.AddInt32(&scheduleCalls, 1)
             if call == 3 {
                 panic("schedule boom")
             }
             return now.Add(ctx.Tick)
-        }, FuncTask(func() { victimRuns.Add(1) }))
+        }, FuncTask(func() { atomic.AddInt32(&victimRuns, 1) }))
 
         // 健康任务：验证时间轮继续运行
         ctx.W.ScheduleRepeating(ctx.Tick, FuncTask(func() {
-            if healthyRuns.Add(1) == 3 {
+            if atomic.AddInt32(&healthyRuns, 1) == 3 {
                 select {
                 case healthyDone <- struct{}{}:
                 default:
@@ -862,13 +862,13 @@ func TestTimerWheel_Panic(t *testing.T) {
         waitFor(t, healthyDone, 2*time.Second, "其他任务未继续执行，说明 schedule panic 影响了时间轮运行")
         time.Sleep(ctx.Tick * 4)
 
-        if got := ctx.panicCalls.Load(); got != 1 {
+        if got := atomic.LoadInt32(&ctx.panicCalls); got != 1 {
             t.Fatalf("panicHandler 调用次数错误: %d, 预期 1", got)
         }
         if recovered := ctx.handlerRecovered.Load(); recovered != "schedule boom" {
             t.Fatalf("panicHandler 收到的 panic 值错误: %v", recovered)
         }
-        if got := victimRuns.Load(); got != 2 {
+        if got := atomic.LoadInt32(&victimRuns); got != 2 {
             t.Fatalf("panic 前任务执行次数错误: %d, 预期 2", got)
         }
         assertTaskCount(t, ctx.W, 1, "panic 后计数错误（应仅剩健康重复任务）")
@@ -882,23 +882,23 @@ func TestTimerWheel_Panic(t *testing.T) {
         ctx := newPanicTestCtx(20 * time.Millisecond)
         defer ctx.W.Stop()
 
-        var taskRuns atomic.Int32
+        var taskRuns int32
         handle := ctx.W.ScheduleCustom(func(now time.Time) time.Time {
             panic("initial schedule boom")
-        }, FuncTask(func() { taskRuns.Add(1) }))
+        }, FuncTask(func() { atomic.AddInt32(&taskRuns, 1) }))
 
         if handle == nil {
             t.Fatal("ScheduleCustom 返回了 nil handle")
         }
         waitFor(t, ctx.notified, time.Second, "未收到 panicHandler 通知")
 
-        if got := ctx.panicCalls.Load(); got != 1 {
+        if got := atomic.LoadInt32(&ctx.panicCalls); got != 1 {
             t.Fatalf("panicHandler 调用次数错误: %d, 预期 1", got)
         }
         if recovered := ctx.handlerRecovered.Load(); recovered != "initial schedule boom" {
             t.Fatalf("panicHandler 收到的 panic 值错误: %v", recovered)
         }
-        if got := taskRuns.Load(); got != 0 {
+        if got := atomic.LoadInt32(&taskRuns); got != 0 {
             t.Fatalf("任务不应执行，实际执行次数: %d", got)
         }
         assertTaskCount(t, ctx.W, 0, "首次 panic 后计数错误")
@@ -952,21 +952,21 @@ func TestTimerWheel_Panic(t *testing.T) {
         tests := []struct {
             name     string
             executor func(Task)
-            taskBody func(runs *atomic.Int32) Task
-            assert   func(t *testing.T, w *TimerWheel, runs *atomic.Int32)
+            taskBody func(runs *int32) Task
+            assert   func(t *testing.T, w *TimerWheel, runs *int32)
         }{
             {"TaskCountReleases",
                 func(task Task) { panic("executor boom") },
-                func(_ *atomic.Int32) Task { return FuncTask(func() {}) },
-                func(t *testing.T, w *TimerWheel, _ *atomic.Int32) {
+                func(_ *int32) Task { return FuncTask(func() {}) },
+                func(t *testing.T, w *TimerWheel, _ *int32) {
                     assertTaskCount(t, w, 0, "executor panic 后计数未归零")
                 },
             },
             {"AfterRun_OnDoneOnlyOnce",
                 func(task Task) { task.Run(); panic("executor boom after run") },
-                func(runs *atomic.Int32) Task { return FuncTask(func() { runs.Add(1) }) },
-                func(t *testing.T, w *TimerWheel, runs *atomic.Int32) {
-                    if got := runs.Load(); got != 1 {
+                func(runs *int32) Task { return FuncTask(func() { atomic.AddInt32(runs, 1) }) },
+                func(t *testing.T, w *TimerWheel, runs *int32) {
+                    if got := atomic.LoadInt32(runs); got != 1 {
                         t.Fatalf("任务执行次数错误: %d, 预期 1", got)
                     }
                     assertTaskCount(t, w, 0, "executor 在 task.Run 后 panic 导致计数错误")
@@ -979,7 +979,7 @@ func TestTimerWheel_Panic(t *testing.T) {
             tt := tt
             t.Run(tt.name, func(t *testing.T) {
                 t.Parallel()
-                var runs atomic.Int32
+                var runs int32
                 w := NewTimerWheel(WithTickInterval(tick), WithExecutor(tt.executor))
                 defer w.Stop()
                 w.Schedule(50*time.Millisecond, tt.taskBody(&runs))
@@ -1018,7 +1018,7 @@ func TestTimerWheel_Concurrent(t *testing.T) {
         time.Sleep(time.Duration(numTasksPerGoroutine*10+200)*time.Millisecond + tick*2)
 
         expectedTasks := numGoroutines * numTasksPerGoroutine
-        count := et.count.Load()
+        count := atomic.LoadInt32(&et.count)
         if count < int32(expectedTasks)*9/10 {
             t.Errorf("并发调度执行任务数不足: %d, 预期约 %d", count, expectedTasks)
         }
@@ -1042,9 +1042,9 @@ func TestTimerWheel_Defense(t *testing.T) {
 
     t.Run("FuncTask", func(t *testing.T) {
         t.Parallel()
-        var executed atomic.Bool
-        FuncTask(func() { executed.Store(true) }).Run()
-        if !executed.Load() {
+        var executed uint32
+        FuncTask(func() { atomic.StoreUint32(&executed, 1) }).Run()
+        if atomic.LoadUint32(&executed) == 0 {
             t.Error("FuncTask.Run() 未执行")
         }
         // nil FuncTask 不应该 panic
@@ -1150,7 +1150,7 @@ func TestTimerWheel_ProcessLayerTasks_DrainsSlice(t *testing.T) {
     // 零延迟任务同步执行，等待完成
     time.Sleep(200 * time.Millisecond)
 
-    if got := et.count.Load(); got != n {
+    if got := atomic.LoadInt32(&et.count); got != n {
         t.Errorf("零延迟批量任务执行数错误: %d, 预期 %d", got, n)
     }
     assertTaskCount(t, w, 0, "零延迟批量任务执行后计数错误")
