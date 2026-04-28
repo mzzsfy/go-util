@@ -23,6 +23,23 @@ func TestLocalTime_UnmarshalJSON(t *testing.T) {
             t.Errorf("Expected error, got nil")
         }
     })
+
+    t.Run("EmptyInput", func(t *testing.T) {
+        var lt LocalTime
+        err := lt.UnmarshalJSON([]byte{})
+        if err == nil {
+            t.Errorf("Expected error for empty input, got nil")
+        }
+    })
+
+    t.Run("NullJSON", func(t *testing.T) {
+        var lt LocalTime
+        err := lt.UnmarshalJSON([]byte("null"))
+        // null 不是合法时间格式, 应返回错误
+        if err == nil {
+            t.Errorf("Expected error for 'null' input, got nil")
+        }
+    })
 }
 
 func TestLocalTime_MarshalJSON(t *testing.T) {
@@ -167,6 +184,63 @@ func Test_ParseLocalTimeAuto1(t *testing.T) {
             t.Errorf("Expected no error, got %v", err)
         }
     })
+}
+
+// TestFormatDuration_Negative 验证负数 duration 正确处理,保留负号
+func TestFormatDuration_Negative(t *testing.T) {
+    tests := []struct {
+        name     string
+        input    time.Duration
+        negative bool
+    }{
+        {"零值", 0, false},
+        {"负5秒", -5 * time.Second, true},
+        {"负100毫秒", -100 * time.Millisecond, true},
+        {"负1分钟", -time.Minute, true},
+        {"正5秒", 5 * time.Second, false},
+    }
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            got := FormatDuration(tt.input)
+            s := got.String()
+            if tt.negative && !strings.HasPrefix(s, "-") {
+                t.Errorf("FormatDuration(%v) = %q, 期望负号前缀", tt.input, s)
+            }
+            if !tt.negative && strings.HasPrefix(s, "-") {
+                t.Errorf("FormatDuration(%v) = %q, 不应有负号前缀", tt.input, s)
+            }
+        })
+    }
+}
+
+// TestFormatDuration_RoundTrip 验证 FormatDuration 后字符串长度合理
+func TestFormatDuration_RoundTrip(t *testing.T) {
+    tests := []struct {
+        name  string
+        input time.Duration
+    }{
+        {"大于10分钟", 11*time.Minute + 30*time.Second},
+        {"1到10分钟之间", 5*time.Minute + 30*time.Second + 100*time.Millisecond},
+        {"10秒到1分钟", 30*time.Second + 500*time.Millisecond},
+        {"100毫秒到10秒", 5*time.Second + 123*time.Millisecond},
+        {"10毫秒到100毫秒", 50*time.Millisecond + 123*time.Microsecond},
+        {"1毫秒到10毫秒", 5*time.Millisecond + 123*time.Microsecond},
+        {"小于1毫秒", 500 * time.Microsecond},
+    }
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            got := FormatDuration(tt.input)
+            s := got.String()
+            // 格式化后的字符串长度应 <= 7 (负数允许 <= 8)
+            maxLen := 7
+            if tt.input < 0 {
+                maxLen = 8
+            }
+            if len(s) > maxLen {
+                t.Errorf("FormatDuration(%v) = %q, 长度 %d 超过上限 %d", tt.input, s, len(s), maxLen)
+            }
+        })
+    }
 }
 
 func FuzzFormatDuration(f *testing.F) {

@@ -1,59 +1,16 @@
 package helper
 
-import (
-    "sync"
-    "time"
-)
-
-func Ternary[T any](test bool, trueValue, falseValue T) T {
-    if test {
-        return trueValue
-    }
-    return falseValue
-}
-
-func TernaryF[T any, F func() T](test bool, trueValue, falseValue F) T {
-    if test {
-        return trueValue()
-    }
-    return falseValue()
-}
-
-func TernaryVF[T any, F func() T](test bool, trueValue T, falseValue F) T {
-    if test {
-        return trueValue
-    }
-    return falseValue()
-}
-
-func Default[T any](test, defaultValue T) T {
-    if !IsZero(test) {
-        return test
-    }
-    return defaultValue
-}
-
-func Defaults[T any](defaultValue T, tests ...T) T {
-    for _, t := range tests {
-        if !IsZero(t) {
-            return t
-        }
-    }
-    return defaultValue
-}
-
-func NotZero(test any) bool {
-    return !IsZero(test)
-}
-
+// AnyArray 将多个任意类型参数转换为[]any
 func AnyArray(vars ...any) []any {
     return vars
 }
 
+// AnyArrayT 将多个同类型参数转换为切片
 func AnyArrayT[T any](vars ...T) []T {
     return vars
 }
 
+// Must 如果err不为nil则panic,否则返回data
 func Must[T any](data T, err error) T {
     if err != nil {
         panic(err)
@@ -61,52 +18,10 @@ func Must[T any](data T, err error) T {
     return data
 }
 
+// MustR 如果err不为nil则panic,否则返回data(参数顺序与Must相反)
 func MustR[T any](err error, data T) T {
     if err != nil {
         panic(err)
     }
     return data
-}
-
-func OneOfL[L, R any](data L, _ R) L {
-    return data
-}
-func OneOfR[L, R any](_ L, data R) R {
-    return data
-}
-func OneOf3L[L, M, R any](data L, _ M, _ R) L {
-    return data
-}
-func OneOf3M[L, M, R any](_ L, data M, _ R) M {
-    return data
-}
-func OneOf3R[L, M, R any](_ L, _ M, data R) R {
-    return data
-}
-
-func Debounce(call func(), duration time.Duration) func() {
-    var lastCall *time.Time
-    return func() {
-        if lastCall == nil {
-            call()
-            t := time.Now()
-            lastCall = &t
-        } else {
-            now := time.Now()
-            if now.Sub(*lastCall) > duration {
-                lastCall = &now
-                call()
-            }
-        }
-    }
-}
-
-func DebounceConcurrent(call func(), duration time.Duration) func() {
-    f := Debounce(call, duration)
-    var lock sync.Mutex
-    return func() {
-        lock.Lock()
-        defer lock.Unlock()
-        f()
-    }
 }

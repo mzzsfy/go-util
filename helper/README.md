@@ -29,27 +29,31 @@ StringAllIsNumber(str string) bool
 //三元运算
 Ternary[T any](test bool, trueValue, falseValue T) T
 Default[T any](test, defaultValue T) T
-TryWithStack(f func(), callback func(recoverValue any, stack []Stack))
+TryWithStack(f func(), callback func (recoverValue any, stack []Stack))
 ```
 
 ## cron任务,延迟执行
 
 ```go
-s := NewScheduler()
-s.AddIntervalTask(func() {code... }, time.Millisecond*200)
-s.AddDelayTask(func() {code... }, time.Millisecond*200)
-s.AddCustomizeTask(func() {code... }, func(t time.Time) time.Time { return t.Add(...) })
-s.AddCronTask("0", func(){})
+// ParseCron 解析cron表达式
+scheduler, err := ParseCron("*/5 * * * * ?")
+next := scheduler.NextTime(time.Now())
+
+// TimerWheel 时间轮调度器
+tw := NewTimerWheel()
+tw.Schedule(time.Second*5, FuncTask(func() { /* ... */ }))
+tw.ScheduleRepeating(time.Second*10, FuncTask(func () { /* ... */ }))
+tw.ScheduleCustom(func (now time.Time) time.Time { return now.Add(...) }, FuncTask(func () { /* ... */ }))
 ```
 
 ## 批量按序运行
 
 ```go
 //注册启动后运行回调
-AfterInit(name string, f func())
+AfterInit(name string, f func ())
 
-caller:=&FuncCaller{}
-caller.AddFnOrder(func() {code...})
+caller := &FuncCaller{}
+caller.AddFnOrder(func () {code...})
 ```
 
 ## 数字
@@ -67,19 +71,15 @@ Abs[T Number](a, b T) T
 ParseLocalTimeAuto(str string) (LocalTime, error)
 
 // FormatDuration 格式化time.Duration 使其长度尽量为7位
-FormatDuration(duration time.Duration) time.Duration 
+FormatDuration(duration time.Duration) time.Duration
 ```
-
-## 布隆过滤器
-
-效果不够理想,不推荐使用,后面可能改成仅允许string 的版本,优化hash效果
 
 ## dfa查找
 
 支持字符串等基于 []byte 的类型
 
 ```go
-dfa:=NewDfa(MakeNewDfsNode[bool](i))
+dfa:= NewDfa(MakeNewDfsNode[bool](i))
 dfa.Add([]byte("aaa"), true) //可以存储这个词对应的信息
 dfa.Test([]byte("aaa"))
 ```
@@ -88,52 +88,4 @@ dfa.Test([]byte("aaa"))
 
 ```go
 CallerStack(skip int, limit ...int) []Stack
-```
-
-
-## 状态追踪
-
-优化开发体验,避免使用context等工具里的类型转换
-
-```go
-var k1 = DefStatusKeyStatic(int64(1))
-var k2 = DefStatusKeyStatic(int64(1))
-var k3 = DefStatusKeyFn(func() string {
-    return strconv.Itoa(rand.Int())
-})
-
-//上面的为全局变量,无需重复声明
-
-ctx := NewStatusTraceCtx()
-DefItem(ctx, k1).Set(11)
-DefItem(ctx, k2).Set(12)
-DefItem(ctx, k3).Set("abc")
-if DefItem(ctx, k1).Value() != 11 {
-    t.Errorf("Expected 11, got %d", DefItem(ctx, k1).Value())
-}
-if DefItem(ctx, k2).Value() != 12 {
-    t.Errorf("Expected 12, got %d", DefItem(ctx, k2).Value())
-}
-if DefItem(ctx, k3).Value() != "abc" {
-    t.Errorf("Expected abc, got %s", DefItem(ctx, k3).Value())
-}
-```
-对比之前的实现方式
-```go
-var ctx = context.Background()
-
-//panic(cast error)
-//ctx.Value("key1").(int)
-ctx = context.WithValue(ctx, "key1", 1)
-ctx = context.WithValue(ctx, "key2", 3)
-ctx = context.WithValue(ctx, "key3", "abc")
-//panic(cast error)
-//ctx.Value("key1").(string)
-if i, ok := ctx.Value("key1").(int); ok {
-if i != 1 {
-    t.Errorf("Expected 1, got %d", i)
-}
-} else {
-    t.Errorf("Expected 1, got %v", ctx.Value("key1"))
-}
 ```

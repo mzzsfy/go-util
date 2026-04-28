@@ -16,6 +16,7 @@
 *.out
 *.log
 *.pprof
+*.prof
 
 # Dependency directories (remove the comment below to include it)
 # vendor/
@@ -36,6 +37,9 @@ fuzz
 .history/
 
 .idea/
+
+.worktrees/
+.claude/
 
 # Built Visual Studio Code Extensions
 *.vsix

@@ -1,31 +1,31 @@
 package pool
 
 import (
-    "github.com/mzzsfy/go-util/storage"
     "sync"
     "sync/atomic"
+
+    "github.com/mzzsfy/go-util/storage"
 )
+
+type stringPoolEntry struct {
+    id    uint64
+    using uint32
+}
 
 func NewStringPool() *StringPool {
     return &StringPool{
-        m: storage.NewMap[string, struct {
-            id    uint32
-            using uint32
-        }](),
+        m: storage.NewMap[string, *stringPoolEntry](),
     }
 }
 
-// StringPool 字符串池,用数字代替字符串,用于Map的Key场景
+// StringPool 字符串池, 用数字代替字符串, 用于 Map 的 Key 场景
 type StringPool struct {
-    idGen uint32
+    idGen uint64
     lock  sync.RWMutex
-    m     storage.Map[string, struct {
-        id    uint32
-        using uint32
-    }]
+    m     storage.Map[string, *stringPoolEntry]
 }
 
-func (p *StringPool) Peek(s string) uint32 {
+func (p *StringPool) Peek(s string) uint64 {
     p.lock.RLock()
     defer p.lock.RUnlock()
     if v, ok := p.m.Get(s); ok {
@@ -33,12 +33,15 @@ func (p *StringPool) Peek(s string) uint32 {
     }
     return 0
 }
-func (p *StringPool) Use(s string) uint32 {
+
+func (p *StringPool) Use(s string) uint64 {
     p.lock.RLock()
     if v, ok := p.m.Get(s); ok {
-        p.lock.RUnlock()
+        // 在读锁内完成原子递增，避免 RUnlock 后 UnUse 将引用计数减到 0 并删除条目
         atomic.AddUint32(&v.using, 1)
-        return v.id
+        id := v.id
+        p.lock.RUnlock()
+        return id
     }
     p.lock.RUnlock()
     p.lock.Lock()
@@ -47,31 +50,22 @@ func (p *StringPool) Use(s string) uint32 {
         atomic.AddUint32(&v.using, 1)
         return v.id
     }
-    id := atomic.AddUint32(&p.idGen, 1)
-    p.m.Put(s, struct {
-        id    uint32
-        using uint32
-    }{
+    id := atomic.AddUint64(&p.idGen, 1)
+    p.m.Put(s, &stringPoolEntry{
         id:    id,
         using: 1,
     })
     return id
 }
 
+// UnUse 释放一次引用, 引用归零时删除条目
+// 使用写锁保证与 Use 的原子递增之间无 TOCTOU 窗口
 func (p *StringPool) UnUse(s string) {
-    p.lock.RLock()
+    p.lock.Lock()
     if v, ok := p.m.Get(s); ok {
-        p.lock.RUnlock()
         if atomic.AddUint32(&v.using, ^uint32(0)) == 0 {
-            p.lock.Lock()
-            defer p.lock.Unlock()
-            if v, ok := p.m.Get(s); ok {
-                if v.using == 0 {
-                    p.m.Delete(s)
-                }
-            }
+            p.m.Delete(s)
         }
-        return
     }
-    p.lock.RUnlock()
+    p.lock.Unlock()
 }

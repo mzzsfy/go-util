@@ -3,12 +3,31 @@ package helper
 import (
     "errors"
     "math"
-    "math/bits"
     "math/rand"
-    "strconv"
+    "sort"
     "strings"
+    "sync"
     "time"
 )
+
+// 并发安全的全局随机数生成器，兼容 Go 1.18
+var (
+    globalRandMu sync.Mutex
+    globalRand   = rand.New(rand.NewSource(time.Now().UnixNano()))
+)
+
+// safeRandInt63n 并发安全地生成 [0, n) 的随机 int64
+func safeRandInt63n(n int64) int64 {
+    globalRandMu.Lock()
+    v := globalRand.Int63n(n)
+    globalRandMu.Unlock()
+    return v
+}
+
+// CustomSchedulerTime 自定义调度时间接口
+type CustomSchedulerTime interface {
+    NextTime(time.Time) time.Time
+}
 
 type everyTask time.Duration
 
@@ -22,377 +41,48 @@ type randomTask struct {
 }
 
 func (e *randomTask) NextTime(t time.Time) time.Time {
-    return t.Add(time.Duration(rand.Int63n(e.rand)) + e.offset)
+    return t.Add(time.Duration(safeRandInt63n(e.rand)) + e.offset)
 }
 
-var (
-    cronRules = [][]uint64{
-        {0, 59},
-        {0, 59},
-        {0, 23},
-        {1, 31},
-        {1, 12},
-        {0, 7},
-        {1990, 9999},
-    }
-    weekMap = map[string]string{
-        "SUN": "1",
-        "MON": "2",
-        "TUE": "3",
-        "WED": "4",
-        "THU": "5",
-        "FRI": "6",
-        "SAT": "7",
-    }
-    monthMap = map[string]string{
-        "JAN": "1",
-        "FEB": "2",
-        "MAR": "3",
-        "APR": "4",
-        "MAY": "5",
-        "JUN": "6",
-        "JUL": "7",
-        "AUG": "8",
-        "SEP": "9",
-        "OCT": "10",
-        "NOV": "11",
-        "DEC": "12",
-    }
-)
+// joinError 多错误组合
+type joinError struct {
+    errs []error
+}
 
-//解析cron表达式中非年份部分,星期和月份部分需要特殊处理
-func parseCronItem(cronItem string, min, max uint64) (s uint64, e error) {
-    if strings.Contains(cronItem, "/") {
-        //处理步长
-        start, end, step, err := parseStep(cronItem, min, max)
+func (e *joinError) Error() string {
+    var b []byte
+    for i, err := range e.errs {
+        if i > 0 {
+            b = append(b, '\n')
+        }
+        b = append(b, err.Error()...)
+    }
+    return string(b)
+}
+
+func (e *joinError) Unwrap() []error {
+    return e.errs
+}
+
+func joinErrs(errs ...error) error {
+    n := 0
+    for _, err := range errs {
         if err != nil {
-            e = err
-            return
+            n++
         }
-        for i := start; i <= end; i += step {
-            s |= 1 << i
-        }
-        return
     }
-    //处理范围
-    if strings.Contains(cronItem, "-") {
-        start, end, err := parseRange(cronItem, min, max)
+    if n == 0 {
+        return nil
+    }
+    e := &joinError{
+        errs: make([]error, 0, n),
+    }
+    for _, err := range errs {
         if err != nil {
-            e = err
-            return
-        }
-        for i := start; i <= end; i++ {
-            s |= 1 << i
-        }
-        return
-    }
-    //处理*号
-    if cronItem == "*" || cronItem == "?" {
-        s = parseBlurRange(min, max)
-        return
-    }
-    r, err := parseSingle(cronItem, min, max)
-    if err != nil {
-        e = err
-        return
-    }
-    for _, i := range r {
-        s |= 1 << i
-    }
-    return
-}
-
-func parseSingle(item string, min uint64, max uint64) (r []uint64, e error) {
-    items := strings.Split(item, ",")
-    //处理单个时间
-    for _, str := range items {
-        i, err := strconv.ParseInt(str, 10, 64)
-        if err != nil {
-            e = joinErrs(errors.New(item+"无法解析为数字"), err)
-            return
-        }
-        if i < int64(min) || i > int64(max) {
-            e = errors.New("范围错误,范围必须在" + strconv.Itoa(int(min)) + "-" + strconv.Itoa(int(max)) + "之间," + strconv.Itoa(int(i)) + "超出范围")
-            return
-        }
-        r = append(r, uint64(i))
-    }
-    return
-}
-
-func parseBlurRange(min, max uint64) uint64 {
-    s := uint64(math.MaxUint64)
-    s = s >> (63 - max)
-    s = s >> min << min
-    return s
-}
-
-func parseStep(item string, min, max uint64) (start, end, step uint64, e error) {
-    stepItem := strings.Split(item, "/")
-    if len(stepItem) != 2 {
-        e = errors.New("解析错误,步长错误必须'a/b'格式,尝试解析的值为:" + item)
-        return
-    }
-    start = min
-    end = max
-    if strings.Contains(stepItem[0], "-") {
-        //最复杂的情况,包含/和-
-        start1, end1, err := parseRange(stepItem[0], min, max)
-        if err != nil {
-            e = err
-            return
-        }
-        start = uint64(start1)
-        end = uint64(end1)
-    } else if stepItem[0] != "*" {
-        start1, err := strconv.ParseInt(stepItem[0], 10, 64)
-        if err != nil {
-            e = joinErrs(errors.New(stepItem[0]+"无法解析为数字"), err)
-            return
-        }
-        start = uint64(start1)
-    }
-    if start > end {
-        e = errors.New("范围错误,开始不能大于结束," + strconv.Itoa(int(start)) + ">" + strconv.Itoa(int(end)))
-        return
-    }
-    if start < min {
-        e = errors.New("范围错误,开始必须在" + strconv.Itoa(int(min)) + "-" + strconv.Itoa(int(max)) + "之间," + strconv.Itoa(int(start)) + "超出范围")
-        return
-    }
-    if end > max {
-        e = errors.New("范围错误,结束必须在" + strconv.Itoa(int(min)) + "-" + strconv.Itoa(int(max)) + "之间," + strconv.Itoa(int(end)) + "超出范围")
-        return
-    }
-    step1, err := strconv.ParseInt(stepItem[1], 10, 64)
-    if err != nil {
-        e = joinErrs(errors.New(stepItem[1]+"无法解析为数字"), err)
-        return
-    }
-    step = uint64(step1)
-    if step == 0 {
-        e = errors.New("步长错误,步长不能为0,尝试解析的值为:" + item)
-        return
-    }
-    if step > max {
-        e = errors.New("步长错误,步长不能大于" + strconv.Itoa(int(max)) + ",尝试解析的值为:" + item)
-        return
-    }
-    return
-}
-
-func parseRange(item string, min, max uint64) (start int64, end int64, e error) {
-    rangeItem := strings.Split(item, "-")
-    if len(rangeItem) != 2 {
-        e = errors.New("解析错误,范围错误必须'a-b'格式")
-        return
-    }
-    start, err := strconv.ParseInt(rangeItem[0], 10, 64)
-    if err != nil {
-        e = joinErrs(errors.New(rangeItem[0]+"无法解析为数字"), err)
-        return
-    }
-    end, err = strconv.ParseInt(rangeItem[1], 10, 64)
-    if err != nil {
-        e = joinErrs(errors.New(rangeItem[1]+"无法解析为数字"), err)
-        return
-    }
-    if start > end {
-        e = errors.New("范围错误,开始不能大于结束," + strconv.Itoa(int(start)) + ">" + strconv.Itoa(int(end)))
-        return
-    }
-    if start < int64(min) {
-        e = errors.New("范围错误,开始必须在" + strconv.Itoa(int(min)) + "-" + strconv.Itoa(int(max)) + "之间," + strconv.Itoa(int(start)) + "超出范围")
-        return
-    }
-    if end > int64(max) {
-        e = errors.New("范围错误,结束必须在" + strconv.Itoa(int(min)) + "-" + strconv.Itoa(int(max)) + "之间," + strconv.Itoa(int(end)) + "超出范围")
-        return
-    }
-    return
-}
-
-type cronTimer struct {
-    corn  string
-    year  []int
-    month uint16
-    week  uint8
-    //L,C,W,# 从高到低位含义为
-    //日:L月末,W工作日,周:L最后一周,W最近的工作日(不支持),空2位,(3位)第几周#(可用1~7,实际为1~5)
-    //lcw uint8
-
-    day, hour      uint32
-    second, minute uint64
-
-    local *time.Location
-}
-
-//获取下一个合法值
-func getNextNumber(b int8, Range uint64) (i int, circulate bool) {
-    //右移b位,判断是否需要进位
-    t := Range >> b
-    if t == 0 {
-        return bits.TrailingZeros64(Range), true
-    }
-    //获取低位有多少个0,并加上基础值b
-    return bits.TrailingZeros64(t) + int(b), false
-}
-
-//检查是否是合法值
-func checkNumber(b int8, Range uint64) bool {
-    return Range>>b&1 != 0
-}
-
-func (s *cronTimer) NextTime(t time.Time) time.Time {
-    year, month, day := t.Date()
-    hour, minu, sec := t.Clock()
-    var fixed bool
-
-    //修正原始时间
-    if !checkNumber(int8(sec), s.second) {
-        sec1, _ := getNextNumber(int8(sec+1), s.second)
-        fixed = sec != sec1
-        if sec1 < sec {
-            minu++
-        }
-        sec = sec1
-    }
-    if !checkNumber(int8(minu), s.minute) {
-        minu1, _ := getNextNumber(int8(minu+1), s.minute)
-        fixed = fixed || minu != minu1
-        if minu1 < minu {
-            hour++
-            sec, _ = getNextNumber(int8(0), s.second)
-        }
-        minu = minu1
-    }
-    if !checkNumber(int8(hour), uint64(s.hour)) {
-        hour1, _ := getNextNumber(int8(hour+1), uint64(s.hour))
-        fixed = fixed || hour != hour1
-        if hour1 < hour {
-            day++
-            minu, _ = getNextNumber(int8(0), s.minute)
-            sec, _ = getNextNumber(int8(0), s.second)
-        }
-        hour = hour1
-    }
-    if !checkNumber(int8(day), uint64(s.day)) {
-        day1, _ := getNextNumber(int8(day+1), uint64(s.day))
-        fixed = fixed || day != day1
-        if day1 < day {
-            month++
-            hour, _ = getNextNumber(int8(0), s.second)
-            minu, _ = getNextNumber(int8(0), s.minute)
-            sec, _ = getNextNumber(int8(0), s.second)
-        }
-        day = day1
-    }
-    if !checkNumber(int8(month), uint64(s.month)) {
-        month1, _ := getNextNumber(int8(month+1), uint64(s.month))
-        fixed = fixed || int(month) != month1
-        if month1 < int(month) {
-            year++
-            month = time.Month(month1)
-            day, _ = getNextNumber(int8(0), uint64(s.day))
-            sec, _ = getNextNumber(int8(0), s.second)
-            minu, _ = getNextNumber(int8(0), s.minute)
-            hour, _ = getNextNumber(int8(0), s.second)
-        }
-        month = time.Month(month1)
-    }
-
-    if len(s.year) > 0 {
-        for _, y := range s.year {
-            if y > year {
-                year = y
-                day = 0
-                month = time.Month(1)
-                sec, _ = getNextNumber(int8(0), s.second)
-                minu, _ = getNextNumber(int8(0), s.minute)
-                hour, _ = getNextNumber(int8(0), s.second)
-                fixed = true
-                break
-            }
-            if y == year {
-                year = y
-                break
-            }
+            e.errs = append(e.errs, err)
         }
     }
-    if !fixed {
-        var circulate bool
-        if sec, circulate = getNextNumber(int8(sec+1), s.second); !circulate {
-            goto ok
-        }
-        if minu, circulate = getNextNumber(int8(minu+1), s.minute); !circulate {
-            goto ok
-        }
-        if hour, circulate = getNextNumber(int8(hour+1), uint64(s.hour)); circulate {
-            var month1 int
-            day, month1, year = s.nextDay(day, int(month), year)
-            month = time.Month(month1)
-        }
-    ok:
-    }
-    {
-        if day == 0 {
-            var month1 int
-            day, month1, year = s.nextDay(day, int(month), year)
-            month = time.Month(month1)
-        } else {
-            t1 := time.Date(year, month, day, 0, 0, 0, 0, s.local)
-            weekday := t1.Weekday() + 1
-            if (s.week>>uint8(weekday))&1 != 1 {
-                var month1 int
-                day, month1, year = s.nextDay(day, int(month), year)
-                month = time.Month(month1)
-            }
-        }
-    }
-
-    if year == 0 {
-        return time.Time{}
-    }
-    return time.Date(year, month, day, hour, minu, sec, 0, s.local)
-}
-
-func (s *cronTimer) nextDay(day, month, year int) (int, int, int) {
-    circulate := false
-    nextYear := false
-    for {
-        if day, circulate = getNextNumber(int8(day+1), uint64(s.day)); !circulate {
-            goto testWeek
-        }
-        if month, circulate = getNextNumber(int8(month+1), uint64(s.month)); circulate {
-            if len(s.year) == 0 {
-                //未设置年份,允许进位一次
-                if !nextYear {
-                    year++
-                    day, _ = getNextNumber(int8(0), uint64(s.day))
-                    month, _ = getNextNumber(int8(0), uint64(s.month))
-                } else {
-                    return 0, 0, 0
-                }
-                nextYear = true
-            } else {
-                for _, y := range s.year {
-                    if y > year {
-                        year = y
-                        month = 1
-                        goto testWeek
-                    }
-                }
-                return 0, 0, 0
-            }
-        }
-    testWeek:
-        t := time.Date(year, time.Month(month), day, 0, 0, 0, 0, s.local)
-        weekday := t.Weekday() + 1
-        if (s.week>>uint8(weekday))&1 == 1 {
-            break
-        }
-    }
-    return day, month, year
+    return e
 }
 
 // ParseCron 解析cron表达式,支持5~7位cron表达式,支持设置时区 TZ=Asia/Shanghai 10 10 * * * *
@@ -412,6 +102,9 @@ func ParseCron(cron string) (CustomSchedulerTime, error) {
         }
         cron = cron[strings.Index(cron, " ")+1:]
     }
+    if len(cron) == 0 {
+        return nil, errors.New("cron表达式不能为空")
+    }
     if cron[0] == '@' {
         if strings.HasPrefix(cron, "@every ") {
             cron = cron[7:]
@@ -426,7 +119,7 @@ func ParseCron(cron string) (CustomSchedulerTime, error) {
             return &t, nil
         }
         if strings.HasPrefix(cron, "@random ") {
-            cron = cron[7:]
+            cron = strings.TrimSpace(cron[8:])
             split := strings.Split(cron, " ")
             min := time.Second
             var err error
@@ -451,6 +144,11 @@ func ParseCron(cron string) (CustomSchedulerTime, error) {
             if min < time.Second {
                 return nil, errors.New("时间间隔最少为1s,你的表达式为:" + cron)
             }
+            // max==min 时 rand=0, rand.Int63n(0) 会 panic, 退化为固定间隔
+            if max == min {
+                t := everyTask(min)
+                return &t, nil
+            }
             return &randomTask{
                 offset: min,
                 rand:   int64(max - min),
@@ -473,46 +171,27 @@ func ParseCron(cron string) (CustomSchedulerTime, error) {
         items = append([]string{"0"}, items...)
     }
     s := &cronTimer{
-        corn:  cron,
         local: tz,
     }
     for i, item := range items {
-        //年
+        //年: 使用 parseCronValues 统一解析, 避免与 parseCronItem 结构重复
         if i == 6 {
             if item == "?" || item == "*" {
                 continue
-            } else if strings.Contains(item, "/") {
-                start, end, step, err := parseStep(item, 2000, 2099)
-                if err != nil {
-                    return nil, joinErrs(errors.New("解析错误,"+item), err)
-                }
-                for i := start; i <= end; i += step {
-                    s.year = append(s.year, int(i))
-                }
-            } else if strings.Contains(item, "-") {
-                start, end, err := parseRange(item, 2000, 2099)
-                if err != nil {
-                    return nil, joinErrs(errors.New("解析错误,"+item), err)
-                }
-                for i := start; i <= end; i++ {
-                    s.year = append(s.year, int(i))
-                }
-            } else {
-                //手动指定允许指定到9999年
-                r, err := parseSingle(item, 0, 9999)
-                if err != nil {
-                    return nil, joinErrs(errors.New("解析错误,"+item), err)
-                }
-                for _, i := range r {
-                    s.year = append(s.year, int(i))
-                }
+            }
+            vals, err := parseCronValues(item, cronRules[6][0], cronRules[6][1])
+            if err != nil {
+                return nil, joinErrs(errors.New("解析错误,"+item), err)
+            }
+            for _, v := range vals {
+                s.year = append(s.year, int(v))
             }
             continue
         }
         //周
         if i == 5 {
             if item == "?" || item == "*" {
-                v, _ := parseCronItem("*", 1, 7)
+                v, _ := parseCronItem("*", 0, 6)
                 s.week = uint8(v)
                 continue
             }
@@ -538,12 +217,13 @@ func ParseCron(cron string) (CustomSchedulerTime, error) {
                 }
             }
             //非*或者?号,则与day of month互斥
-            if v != math.MaxUint8>>1<<1 && s.day != math.MaxUint32>>1<<1 {
+            if v != parseBlurRange(0, 6) && s.day != math.MaxUint32>>1<<1 {
                 return nil, errors.New("解析错误,周几和每月第几天不能同时设置,你的表达式为:" + cron)
             }
-            //0替换为7
-            if v&1 != 0 {
-                v = (v & ^uint64(1)) | 1<<7
+            // 7替换为0（Go的Sunday在bit 0）
+            if v&(1<<7) != 0 {
+                v |= 1
+                v &^= 1 << 7
             }
             s.week = uint8(v)
             continue
@@ -578,6 +258,10 @@ func ParseCron(cron string) (CustomSchedulerTime, error) {
         default:
             panic("不可能出现的情况")
         }
+    }
+    // 年份列表排序, 保证 NextTime 线性遍历能找到最小的大于当前年份的值
+    if len(s.year) > 1 {
+        sort.Ints(s.year)
     }
     return s, nil
 }

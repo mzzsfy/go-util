@@ -59,17 +59,20 @@ func MinN[N Number](ns ...N) N {
     }
     r := ns[0]
     for _, n := range ns {
-        if r < n {
+        if r > n {
             r = n
         }
     }
     return r
 }
 
+// Abs 取绝对值
+// 对有符号整数最小值(如 int64(math.MinInt64))，返回同类型最大值(饱和处理)
 func Abs[N Number](n N) N {
     if n < 0 {
         n = -n
         if n < 0 {
+            // 溢出: MinInt 取反仍为负, 饱和到 MaxInt
             n += 1
             n = -n
         }
@@ -77,7 +80,8 @@ func Abs[N Number](n N) N {
     return n
 }
 
-var buf = sync.Pool{
+// intStrBufPool 用于 NumberToString 的临时缓冲区池, 避免堆分配
+var intStrBufPool = sync.Pool{
     New: func() any {
         return &[20]byte{}
     },
@@ -105,9 +109,9 @@ func ParseStringToFloat(intStr string, defaultValue float64) float64 {
     return i
 }
 
-func NumberToString[T ~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 | ~uintptr | ~int | ~int8 | ~int16 | ~int32 | ~int64](n T) string {
-    bs := buf.Get().(*[20]byte)
-    defer buf.Put(bs)
+func NumberToString[T Integer](n T) string {
+    bs := intStrBufPool.Get().(*[20]byte)
+    defer intStrBufPool.Put(bs)
     r := bs[:]
     negative := false
     i := len(r) - 1
