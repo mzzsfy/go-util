@@ -45,3 +45,42 @@ func Test_Hash(t *testing.T) {
     })
 
 }
+
+// BenchmarkNewHasher 测试 Hasher 创建性能
+func BenchmarkNewHasher(b *testing.B) {
+    b.ReportAllocs()
+    for i := 0; i < b.N; i++ {
+        NewHasher[int]()
+    }
+}
+
+// BenchmarkHash_Int 测试 int 类型哈希性能
+func BenchmarkHash_Int(b *testing.B) {
+    b.ReportAllocs()
+    h := NewHasher[int]()
+    b.ResetTimer()
+    for i := 0; i < b.N; i++ {
+        h.Hash(i)
+    }
+}
+
+// BenchmarkHash_String 测试 string 类型哈希性能
+func BenchmarkHash_String(b *testing.B) {
+    b.ReportAllocs()
+    h := NewHasher[string]()
+    data := "benchmark test string"
+    b.ResetTimer()
+    for i := 0; i < b.N; i++ {
+        h.Hash(data)
+    }
+}
+
+// BenchmarkHash_String_Different 测试不同字符串的哈希性能
+func BenchmarkHash_String_Different(b *testing.B) {
+    b.ReportAllocs()
+    h := NewHasher[string]()
+    b.ResetTimer()
+    for i := 0; i < b.N; i++ {
+        h.Hash(strconv.Itoa(i))
+    }
+}

@@ -41,3 +41,21 @@ func goID1() int64 {
     r, _ := strconv.ParseInt(s[:i], 10, 64)
     return r
 }
+
+// BenchmarkGoID 测试 GoID 获取性能
+func BenchmarkGoID(b *testing.B) {
+    b.ReportAllocs()
+    for i := 0; i < b.N; i++ {
+        unsafe.GoID()
+    }
+}
+
+// BenchmarkGoID_Parallel 测试并发场景下 GoID 获取性能
+func BenchmarkGoID_Parallel(b *testing.B) {
+    b.ReportAllocs()
+    b.RunParallel(func(pb *testing.PB) {
+        for pb.Next() {
+            unsafe.GoID()
+        }
+    })
+}
