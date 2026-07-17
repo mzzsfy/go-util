@@ -6,7 +6,7 @@ import (
 )
 
 // TestValueNil_Int_Panic 测试 valueNil.Int() 应当 panic
-func TestValueNil_Int_Panic(t *testing.T) {
+func Test_ValueNil_Int_Panic(t *testing.T) {
 	t.Parallel()
 	defer func() {
 		if r := recover(); r == nil {
@@ -18,7 +18,7 @@ func TestValueNil_Int_Panic(t *testing.T) {
 }
 
 // TestValueNil_Float_Panic 测试 valueNil.Float() 应当 panic
-func TestValueNil_Float_Panic(t *testing.T) {
+func Test_ValueNil_Float_Panic(t *testing.T) {
 	t.Parallel()
 	defer func() {
 		if r := recover(); r == nil {
@@ -30,7 +30,7 @@ func TestValueNil_Float_Panic(t *testing.T) {
 }
 
 // TestValueNil_Bool_Panic 测试 valueNil.Bool() 应当 panic
-func TestValueNil_Bool_Panic(t *testing.T) {
+func Test_ValueNil_Bool_Panic(t *testing.T) {
 	t.Parallel()
 	defer func() {
 		if r := recover(); r == nil {
@@ -42,7 +42,7 @@ func TestValueNil_Bool_Panic(t *testing.T) {
 }
 
 // TestValueNil_DefaultValues 测试 valueNil 默认值方法
-func TestValueNil_DefaultValues(t *testing.T) {
+func Test_ValueNil_DefaultValues(t *testing.T) {
 	t.Parallel()
 	v := valueNil{}
 
@@ -73,7 +73,7 @@ func TestValueNil_DefaultValues(t *testing.T) {
 }
 
 // TestValueString_ParseFailed 测试 valueString 解析失败返回 0
-func TestValueString_ParseFailed(t *testing.T) {
+func Test_ValueString_ParseFailed(t *testing.T) {
 	t.Parallel()
 	v := valueString("not-a-number")
 
@@ -86,7 +86,7 @@ func TestValueString_ParseFailed(t *testing.T) {
 }
 
 // TestValueString_Parsing 测试 valueString 正常解析
-func TestValueString_Parsing(t *testing.T) {
+func Test_ValueString_Parsing(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name     string
@@ -121,7 +121,7 @@ func TestValueString_Parsing(t *testing.T) {
 }
 
 // TestValueString_DefaultValues 测试 valueString 默认值方法
-func TestValueString_DefaultValues(t *testing.T) {
+func Test_ValueString_DefaultValues(t *testing.T) {
 	t.Parallel()
 	v := valueString("invalid")
 
@@ -140,7 +140,7 @@ func TestValueString_DefaultValues(t *testing.T) {
 }
 
 // TestValueAny_TypeConversions 测试 valueAny 类型转换
-func TestValueAny_TypeConversions(t *testing.T) {
+func Test_ValueAny_TypeConversions(t *testing.T) {
 	t.Parallel()
 	// 整数类型转换
 	intTests := []struct {
@@ -191,7 +191,7 @@ func TestValueAny_TypeConversions(t *testing.T) {
 }
 
 // TestValueAny_Bool 测试 valueAny 布尔转换
-func TestValueAny_Bool(t *testing.T) {
+func Test_ValueAny_Bool(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name  string
@@ -217,7 +217,7 @@ func TestValueAny_Bool(t *testing.T) {
 }
 
 // TestValueAny_DefaultValues 测试 valueAny 默认值
-func TestValueAny_DefaultValues(t *testing.T) {
+func Test_ValueAny_DefaultValues(t *testing.T) {
 	t.Parallel()
 	// 无效类型返回默认值
 	v := valueAny{value: "not-a-number"}
@@ -237,7 +237,7 @@ func TestValueAny_DefaultValues(t *testing.T) {
 }
 
 // TestValue_Child_NestedAccess 测试 Child 嵌套访问
-func TestValue_Child_NestedAccess(t *testing.T) {
+func Test_Value_Child_NestedAccess(t *testing.T) {
 	t.Parallel()
 	// 创建嵌套结构
 	nested := map[string]any{
@@ -276,7 +276,7 @@ func TestValue_Child_NestedAccess(t *testing.T) {
 }
 
 // TestValueString_Child 测试 valueString.Child 返回 valueNil
-func TestValueString_Child(t *testing.T) {
+func Test_ValueString_Child(t *testing.T) {
 	t.Parallel()
 	v := valueString("test")
 	child := v.Child("any")
@@ -286,7 +286,7 @@ func TestValueString_Child(t *testing.T) {
 }
 
 // TestValueFromPath 测试路径取值
-func TestValueFromPath(t *testing.T) {
+func Test_ValueFromPath(t *testing.T) {
 	t.Parallel()
 	data := map[string]any{
 		"key":      "value",
@@ -335,7 +335,7 @@ func TestValueFromPath(t *testing.T) {
 }
 
 // TestValueFromPath_EmptyConfig 测试空配置访问
-func TestValueFromPath_EmptyConfig(t *testing.T) {
+func Test_ValueFromPath_EmptyConfig(t *testing.T) {
 	t.Parallel()
 	// 测试空map
 	emptyMap := map[string]any{}
@@ -352,7 +352,7 @@ func TestValueFromPath_EmptyConfig(t *testing.T) {
 }
 
 // TestValueFromPath_DeepNested 测试超深嵌套路径
-func TestValueFromPath_DeepNested(t *testing.T) {
+func Test_ValueFromPath_DeepNested(t *testing.T) {
 	t.Parallel()
 	// 构建深度嵌套结构
 	data := map[string]any{}
@@ -390,7 +390,7 @@ func TestValueFromPath_DeepNested(t *testing.T) {
 }
 
 // TestValueFromPath_InvalidPathFormat 测试无效路径格式
-func TestValueFromPath_InvalidPathFormat(t *testing.T) {
+func Test_ValueFromPath_InvalidPathFormat(t *testing.T) {
 	t.Parallel()
 	data := map[string]any{
 		"key": "value",
@@ -432,7 +432,7 @@ func TestValueFromPath_InvalidPathFormat(t *testing.T) {
 }
 
 // TestValueFromPath_ArrayIndex 测试数组索引路径
-func TestValueFromPath_ArrayIndex(t *testing.T) {
+func Test_ValueFromPath_ArrayIndex(t *testing.T) {
 	t.Parallel()
 	data := map[string]any{
 		"arr": []any{"a", "b", "c"},

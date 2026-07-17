@@ -7,7 +7,7 @@ import (
     "time"
 )
 
-func TestLocalTime_UnmarshalJSON(t *testing.T) {
+func Test_LocalTime_UnmarshalJSON(t *testing.T) {
     t.Run("ValidTimeFormat", func(t *testing.T) {
         var lt LocalTime
         err := lt.UnmarshalJSON([]byte("\"2022-12-31 23:59:59\""))
@@ -42,7 +42,7 @@ func TestLocalTime_UnmarshalJSON(t *testing.T) {
     })
 }
 
-func TestLocalTime_MarshalJSON(t *testing.T) {
+func Test_LocalTime_MarshalJSON(t *testing.T) {
     t.Run("MarshalTime", func(t *testing.T) {
         lt := LocalTime(time.Date(2022, 12, 31, 23, 59, 59, 0, time.Local))
         b, err := lt.MarshalBinary()
@@ -55,7 +55,7 @@ func TestLocalTime_MarshalJSON(t *testing.T) {
     })
 }
 
-func TestParseLocalTime(t *testing.T) {
+func Test_ParseLocalTime(t *testing.T) {
     t.Run("ValidTimeFormat", func(t *testing.T) {
         _, err := ParseLocalTime("2022-12-31 23:59:59")
         if err != nil {
@@ -187,7 +187,7 @@ func Test_ParseLocalTimeAuto1(t *testing.T) {
 }
 
 // TestFormatDuration_Negative 验证负数 duration 正确处理,保留负号
-func TestFormatDuration_Negative(t *testing.T) {
+func Test_FormatDuration_Negative(t *testing.T) {
     tests := []struct {
         name     string
         input    time.Duration
@@ -214,7 +214,7 @@ func TestFormatDuration_Negative(t *testing.T) {
 }
 
 // TestFormatDuration_RoundTrip 验证 FormatDuration 后字符串长度合理
-func TestFormatDuration_RoundTrip(t *testing.T) {
+func Test_FormatDuration_RoundTrip(t *testing.T) {
     tests := []struct {
         name  string
         input time.Duration

@@ -200,7 +200,7 @@ func testMixedHooks(t *testing.T) {
 }
 
 // TestHookBeanModification 测试钩子修改实例
-func TestHookBeanModification(t *testing.T) {
+func Test_HookBeanModification(t *testing.T) {
     container := New()
 
     type Service struct {
@@ -239,7 +239,7 @@ func TestHookBeanModification(t *testing.T) {
 }
 
 // TestHookReplacement 测试钩子替换实例
-func TestHookReplacement(t *testing.T) {
+func Test_HookReplacement(t *testing.T) {
     container := New()
 
     type Service struct {
@@ -272,7 +272,7 @@ func TestHookReplacement(t *testing.T) {
 }
 
 // TestHookErrorHandling 测试钩子错误处理
-func TestHookErrorHandling(t *testing.T) {
+func Test_HookErrorHandling(t *testing.T) {
     container := New()
 
     type Service struct{ Value string }

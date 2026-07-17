@@ -35,7 +35,7 @@ func (m *mockCache[K, V]) Size() int {
 }
 
 // TestCacheWrap_GetOr_Hit 测试缓存命中场景
-func TestCacheWrap_GetOr_Hit(t *testing.T) {
+func Test_CacheWrap_GetOr_Hit(t *testing.T) {
 	t.Parallel()
 	cache := NewCacheWrap[string, int](newMockCache[string, int]())
 	cache.Set("key1", 100)
@@ -51,7 +51,7 @@ func TestCacheWrap_GetOr_Hit(t *testing.T) {
 }
 
 // TestCacheWrap_GetOr_Miss 测试缓存未命中场景
-func TestCacheWrap_GetOr_Miss(t *testing.T) {
+func Test_CacheWrap_GetOr_Miss(t *testing.T) {
 	t.Parallel()
 	cache := NewCacheWrap[string, int](newMockCache[string, int]())
 
@@ -107,7 +107,7 @@ func TestCacheWrap_GetOr_Concurrent(t *testing.T) {
 }
 
 // TestCacheWrap_NewCacheWrap 测试构造函数
-func TestCacheWrap_NewCacheWrap(t *testing.T) {
+func Test_CacheWrap_NewCacheWrap(t *testing.T) {
 	t.Parallel()
 	mock := newMockCache[string, string]()
 	wrap := NewCacheWrap[string, string](mock)

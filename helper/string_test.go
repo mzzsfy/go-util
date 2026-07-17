@@ -6,7 +6,7 @@ import (
 )
 
 // TestTruncate 验证 Truncate 截断逻辑
-func TestTruncate(t *testing.T) {
+func Test_Truncate(t *testing.T) {
     tests := []struct {
         name   string
         input  string
@@ -34,7 +34,7 @@ func TestTruncate(t *testing.T) {
 }
 
 // TestPadding 验证 Padding 填充逻辑
-func TestPadding(t *testing.T) {
+func Test_Padding(t *testing.T) {
     tests := []struct {
         name   string
         input  string
@@ -61,7 +61,7 @@ func TestPadding(t *testing.T) {
 }
 
 // TestPaddingOrTruncate 验证 PaddingOrTruncate 组合逻辑
-func TestPaddingOrTruncate(t *testing.T) {
+func Test_PaddingOrTruncate(t *testing.T) {
     tests := []struct {
         name   string
         input  string
@@ -88,7 +88,7 @@ func TestPaddingOrTruncate(t *testing.T) {
 }
 
 // TestTruncateAndAppendSuffix 验证截断后追加后缀
-func TestTruncateAndAppendSuffix(t *testing.T) {
+func Test_TruncateAndAppendSuffix(t *testing.T) {
     tests := []struct {
         name   string
         input  string
@@ -113,7 +113,7 @@ func TestTruncateAndAppendSuffix(t *testing.T) {
 }
 
 // TestSub 验证 Sub 字符串截取
-func TestSub(t *testing.T) {
+func Test_Sub(t *testing.T) {
     tests := []struct {
         name   string
         src    string
@@ -140,7 +140,7 @@ func TestSub(t *testing.T) {
 }
 
 // TestSubBefore 验证 SubBefore
-func TestSubBefore(t *testing.T) {
+func Test_SubBefore(t *testing.T) {
     tests := []struct {
         src    string
         flag   string
@@ -159,7 +159,7 @@ func TestSubBefore(t *testing.T) {
 }
 
 // TestSubAfter 验证 SubAfter
-func TestSubAfter(t *testing.T) {
+func Test_SubAfter(t *testing.T) {
     tests := []struct {
         src    string
         flag   string
@@ -178,7 +178,7 @@ func TestSubAfter(t *testing.T) {
 }
 
 // TestSubByte 验证 SubByte 按 byte 截取
-func TestSubByte(t *testing.T) {
+func Test_SubByte(t *testing.T) {
     tests := []struct {
         name   string
         src    string
@@ -205,7 +205,7 @@ func TestSubByte(t *testing.T) {
 }
 
 // TestSubByteBefore 验证 SubByteBefore
-func TestSubByteBefore(t *testing.T) {
+func Test_SubByteBefore(t *testing.T) {
     if got := SubByteBefore("a/b/c", '/'); got != "a" {
         t.Errorf("SubByteBefore = %q, want %q", got, "a")
     }
@@ -215,7 +215,7 @@ func TestSubByteBefore(t *testing.T) {
 }
 
 // TestSubByteAfter 验证 SubByteAfter
-func TestSubByteAfter(t *testing.T) {
+func Test_SubByteAfter(t *testing.T) {
     if got := SubByteAfter("a/b/c", '/'); got != "c" {
         t.Errorf("SubByteAfter = %q, want %q", got, "c")
     }
@@ -225,7 +225,7 @@ func TestSubByteAfter(t *testing.T) {
 }
 
 // TestHash 验证 Hash 函数稳定性和不同输入不同输出
-func TestHash(t *testing.T) {
+func Test_Hash(t *testing.T) {
     h1 := Hash("hello")
     h2 := Hash("hello")
     h3 := Hash("world")
@@ -238,7 +238,7 @@ func TestHash(t *testing.T) {
 }
 
 // TestStringBuilder 验证 StringBuilder 链式调用
-func TestStringBuilder(t *testing.T) {
+func Test_StringBuilder(t *testing.T) {
     var sb StringBuilder
     got := sb.Append("a").AppendByte('b').AppendBytes([]byte("c")).String()
     if got != "abc" {
@@ -247,7 +247,7 @@ func TestStringBuilder(t *testing.T) {
 }
 
 // TestPaddingOrTruncate_ChineseBoundary 中文 rune 边界测试
-func TestPaddingOrTruncate_ChineseBoundary(t *testing.T) {
+func Test_PaddingOrTruncate_ChineseBoundary(t *testing.T) {
     // 中文 rune 长度按 rune 计数, 一个中文字符 = 1 rune
     input := "你好世界"
     got := PaddingOrTruncate(input, 2)
@@ -264,7 +264,7 @@ func TestPaddingOrTruncate_ChineseBoundary(t *testing.T) {
 }
 
 // TestTruncate_MultibyteRune 验证截断不会在多字节 rune 中间截断
-func TestTruncate_MultibyteRune(t *testing.T) {
+func Test_Truncate_MultibyteRune(t *testing.T) {
     input := "abc你好"
     got := Truncate(input, 4)
     if !strings.HasPrefix(got, "abc") {

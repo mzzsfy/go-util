@@ -5,7 +5,7 @@ import (
     "testing"
 )
 
-func TestAbs(t *testing.T) {
+func Test_Abs(t *testing.T) {
     t.Parallel()
     // 正数不变
     if got := Abs(5); got != 5 {
@@ -41,7 +41,7 @@ func TestAbs(t *testing.T) {
     }
 }
 
-func TestMinN(t *testing.T) {
+func Test_MinN(t *testing.T) {
     t.Parallel()
 
     tests := []struct {
@@ -75,7 +75,7 @@ func TestMinN(t *testing.T) {
     }
 }
 
-func TestMaxN(t *testing.T) {
+func Test_MaxN(t *testing.T) {
     t.Parallel()
 
     tests := []struct {
@@ -98,7 +98,7 @@ func TestMaxN(t *testing.T) {
     }
 }
 
-func TestStringIsInteger(t *testing.T) {
+func Test_StringIsInteger(t *testing.T) {
     t.Parallel()
     tests := []struct {
         input string
@@ -127,7 +127,7 @@ func TestStringIsInteger(t *testing.T) {
     }
 }
 
-func TestMax(t *testing.T) {
+func Test_Max(t *testing.T) {
     t.Parallel()
     tests := []struct {
         name string
@@ -153,7 +153,7 @@ func TestMax(t *testing.T) {
     }
 }
 
-func TestMin(t *testing.T) {
+func Test_Min(t *testing.T) {
     t.Parallel()
     tests := []struct {
         name string
@@ -178,7 +178,7 @@ func TestMin(t *testing.T) {
     }
 }
 
-func TestParseStringToInt(t *testing.T) {
+func Test_ParseStringToInt(t *testing.T) {
     t.Parallel()
     tests := []struct {
         name         string
@@ -204,7 +204,7 @@ func TestParseStringToInt(t *testing.T) {
     }
 }
 
-func TestParseStringToFloat(t *testing.T) {
+func Test_ParseStringToFloat(t *testing.T) {
     t.Parallel()
     tests := []struct {
         name         string
@@ -230,7 +230,7 @@ func TestParseStringToFloat(t *testing.T) {
     }
 }
 
-func TestNumberToString(t *testing.T) {
+func Test_NumberToString(t *testing.T) {
     t.Parallel()
     // int 类型测试
     if got := NumberToString(0); got != "0" {
@@ -256,7 +256,7 @@ func TestNumberToString(t *testing.T) {
     }
 }
 
-func TestStringAllIsNumber(t *testing.T) {
+func Test_StringAllIsNumber(t *testing.T) {
     t.Parallel()
     tests := []struct {
         input string

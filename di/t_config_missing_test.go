@@ -6,7 +6,7 @@ import (
 )
 
 // TestConfigMiss 配置缺失场景测试
-func TestConfigMiss(t *testing.T) {
+func Test_ConfigMiss(t *testing.T) {
 	c := New()
 	defer c.Shutdown(context.Background())
 
@@ -35,7 +35,7 @@ func TestConfigMiss(t *testing.T) {
 }
 
 // TestNilInstanceProvider 测试provider返回nil实例
-func TestNilInstanceProvider(t *testing.T) {
+func Test_NilInstanceProvider(t *testing.T) {
 	c := New()
 	defer c.Shutdown(context.Background())
 
@@ -58,7 +58,7 @@ func TestNilInstanceProvider(t *testing.T) {
 }
 
 // TestUnaddressableValue 测试不可寻址值的注入
-func TestUnaddressableValue(t *testing.T) {
+func Test_UnaddressableValue(t *testing.T) {
 	c := New()
 	defer c.Shutdown(context.Background())
 
@@ -86,7 +86,7 @@ func TestUnaddressableValue(t *testing.T) {
 }
 
 // TestDoubleStart 测试重复启动
-func TestDoubleStart(t *testing.T) {
+func Test_DoubleStart(t *testing.T) {
 	c := New()
 	defer c.Shutdown(context.Background())
 
@@ -104,7 +104,7 @@ func TestDoubleStart(t *testing.T) {
 }
 
 // TestShutdownHookError 测试shutdown hook错误
-func TestShutdownHookError(t *testing.T) {
+func Test_ShutdownHookError(t *testing.T) {
 	c := New()
 
 	// 注册一个会失败的销毁钩子
@@ -131,7 +131,7 @@ func TestShutdownHookError(t *testing.T) {
 }
 
 // TestBlacklistTypeInGetNamedAll 测试GetNamedAll中的黑名单类型
-func TestBlacklistTypeInGetNamedAll(t *testing.T) {
+func Test_BlacklistTypeInGetNamedAll(t *testing.T) {
 	c := New()
 	defer c.Shutdown(context.Background())
 
@@ -143,7 +143,7 @@ func TestBlacklistTypeInGetNamedAll(t *testing.T) {
 }
 
 // TestInterfaceMatchWithPointer 测试指针实现接口的匹配
-func TestInterfaceMatchWithPointer(t *testing.T) {
+func Test_InterfaceMatchWithPointer(t *testing.T) {
 	c := New()
 	defer c.Shutdown(context.Background())
 
@@ -171,7 +171,7 @@ func TestInterfaceMatchWithPointer(t *testing.T) {
 }
 
 // TestCircularDependencyDetection 测试循环依赖检测
-func TestCircularDependencyDetection(t *testing.T) {
+func Test_CircularDependencyDetection(t *testing.T) {
 	c := New()
 	defer c.Shutdown(context.Background())
 
@@ -198,7 +198,7 @@ func TestCircularDependencyDetection(t *testing.T) {
 }
 
 // TestEmptyStructInjection 测试空结构体注入
-func TestEmptyStructInjection(t *testing.T) {
+func Test_EmptyStructInjection(t *testing.T) {
 	c := New()
 	defer c.Shutdown(context.Background())
 
@@ -219,7 +219,7 @@ func TestEmptyStructInjection(t *testing.T) {
 }
 
 // TestConditionProviderFailure 测试条件提供失败
-func TestConditionProviderFailure(t *testing.T) {
+func Test_ConditionProviderFailure(t *testing.T) {
 	c := New()
 	defer c.Shutdown(context.Background())
 

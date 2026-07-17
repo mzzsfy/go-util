@@ -5,7 +5,7 @@ import (
     "testing"
 )
 
-func TestCallerStack(t *testing.T) {
+func Test_CallerStack(t *testing.T) {
     t.Run("基本调用栈", func(t *testing.T) {
         stacks := CallerStack(0)
         if len(stacks) == 0 {
@@ -41,7 +41,7 @@ func TestCallerStack(t *testing.T) {
     })
 }
 
-func TestCallerStackString(t *testing.T) {
+func Test_CallerStackString(t *testing.T) {
     s := CallerStackString(0)
     if s == "" {
         t.Fatal("CallerStackString 返回空字符串")
@@ -52,7 +52,7 @@ func TestCallerStackString(t *testing.T) {
     }
 }
 
-func TestFormatStack(t *testing.T) {
+func Test_FormatStack(t *testing.T) {
     stacks := CallerStack(0)
     result := FormatStack(stacks)
     if result == "" {
@@ -66,7 +66,7 @@ func TestFormatStack(t *testing.T) {
     }
 }
 
-func TestSimpleFunctionName(t *testing.T) {
+func Test_SimpleFunctionName(t *testing.T) {
     stacks := CallerStack(0)
     if len(stacks) == 0 {
         t.Fatal("无法获取调用栈")
@@ -81,7 +81,7 @@ func TestSimpleFunctionName(t *testing.T) {
     }
 }
 
-func TestFunctionName(t *testing.T) {
+func Test_FunctionName(t *testing.T) {
     stacks := CallerStack(0)
     if len(stacks) == 0 {
         t.Fatal("无法获取调用栈")
@@ -96,7 +96,7 @@ func TestFunctionName(t *testing.T) {
     }
 }
 
-func TestStacksString(t *testing.T) {
+func Test_StacksString(t *testing.T) {
     stacks := CallerStack(0)
     result := stacks.String()
     if result == "" {
@@ -104,7 +104,7 @@ func TestStacksString(t *testing.T) {
     }
 }
 
-func TestCallerStack_RuntimeSkip(t *testing.T) {
+func Test_CallerStack_RuntimeSkip(t *testing.T) {
     // 验证跳过了 runtime 内部帧
     stacks := CallerStack(0)
     for _, s := range stacks {

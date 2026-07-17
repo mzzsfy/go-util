@@ -377,7 +377,7 @@ func testScopeManagement(t *testing.T) {
 }
 
 // testShutdown 测试关闭功能
-func TestShutdown(t *testing.T) {
+func Test_Shutdown(t *testing.T) {
     container := New()
 
     // 注册带生命周期的服务
@@ -411,7 +411,7 @@ func TestShutdown(t *testing.T) {
 }
 
 // TestGlobalFunctions 测试全局函数
-func TestGlobalFunctions(t *testing.T) {
+func Test_GlobalFunctions(t *testing.T) {
     // 测试全局容器
     global := GlobalContainer()
     if global == nil {
@@ -448,7 +448,7 @@ func TestGlobalFunctions(t *testing.T) {
 }
 
 // TestMapConfigSource 测试Map配置源
-func TestMapConfigSource(t *testing.T) {
+func Test_MapConfigSource(t *testing.T) {
     source := NewMapConfigSource()
 
     // 测试基本操作
@@ -862,7 +862,7 @@ func testContainerStatsPerformance(t *testing.T) {
 }
 
 // TestMixedUsage 测试混合使用场景
-func TestMixedUsage(t *testing.T) {
+func Test_MixedUsage(t *testing.T) {
     container := New()
 
     // 设置配置

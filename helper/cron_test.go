@@ -731,7 +731,7 @@ func Test_Cron_CompositeExpression(t *testing.T) {
 }
 
 // TestWeekdayOf_Sakamoto 验证 Sakamoto 算法与 time.Date 结果一致
-func TestWeekdayOf_Sakamoto(t *testing.T) {
+func Test_WeekdayOf_Sakamoto(t *testing.T) {
     t.Parallel()
     tests := []struct {
         y int

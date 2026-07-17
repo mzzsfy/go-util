@@ -8,7 +8,7 @@ import (
 )
 
 // TestCollectMatchingInstancesWithConditionFail 测试条件失败时的分支
-func TestCollectMatchingInstancesWithConditionFail(t *testing.T) {
+func Test_CollectMatchingInstancesWithConditionFail(t *testing.T) {
 	c := New().(*container)
 
 	// 提供一个带条件的实例，条件返回false
@@ -41,7 +41,7 @@ func TestCollectMatchingInstancesWithConditionFail(t *testing.T) {
 }
 
 // TestMergeParentResultsNoParent 测试没有父容器的情况
-func TestMergeParentResultsNoParent(t *testing.T) {
+func Test_MergeParentResultsNoParent(t *testing.T) {
 	c := New().(*container)
 	results := map[string]any{"key": "value"}
 
@@ -53,7 +53,7 @@ func TestMergeParentResultsNoParent(t *testing.T) {
 }
 
 // TestMergeParentResultsWithParentError 测试父容器返回错误
-func TestMergeParentResultsWithParentError(t *testing.T) {
+func Test_MergeParentResultsWithParentError(t *testing.T) {
 	parent := New().(*container)
 	c := New().(*container)
 	c.parent = parent
@@ -82,7 +82,7 @@ type testErrorForCoverage struct{}
 func (e *testErrorForCoverage) Error() string { return "test" }
 
 // TestTryDirectOrInterfaceMatchPtrImplements 测试指针实现接口的情况
-func TestTryDirectOrInterfaceMatchPtrImplements(t *testing.T) {
+func Test_TryDirectOrInterfaceMatchPtrImplements(t *testing.T) {
 	field := reflect.New(reflect.TypeOf((*error)(nil)).Elem()).Elem()
 	value := reflect.ValueOf(&testErrorForCoverage{})
 	fieldType := field.Type()
@@ -96,7 +96,7 @@ func TestTryDirectOrInterfaceMatchPtrImplements(t *testing.T) {
 }
 
 // TestTryDirectOrInterfaceMatchElemImplements 测试指针Elem实现接口的情况
-func TestTryDirectOrInterfaceMatchElemImplements(t *testing.T) {
+func Test_TryDirectOrInterfaceMatchElemImplements(t *testing.T) {
 	// 创建一个接口字段
 	field := reflect.New(reflect.TypeOf((*error)(nil)).Elem()).Elem()
 
@@ -115,7 +115,7 @@ func TestTryDirectOrInterfaceMatchElemImplements(t *testing.T) {
 }
 
 // TestSmartTypeConversionStringToString 测试字符串到字符串的转换
-func TestSmartTypeConversionStringToString(t *testing.T) {
+func Test_SmartTypeConversionStringToString(t *testing.T) {
 	field := reflect.New(reflect.TypeOf("")).Elem()
 	value := reflect.ValueOf("test-value")
 	fieldType := field.Type()
@@ -132,7 +132,7 @@ func TestSmartTypeConversionStringToString(t *testing.T) {
 }
 
 // TestSmartTypeConversionStringToBool 测试字符串到布尔值的转换
-func TestSmartTypeConversionStringToBool(t *testing.T) {
+func Test_SmartTypeConversionStringToBool(t *testing.T) {
 	field := reflect.New(reflect.TypeOf(false)).Elem()
 	value := reflect.ValueOf("true")
 	fieldType := field.Type()
@@ -149,7 +149,7 @@ func TestSmartTypeConversionStringToBool(t *testing.T) {
 }
 
 // TestSmartTypeConversionStringToInt 测试字符串到整数的转换
-func TestSmartTypeConversionStringToInt(t *testing.T) {
+func Test_SmartTypeConversionStringToInt(t *testing.T) {
 	field := reflect.New(reflect.TypeOf(0)).Elem()
 	value := reflect.ValueOf("42")
 	fieldType := field.Type()
@@ -166,7 +166,7 @@ func TestSmartTypeConversionStringToInt(t *testing.T) {
 }
 
 // TestSmartTypeConversionStringToFloat 测试字符串到浮点数的转换
-func TestSmartTypeConversionStringToFloat(t *testing.T) {
+func Test_SmartTypeConversionStringToFloat(t *testing.T) {
 	field := reflect.New(reflect.TypeOf(0.0)).Elem()
 	value := reflect.ValueOf("3.14")
 	fieldType := field.Type()
@@ -183,7 +183,7 @@ func TestSmartTypeConversionStringToFloat(t *testing.T) {
 }
 
 // TestSmartTypeConversionStringToUint 测试字符串到无符号整数的转换
-func TestSmartTypeConversionStringToUint(t *testing.T) {
+func Test_SmartTypeConversionStringToUint(t *testing.T) {
 	field := reflect.New(reflect.TypeOf(uint(0))).Elem()
 	value := reflect.ValueOf("42")
 	fieldType := field.Type()
@@ -200,7 +200,7 @@ func TestSmartTypeConversionStringToUint(t *testing.T) {
 }
 
 // TestTryDirectOrInterfaceMatchTypeEquality 测试类型相等的情况
-func TestTryDirectOrInterfaceMatchTypeEquality(t *testing.T) {
+func Test_TryDirectOrInterfaceMatchTypeEquality(t *testing.T) {
 	field := reflect.New(reflect.TypeOf("")).Elem()
 	value := reflect.ValueOf("test")
 	fieldType := field.Type()
@@ -214,7 +214,7 @@ func TestTryDirectOrInterfaceMatchTypeEquality(t *testing.T) {
 }
 
 // TestTryDirectOrInterfaceMatchInterfaceImplementation 测试接口实现的情况
-func TestTryDirectOrInterfaceMatchInterfaceImplementation(t *testing.T) {
+func Test_TryDirectOrInterfaceMatchInterfaceImplementation(t *testing.T) {
 	// 创建一个接口字段
 	field := reflect.New(reflect.TypeOf((*error)(nil)).Elem()).Elem()
 
@@ -233,7 +233,7 @@ func TestTryDirectOrInterfaceMatchInterfaceImplementation(t *testing.T) {
 }
 
 // TestTryPointerConversionToPtr 测试转换为指针
-func TestTryPointerConversionToPtr(t *testing.T) {
+func Test_TryPointerConversionToPtr(t *testing.T) {
 	field := reflect.New(reflect.TypeOf((*int)(nil))).Elem()
 	value := reflect.ValueOf(42)
 	fieldType := field.Type()
@@ -247,7 +247,7 @@ func TestTryPointerConversionToPtr(t *testing.T) {
 }
 
 // TestTryPointerConversionFromPtr 测试从指针转换
-func TestTryPointerConversionFromPtr(t *testing.T) {
+func Test_TryPointerConversionFromPtr(t *testing.T) {
 	val := 42
 	field := reflect.New(reflect.TypeOf(0)).Elem()
 	value := reflect.ValueOf(&val)
@@ -266,7 +266,7 @@ func TestTryPointerConversionFromPtr(t *testing.T) {
 }
 
 // TestSetFieldValueCannotSet 测试字段不可设置的情况
-func TestSetFieldValueCannotSet(t *testing.T) {
+func Test_SetFieldValueCannotSet(t *testing.T) {
 	// 创建一个不可设置的字段
 	value := reflect.ValueOf("test")
 	field := value
@@ -278,7 +278,7 @@ func TestSetFieldValueCannotSet(t *testing.T) {
 }
 
 // TestSmartTypeConversionUnsupportedKind 测试不支持类型的转换
-func TestSmartTypeConversionUnsupportedKind(t *testing.T) {
+func Test_SmartTypeConversionUnsupportedKind(t *testing.T) {
 	// 测试字符串到不支持类型的转换
 	field := reflect.New(reflect.TypeOf([]int{})).Elem()
 	value := reflect.ValueOf("test")
@@ -292,7 +292,7 @@ func TestSmartTypeConversionUnsupportedKind(t *testing.T) {
 }
 
 // TestSmartTypeConversionNonString 测试非字符串源的转换
-func TestSmartTypeConversionNonString(t *testing.T) {
+func Test_SmartTypeConversionNonString(t *testing.T) {
 	field := reflect.New(reflect.TypeOf(0)).Elem()
 	value := reflect.ValueOf(123) // 不是字符串
 	fieldType := field.Type()
@@ -305,7 +305,7 @@ func TestSmartTypeConversionNonString(t *testing.T) {
 }
 
 // TestConvertStringToUintInvalid 测试无效的字符串转uint
-func TestConvertStringToUintInvalid(t *testing.T) {
+func Test_ConvertStringToUintInvalid(t *testing.T) {
 	field := reflect.New(reflect.TypeOf(uint(0))).Elem()
 	err := convertStringToUint(field, "invalid")
 	if err == nil {
@@ -314,7 +314,7 @@ func TestConvertStringToUintInvalid(t *testing.T) {
 }
 
 // TestConvertStringToFloatInvalid 测试无效的字符串转float
-func TestConvertStringToFloatInvalid(t *testing.T) {
+func Test_ConvertStringToFloatInvalid(t *testing.T) {
 	field := reflect.New(reflect.TypeOf(0.0)).Elem()
 	err := convertStringToFloat(field, "invalid")
 	if err == nil {
@@ -323,7 +323,7 @@ func TestConvertStringToFloatInvalid(t *testing.T) {
 }
 
 // TestConvertStringToIntInvalid 测试无效的字符串转int
-func TestConvertStringToIntInvalid(t *testing.T) {
+func Test_ConvertStringToIntInvalid(t *testing.T) {
 	field := reflect.New(reflect.TypeOf(0)).Elem()
 	err := convertStringToInt(field, "invalid")
 	if err == nil {
@@ -332,7 +332,7 @@ func TestConvertStringToIntInvalid(t *testing.T) {
 }
 
 // TestHasNamedWithReflectType 测试HasNamed使用reflect.Type参数
-func TestHasNamedWithReflectType(t *testing.T) {
+func Test_HasNamedWithReflectType(t *testing.T) {
 	c := New().(*container)
 
 	// 注册一个服务
@@ -357,7 +357,7 @@ func TestHasNamedWithReflectType(t *testing.T) {
 }
 
 // TestHasNamedWithParent 测试HasNamed在父容器中查找
-func TestHasNamedWithParent(t *testing.T) {
+func Test_HasNamedWithParent(t *testing.T) {
 	parent := New().(*container)
 	c := New().(*container)
 	c.parent = parent
@@ -378,7 +378,7 @@ func TestHasNamedWithParent(t *testing.T) {
 }
 
 // TestHasNamedNotFound 测试HasNamed找不到服务
-func TestHasNamedNotFound(t *testing.T) {
+func Test_HasNamedNotFound(t *testing.T) {
 	c := New().(*container)
 
 	// 查找不存在的服务
@@ -389,7 +389,7 @@ func TestHasNamedNotFound(t *testing.T) {
 }
 
 // TestContainerOptionAfterStart 测试容器选项在启动后添加
-func TestContainerOptionAfterStart(t *testing.T) {
+func Test_ContainerOptionAfterStart(t *testing.T) {
 	c := New().(*container)
 
 	// 启动容器
@@ -411,7 +411,7 @@ func TestContainerOptionAfterStart(t *testing.T) {
 }
 
 // TestWithContainerAfterCreateAfterStart 测试AfterCreate钩子在启动后添加
-func TestWithContainerAfterCreateAfterStart(t *testing.T) {
+func Test_WithContainerAfterCreateAfterStart(t *testing.T) {
 	c := New().(*container)
 
 	// 启动容器
@@ -433,7 +433,7 @@ func TestWithContainerAfterCreateAfterStart(t *testing.T) {
 }
 
 // TestWithContainerBeforeDestroyAfterStart 测试BeforeDestroy钩子在启动后添加
-func TestWithContainerBeforeDestroyAfterStart(t *testing.T) {
+func Test_WithContainerBeforeDestroyAfterStart(t *testing.T) {
 	c := New().(*container)
 
 	// 启动容器
@@ -454,7 +454,7 @@ func TestWithContainerBeforeDestroyAfterStart(t *testing.T) {
 }
 
 // TestSetConfigSource 测试设置配置源
-func TestSetConfigSource(t *testing.T) {
+func Test_SetConfigSource(t *testing.T) {
 	c := New().(*container)
 
 	// 设置配置源
@@ -468,7 +468,7 @@ func TestSetConfigSource(t *testing.T) {
 }
 
 // TestSetConfigSourceNil 测试设置nil配置源
-func TestSetConfigSourceNil(t *testing.T) {
+func Test_SetConfigSourceNil(t *testing.T) {
 	c := New().(*container)
 
 	// 设置nil配置源应该panic
@@ -482,7 +482,7 @@ func TestSetConfigSourceNil(t *testing.T) {
 }
 
 // TestGetConfigValueWithEmptyKey 测试空key的配置值获取
-func TestGetConfigValueWithEmptyKey(t *testing.T) {
+func Test_GetConfigValueWithEmptyKey(t *testing.T) {
 	c := New().(*container)
 
 	// 不设置配置源，获取空key，应该返回一个Value（可能是空值）
@@ -497,7 +497,7 @@ func TestGetConfigValueWithEmptyKey(t *testing.T) {
 }
 
 // TestGetConfigValueDetailed 测试详细的配置值获取
-func TestGetConfigValueDetailed(t *testing.T) {
+func Test_GetConfigValueDetailed(t *testing.T) {
 	c := New().(*container)
 	source := NewMapConfigSource()
 	c.SetConfigSource(source)
@@ -525,7 +525,7 @@ func TestGetConfigValueDetailed(t *testing.T) {
 }
 
 // TestCreateChildScopeConfig 测试子容器继承配置源
-func TestCreateChildScopeConfig(t *testing.T) {
+func Test_CreateChildScopeConfig(t *testing.T) {
 	parent := New().(*container)
 	source := NewMapConfigSource()
 	parent.SetConfigSource(source)
@@ -548,7 +548,7 @@ func TestCreateChildScopeConfig(t *testing.T) {
 		t.Error("child should access parent config")
 	}
 }
-func TestGetConfigValueWithSource(t *testing.T) {
+func Test_GetConfigValueWithSource(t *testing.T) {
 	c := New().(*container)
 	source := NewMapConfigSource()
 	c.SetConfigSource(source)
@@ -572,7 +572,7 @@ func TestGetConfigValueWithSource(t *testing.T) {
 }
 
 // TestWithContainerAfterDestroy 测试销毁后钩子
-func TestWithContainerAfterDestroy(t *testing.T) {
+func Test_WithContainerAfterDestroy(t *testing.T) {
 	_ = false // 标记为使用，避免编译错误
 	c := New(
 		WithContainerAfterDestroy(func(c Container, info EntryInfo) {
@@ -598,7 +598,7 @@ func TestWithContainerAfterDestroy(t *testing.T) {
 }
 
 // TestWithContainerAfterDestroyAfterStart 测试AfterDestroy钩子在启动后添加
-func TestWithContainerAfterDestroyAfterStart(t *testing.T) {
+func Test_WithContainerAfterDestroyAfterStart(t *testing.T) {
 	c := New().(*container)
 
 	// 启动容器
@@ -619,7 +619,7 @@ func TestWithContainerAfterDestroyAfterStart(t *testing.T) {
 }
 
 // TestWithContainerAfterStart 测试启动后钩子
-func TestWithContainerAfterStart(t *testing.T) {
+func Test_WithContainerAfterStart(t *testing.T) {
 	called := false
 	c := New(
 		WithContainerAfterStart(func(c Container) error {
@@ -640,7 +640,7 @@ func TestWithContainerAfterStart(t *testing.T) {
 }
 
 // TestCreateChildScope 测试创建子容器
-func TestCreateChildScope(t *testing.T) {
+func Test_CreateChildScope(t *testing.T) {
 	parent := New().(*container)
 
 	// 在父容器中注册服务（必须提供名称）
@@ -669,7 +669,7 @@ func TestCreateChildScope(t *testing.T) {
 }
 
 // TestWithContainerOnStart 测试启动钩子
-func TestWithContainerOnStart(t *testing.T) {
+func Test_WithContainerOnStart(t *testing.T) {
 	called := false
 	c := New(
 		WithContainerOnStart(func(c Container) error {
@@ -690,7 +690,7 @@ func TestWithContainerOnStart(t *testing.T) {
 }
 
 // TestWithContainerOnStartError 测试启动钩子返回错误
-func TestWithContainerOnStartError(t *testing.T) {
+func Test_WithContainerOnStartError(t *testing.T) {
 	c := New(
 		WithContainerOnStart(func(c Container) error {
 			return helper.StringError("startup error")
@@ -705,7 +705,7 @@ func TestWithContainerOnStartError(t *testing.T) {
 }
 
 // TestLoadModeTransientMore 测试瞬时加载模式
-func TestLoadModeTransientMore(t *testing.T) {
+func Test_LoadModeTransientMore(t *testing.T) {
 	callCount := 0
 	c := New().(*container)
 
@@ -738,7 +738,7 @@ func TestLoadModeTransientMore(t *testing.T) {
 }
 
 // TestClearInstancesSimple 测试清除实例
-func TestClearInstancesSimple(t *testing.T) {
+func Test_ClearInstancesSimple(t *testing.T) {
 	c := New().(*container)
 
 	// 注册并获取服务
@@ -769,7 +769,7 @@ func TestClearInstancesSimple(t *testing.T) {
 }
 
 // TestGetInstanceCountSimple 测试获取实例数量
-func TestGetInstanceCountSimple(t *testing.T) {
+func Test_GetInstanceCountSimple(t *testing.T) {
 	c := New().(*container)
 
 	// 初始应该为0
@@ -797,7 +797,7 @@ func TestGetInstanceCountSimple(t *testing.T) {
 }
 
 // TestGetProviderCountSimple 测试获取提供者数量
-func TestGetProviderCountSimple(t *testing.T) {
+func Test_GetProviderCountSimple(t *testing.T) {
 	c := New().(*container)
 
 	// 初始应该为0
@@ -820,7 +820,7 @@ func TestGetProviderCountSimple(t *testing.T) {
 }
 
 // TestServiceLifecycle 测试服务生命周期接口
-func TestServiceLifecycle(t *testing.T) {
+func Test_ServiceLifecycle(t *testing.T) {
 	shutdownCalled := false
 
 	type TestService struct {
@@ -868,7 +868,7 @@ func TestServiceLifecycle(t *testing.T) {
 }
 
 // TestGetNamedAllWithInterface 测试通过接口获取所有实例
-func TestGetNamedAllWithInterface(t *testing.T) {
+func Test_GetNamedAllWithInterface(t *testing.T) {
 	c := New().(*container)
 
 	// 注册多个实现了error接口的服务
@@ -903,7 +903,7 @@ func TestGetNamedAllWithInterface(t *testing.T) {
 }
 
 // TestValidateProviderFunctionSimple 测试验证provider函数
-func TestValidateProviderFunctionSimple(t *testing.T) {
+func Test_ValidateProviderFunctionSimple(t *testing.T) {
 	// 测试有效的provider函数
 	validFunc := func(c Container) (string, error) { return "test", nil }
 	err := validateProviderFunction(reflect.TypeOf(validFunc))
@@ -920,7 +920,7 @@ func TestValidateProviderFunctionSimple(t *testing.T) {
 }
 
 // TestTryDirectOrInterfaceMatchNonInterface 测试非接口类型的字段
-func TestTryDirectOrInterfaceMatchNonInterface(t *testing.T) {
+func Test_TryDirectOrInterfaceMatchNonInterface(t *testing.T) {
 	field := reflect.New(reflect.TypeOf(0)).Elem()
 	value := reflect.ValueOf("test")
 	fieldType := field.Type()
@@ -934,7 +934,7 @@ func TestTryDirectOrInterfaceMatchNonInterface(t *testing.T) {
 }
 
 // TestTryDirectOrInterfaceMatchInterfaceNotImplemented 测试接口未实现的情况
-func TestTryDirectOrInterfaceMatchInterfaceNotImplemented(t *testing.T) {
+func Test_TryDirectOrInterfaceMatchInterfaceNotImplemented(t *testing.T) {
 	// 创建一个接口字段
 	field := reflect.New(reflect.TypeOf((*error)(nil)).Elem()).Elem()
 
@@ -951,7 +951,7 @@ func TestTryDirectOrInterfaceMatchInterfaceNotImplemented(t *testing.T) {
 }
 
 // TestTryDirectOrInterfaceMatchPtrElemNotImplemented 测试指针Elem不实现接口
-func TestTryDirectOrInterfaceMatchPtrElemNotImplemented(t *testing.T) {
+func Test_TryDirectOrInterfaceMatchPtrElemNotImplemented(t *testing.T) {
 	// 创建一个接口字段
 	field := reflect.New(reflect.TypeOf((*error)(nil)).Elem()).Elem()
 
@@ -969,7 +969,7 @@ func TestTryDirectOrInterfaceMatchPtrElemNotImplemented(t *testing.T) {
 }
 
 // TestGetStatsDetailed 测试获取统计信息
-func TestGetStatsDetailed(t *testing.T) {
+func Test_GetStatsDetailed(t *testing.T) {
 	c := New().(*container)
 
 	// 初始统计应该为0

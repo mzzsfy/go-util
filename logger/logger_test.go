@@ -56,7 +56,7 @@ func Test_Logger_2(t *testing.T) {
     Logger("你好.你好.你好.你好.你好.你好.你好.你好.你好").I("test")
 }
 
-func TestInitName_MultiByteRunes(t *testing.T) {
+func Test_InitName_MultiByteRunes(t *testing.T) {
     oldMax := int(atomic.LoadInt32(&showNameMaxLength))
     defer SetLogNameMaxLength(oldMax)
     SetLogNameMaxLength(18)
@@ -88,7 +88,7 @@ func TestInitName_MultiByteRunes(t *testing.T) {
     }
 }
 
-func TestInitName_SmallMaxLength_NoPanic(t *testing.T) {
+func Test_InitName_SmallMaxLength_NoPanic(t *testing.T) {
     t.Parallel()
     oldMax := int(atomic.LoadInt32(&showNameMaxLength))
     oldCompressed := atomic.LoadInt32(&compressedLogName)
@@ -110,7 +110,7 @@ func TestInitName_SmallMaxLength_NoPanic(t *testing.T) {
     }
 }
 
-func TestAllLogger_VisitsAllNames(t *testing.T) {
+func Test_AllLogger_VisitsAllNames(t *testing.T) {
     names := []string{"allLogger.test.a", "allLogger.test.b", "allLogger.test.c"}
     for _, n := range names {
         Logger(n)
@@ -135,7 +135,7 @@ func TestAllLogger_VisitsAllNames(t *testing.T) {
     }
 }
 
-func TestDoLogFormat1(t *testing.T) {
+func Test_DoLogFormat1(t *testing.T) {
     t.Parallel()
     t.Run("一一对应", func(t *testing.T) {
         buf := bfPool.Get()
@@ -211,7 +211,7 @@ func TestDoLogFormat1(t *testing.T) {
     })
 }
 
-func TestLogger_LazyMethods(t *testing.T) {
+func Test_Logger_LazyMethods(t *testing.T) {
     t.Parallel()
     oldWriter := DefaultWriterTarget()
     SetDefaultWriterTarget(io.Discard)
@@ -232,7 +232,7 @@ func TestLogger_LazyMethods(t *testing.T) {
     }
 }
 
-func TestLogger_LF_DirectLevel(t *testing.T) {
+func Test_Logger_LF_DirectLevel(t *testing.T) {
     var buf bytes.Buffer
     oldWriter := DefaultWriterTarget()
     SetDefaultWriterTarget(&buf)
@@ -248,7 +248,7 @@ func TestLogger_LF_DirectLevel(t *testing.T) {
     }
 }
 
-func TestLevel_MarshalUnmarshal(t *testing.T) {
+func Test_Level_MarshalUnmarshal(t *testing.T) {
     t.Parallel()
     t.Run("String", func(t *testing.T) {
         for _, tt := range []struct {
@@ -314,7 +314,7 @@ func BenchmarkLogger_Logging(b *testing.B) {
     })
 }
 
-func TestLogger_NoPlaceholderAppendArgs_NoExtraFormatNoise(t *testing.T) {
+func Test_Logger_NoPlaceholderAppendArgs_NoExtraFormatNoise(t *testing.T) {
     var buf bytes.Buffer
     oldWriter := DefaultWriterTarget()
     SetDefaultWriterTarget(&buf)
@@ -330,7 +330,7 @@ func TestLogger_NoPlaceholderAppendArgs_NoExtraFormatNoise(t *testing.T) {
     }
 }
 
-func TestPrintYearInfo_OutputAssertion(t *testing.T) {
+func Test_PrintYearInfo_OutputAssertion(t *testing.T) {
     var buf bytes.Buffer
     oldWriter := DefaultWriterTarget()
     oldYearInfo := atomic.LoadInt32(&printYearInfo)
@@ -362,7 +362,7 @@ func TestPrintYearInfo_OutputAssertion(t *testing.T) {
     }
 }
 
-func TestCompressedLogName_OutputAssertion(t *testing.T) {
+func Test_CompressedLogName_OutputAssertion(t *testing.T) {
     var buf bytes.Buffer
     oldWriter := DefaultWriterTarget()
     oldCompressed := atomic.LoadInt32(&compressedLogName)
@@ -392,7 +392,7 @@ func TestCompressedLogName_OutputAssertion(t *testing.T) {
     }
 }
 
-func TestInitName_EmptySegment_NoPanic(t *testing.T) {
+func Test_InitName_EmptySegment_NoPanic(t *testing.T) {
     oldCompressed := atomic.LoadInt32(&compressedLogName)
     oldMax := int(atomic.LoadInt32(&showNameMaxLength))
     atomic.StoreInt32(&compressedLogName, 1)
@@ -447,7 +447,7 @@ func TestLogger_SetLogNameMaxLength_ConcurrentSafety(t *testing.T) {
     }
 }
 
-func TestDefaultLogLevel_BasicBehavior(t *testing.T) {
+func Test_DefaultLogLevel_BasicBehavior(t *testing.T) {
     var buf bytes.Buffer
     oldWriter := DefaultWriterTarget()
     oldLevel := DefaultLogLevel()
@@ -469,7 +469,7 @@ func TestDefaultLogLevel_BasicBehavior(t *testing.T) {
     }
 }
 
-func TestDefaultWriterTarget_NilFallback(t *testing.T) {
+func Test_DefaultWriterTarget_NilFallback(t *testing.T) {
     oldWriter := DefaultWriterTarget()
     defer SetDefaultWriterTarget(oldWriter)
     SetDefaultWriterTarget(nil)
@@ -479,7 +479,7 @@ func TestDefaultWriterTarget_NilFallback(t *testing.T) {
     Logger("writer.nil").I("test")
 }
 
-func TestFormatTimeCache_YearLessThan100(t *testing.T) {
+func Test_FormatTimeCache_YearLessThan100(t *testing.T) {
     oldYearInfo := atomic.LoadInt32(&printYearInfo)
     atomic.StoreInt32(&printYearInfo, 1)
     defer atomic.StoreInt32(&printYearInfo, oldYearInfo)
@@ -490,7 +490,7 @@ func TestFormatTimeCache_YearLessThan100(t *testing.T) {
     }
 }
 
-func TestLogger_DerivedLevelInheritance(t *testing.T) {
+func Test_Logger_DerivedLevelInheritance(t *testing.T) {
     log := Logger("level.derive.parent")
     log.SetLevel(ErrorLevel)
 
@@ -505,7 +505,7 @@ func TestLogger_DerivedLevelInheritance(t *testing.T) {
     }
 }
 
-func TestLogger_WithKvsOutput(t *testing.T) {
+func Test_Logger_WithKvsOutput(t *testing.T) {
     var buf bytes.Buffer
     oldWriter := DefaultWriterTarget()
     SetDefaultWriterTarget(&buf)
@@ -553,7 +553,7 @@ func TestHooks_ConcurrentAddAndLog(t *testing.T) {
     t.Logf("hook count=%d", atomic.LoadInt64(&count))
 }
 
-func TestHook_Output(t *testing.T) {
+func Test_Hook_Output(t *testing.T) {
     CleanHooks()
     defer CleanHooks()
 
@@ -572,7 +572,7 @@ func TestHook_Output(t *testing.T) {
     }
 }
 
-func TestSetLevelRecursive(t *testing.T) {
+func Test_SetLevelRecursive(t *testing.T) {
     var buf bytes.Buffer
     oldWriter := DefaultWriterTarget()
     SetDefaultWriterTarget(&buf)
@@ -603,7 +603,7 @@ func TestSetLevelRecursive(t *testing.T) {
     }
 }
 
-func TestKvsCopy_DefenseMutation(t *testing.T) {
+func Test_KvsCopy_DefenseMutation(t *testing.T) {
     var buf bytes.Buffer
     oldWriter := DefaultWriterTarget()
     SetDefaultWriterTarget(&buf)
@@ -619,7 +619,7 @@ func TestKvsCopy_DefenseMutation(t *testing.T) {
     }
 }
 
-func TestLevelGeneration_ParentChangePropagates(t *testing.T) {
+func Test_LevelGeneration_ParentChangePropagates(t *testing.T) {
     var buf bytes.Buffer
     oldWriter := DefaultWriterTarget()
     SetDefaultWriterTarget(&buf)
@@ -648,7 +648,7 @@ func TestLevelGeneration_ParentChangePropagates(t *testing.T) {
     Logger("gen.parent").SetLevel(LevelUnset)
 }
 
-func TestLevelGeneration_DefaultLevelChange(t *testing.T) {
+func Test_LevelGeneration_DefaultLevelChange(t *testing.T) {
     var buf bytes.Buffer
     oldWriter := DefaultWriterTarget()
     oldLevel := DefaultLogLevel()
@@ -667,7 +667,7 @@ func TestLevelGeneration_DefaultLevelChange(t *testing.T) {
     SetDefaultLogLevel(oldLevel)
 }
 
-func TestWithWriter_PerLoggerOutput(t *testing.T) {
+func Test_WithWriter_PerLoggerOutput(t *testing.T) {
     var globalBuf, localBuf bytes.Buffer
     oldWriter := DefaultWriterTarget()
     SetDefaultWriterTarget(&globalBuf)
@@ -692,7 +692,7 @@ func TestWithWriter_PerLoggerOutput(t *testing.T) {
     }
 }
 
-func TestWithWriter_DerivedInheritsWriter(t *testing.T) {
+func Test_WithWriter_DerivedInheritsWriter(t *testing.T) {
     var localBuf bytes.Buffer
     oldWriter := DefaultWriterTarget()
     SetDefaultWriterTarget(io.Discard)
@@ -706,7 +706,7 @@ func TestWithWriter_DerivedInheritsWriter(t *testing.T) {
     }
 }
 
-func TestRemoveHook(t *testing.T) {
+func Test_RemoveHook(t *testing.T) {
     CleanHooks()
     defer CleanHooks()
 
@@ -732,7 +732,7 @@ func TestRemoveHook(t *testing.T) {
     }
 }
 
-func TestCallerConfig_SetCallerInfo(t *testing.T) {
+func Test_CallerConfig_SetCallerInfo(t *testing.T) {
     // 保存并恢复 callerConfig
     oldCfg := atomic.LoadInt32(&callerConfig)
     defer atomic.StoreInt32(&callerConfig, oldCfg)
@@ -760,7 +760,7 @@ func TestCallerConfig_SetCallerInfo(t *testing.T) {
     }
 }
 
-func TestCallerConfig_SetCallerFunc(t *testing.T) {
+func Test_CallerConfig_SetCallerFunc(t *testing.T) {
     oldCfg := atomic.LoadInt32(&callerConfig)
     defer atomic.StoreInt32(&callerConfig, oldCfg)
 
@@ -785,7 +785,7 @@ func TestCallerConfig_SetCallerFunc(t *testing.T) {
     SetCallerInfo(false)
 }
 
-func TestRemoveLogger(t *testing.T) {
+func Test_RemoveLogger(t *testing.T) {
     // 创建一个唯一的logger层级
     prefix := "remove.test"
     l := Logger(prefix + ".a")
@@ -814,7 +814,7 @@ func TestRemoveLogger(t *testing.T) {
     }
 }
 
-func TestMaxLoggerCount(t *testing.T) {
+func Test_MaxLoggerCount(t *testing.T) {
     old := atomic.LoadInt32(&maxLoggerCount)
     defer func() {
         atomic.StoreInt32(&maxLoggerCount, old)

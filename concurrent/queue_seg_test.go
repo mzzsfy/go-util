@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-func TestSegBasic(t *testing.T) {
+func Test_SegBasic(t *testing.T) {
 	q := newSegQueue[int]()
 	q.Enqueue(1)
 	q.Enqueue(2)
@@ -30,7 +30,7 @@ func TestSegBasic(t *testing.T) {
 	}
 }
 
-func TestSegMultiSegment(t *testing.T) {
+func Test_SegMultiSegment(t *testing.T) {
 	q := newSegQueue[int]()
 	n := segSize * 3
 	for i := 0; i < n; i++ {

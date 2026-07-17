@@ -8,7 +8,7 @@ import (
 )
 
 // 测试实例管理功能
-func TestInstanceManagement(t *testing.T) {
+func Test_InstanceManagement(t *testing.T) {
 	c := New()
 
 	// 注册服务
@@ -56,7 +56,7 @@ func TestInstanceManagement(t *testing.T) {
 }
 
 // 测试 ReplaceInstance
-func TestReplaceInstance(t *testing.T) {
+func Test_ReplaceInstance(t *testing.T) {
 	c := New()
 
 	_ = ProvideValueNamed(c, "service", 100)
@@ -80,7 +80,7 @@ func TestReplaceInstance(t *testing.T) {
 }
 
 // 测试 ReplaceInstance 错误场景
-func TestReplaceInstanceError(t *testing.T) {
+func Test_ReplaceInstanceError(t *testing.T) {
 	c := New()
 
 	// 尝试替换不存在的提供者
@@ -91,7 +91,7 @@ func TestReplaceInstanceError(t *testing.T) {
 }
 
 // 测试 GetProviders
-func TestGetProviders(t *testing.T) {
+func Test_GetProviders(t *testing.T) {
 	c := New()
 
 	_ = ProvideValueNamed(c, "s1", 1)
@@ -105,7 +105,7 @@ func TestGetProviders(t *testing.T) {
 }
 
 // 测试创建子容器并继承配置
-func TestChildScopeWithConfig(t *testing.T) {
+func Test_ChildScopeWithConfig(t *testing.T) {
 	parent := New()
 
 	// 设置父容器的配置源
@@ -170,7 +170,7 @@ func TestConcurrentGetNamed(t *testing.T) {
 }
 
 // 测试生命周期钩子的完整流程
-func TestLifecycleHooksFullFlow(t *testing.T) {
+func Test_LifecycleHooksFullFlow(t *testing.T) {
 	c := New()
 
 	var beforeCreateCalled bool
@@ -219,7 +219,7 @@ func TestLifecycleHooksFullFlow(t *testing.T) {
 }
 
 // 测试条件失败的场景
-func TestConditionFailure(t *testing.T) {
+func Test_ConditionFailure(t *testing.T) {
 	c := New()
 
 	conditionCalled := false
@@ -243,7 +243,7 @@ func TestConditionFailure(t *testing.T) {
 }
 
 // 测试 Start 和 Shutdown 的多次调用
-func TestMultipleStartShutdown(t *testing.T) {
+func Test_MultipleStartShutdown(t *testing.T) {
 	c := New()
 
 	_ = ProvideValueNamed(c, "service", 42)
@@ -274,7 +274,7 @@ func TestMultipleStartShutdown(t *testing.T) {
 }
 
 // 测试统计重置
-func TestResetStats(t *testing.T) {
+func Test_ResetStats(t *testing.T) {
 	c := New()
 
 	_ = ProvideValueNamed(c, "service", 42)
@@ -300,7 +300,7 @@ func TestResetStats(t *testing.T) {
 }
 
 // 测试平均创建时间
-func TestGetAverageCreateDuration(t *testing.T) {
+func Test_GetAverageCreateDuration(t *testing.T) {
 	c := New()
 
 	_ = ProvideValueNamed(c, "service1", 1)
@@ -321,7 +321,7 @@ func TestGetAverageCreateDuration(t *testing.T) {
 }
 
 // 测试带超时的 Start
-func TestStartWithTimeout(t *testing.T) {
+func Test_StartWithTimeout(t *testing.T) {
 	c := New()
 
 	_ = ProvideValueNamed(c, "service", 42)
@@ -340,7 +340,7 @@ func TestStartWithTimeout(t *testing.T) {
 }
 
 // 测试带超时的 Shutdown
-func TestShutdownWithTimeout(t *testing.T) {
+func Test_ShutdownWithTimeout(t *testing.T) {
 	c := New()
 
 	_ = ProvideValueNamed(c, "service", 42)

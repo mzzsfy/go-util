@@ -25,7 +25,7 @@ func (m *testMyStruct) String() string {
 }
 
 // 测试 tryDirectOrInterfaceMatch 更多场景
-func TestTryDirectOrInterfaceMatch(t *testing.T) {
+func Test_TryDirectOrInterfaceMatch(t *testing.T) {
 	// 测试接口类型
 	field := reflect.ValueOf(new(testStringer)).Elem()
 	value := testMyString("test")
@@ -37,7 +37,7 @@ func TestTryDirectOrInterfaceMatch(t *testing.T) {
 	}
 }
 
-func TestTryDirectOrInterfaceMatchPointerType(t *testing.T) {
+func Test_TryDirectOrInterfaceMatchPointerType(t *testing.T) {
 	// 测试指针类型实现接口
 	field := reflect.ValueOf(new(testStringer)).Elem()
 	value := &testMyStruct{value: "test"}
@@ -49,7 +49,7 @@ func TestTryDirectOrInterfaceMatchPointerType(t *testing.T) {
 	}
 }
 
-func TestTryDirectOrInterfaceMatchFailure(t *testing.T) {
+func Test_TryDirectOrInterfaceMatchFailure(t *testing.T) {
 	field := reflect.ValueOf(new(int)).Elem()
 	value := "string"
 	valueReflect := reflect.ValueOf(value)
@@ -61,7 +61,7 @@ func TestTryDirectOrInterfaceMatchFailure(t *testing.T) {
 }
 
 // 测试 tryPointerConversion
-func TestTryPointerConversion(t *testing.T) {
+func Test_TryPointerConversion(t *testing.T) {
 	t.Run("Value to Pointer", func(t *testing.T) {
 		// 创建可寻址的字段
 		original := 42
@@ -96,7 +96,7 @@ func TestTryPointerConversion(t *testing.T) {
 	})
 }
 
-func TestTryPointerConversionNonAddressable(t *testing.T) {
+func Test_TryPointerConversionNonAddressable(t *testing.T) {
 	// 测试不可寻址的值创建新指针
 	field := reflect.ValueOf(new(*int)).Elem()
 
@@ -111,7 +111,7 @@ func TestTryPointerConversionNonAddressable(t *testing.T) {
 }
 
 // 测试 tryConvertibleOrSmartConversion
-func TestTryConvertibleOrSmartConversion(t *testing.T) {
+func Test_TryConvertibleOrSmartConversion(t *testing.T) {
 	t.Run("Convertible Type", func(t *testing.T) {
 		field := reflect.ValueOf(new(float64)).Elem()
 		value := int(42)
@@ -142,7 +142,7 @@ func TestTryConvertibleOrSmartConversion(t *testing.T) {
 }
 
 // 测试 setFieldValue 更多错误场景
-func TestSetFieldValueErrors(t *testing.T) {
+func Test_SetFieldValueErrors(t *testing.T) {
 	t.Run("Unsettable Field", func(t *testing.T) {
 		field := reflect.ValueOf(42) // 不可设置
 		err := setFieldValue(field, "test")
@@ -161,7 +161,7 @@ func TestSetFieldValueErrors(t *testing.T) {
 }
 
 // 测试 ConvertStringToInt 错误场景
-func TestConvertStringToIntErrors(t *testing.T) {
+func Test_ConvertStringToIntErrors(t *testing.T) {
 	tests := []string{
 		"not-a-number",
 		"",
@@ -181,7 +181,7 @@ func TestConvertStringToIntErrors(t *testing.T) {
 }
 
 // 测试 ConvertStringToBool
-func TestConvertStringToBoolAdvanced(t *testing.T) {
+func Test_ConvertStringToBoolAdvanced(t *testing.T) {
 	tests := []struct {
 		input    string
 		expected bool
@@ -215,7 +215,7 @@ func TestConvertStringToBoolAdvanced(t *testing.T) {
 }
 
 // 测试 smartTypeConversion 错误场景
-func TestSmartTypeConversionErrors(t *testing.T) {
+func Test_SmartTypeConversionErrors(t *testing.T) {
 	t.Run("Non-String Source", func(t *testing.T) {
 		field := reflect.ValueOf(new(int)).Elem()
 		value := 42
@@ -240,7 +240,7 @@ func TestSmartTypeConversionErrors(t *testing.T) {
 }
 
 // 测试各种数值类型的字符串转换
-func TestStringToNumericConversions(t *testing.T) {
+func Test_StringToNumericConversions(t *testing.T) {
 	t.Run("Int Types", func(t *testing.T) {
 		var val int64
 		field := reflect.ValueOf(&val).Elem()

@@ -40,7 +40,7 @@ func (t *testBothLifecycle) Shutdown(ctx context.Context) error {
 }
 
 // TestExecuteInstanceDestroyAllPaths 测试所有销毁路径
-func TestExecuteInstanceDestroyAllPaths(t *testing.T) {
+func Test_ExecuteInstanceDestroyAllPaths(t *testing.T) {
 	t.Run("DestroyCallback success", func(t *testing.T) {
 		c := New().(*container)
 		inst := &testDestroyCallback{err: nil}
@@ -97,7 +97,7 @@ func TestExecuteInstanceDestroyAllPaths(t *testing.T) {
 }
 
 // TestGetFromParentOrErrorAllPaths 测试父容器获取的所有路径
-func TestGetFromParentOrErrorAllPaths(t *testing.T) {
+func Test_GetFromParentOrErrorAllPaths(t *testing.T) {
 	t.Run("No parent container", func(t *testing.T) {
 		c := New().(*container)
 		_, err := c.getFromParentOrError(reflect.TypeOf(""), "")
@@ -134,7 +134,7 @@ func TestGetFromParentOrErrorAllPaths(t *testing.T) {
 }
 
 // TestCheckCacheWithWriteLockAllPaths 测试写锁检查缓存的所有路径
-func TestCheckCacheWithWriteLockAllPaths(t *testing.T) {
+func Test_CheckCacheWithWriteLockAllPaths(t *testing.T) {
 	t.Run("Cache hit", func(t *testing.T) {
 		c := New().(*container)
 		_ = ProvideValueNamed(c, "test", 42)

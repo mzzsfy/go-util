@@ -9,7 +9,7 @@ import (
 // 额外的测试来达到95%覆盖率
 
 // 测试更多的createDestroyHook场景
-func TestCreateDestroyHookAllPaths(t *testing.T) {
+func Test_CreateDestroyHookAllPaths(t *testing.T) {
 	t.Run("with all hooks", func(t *testing.T) {
 		c := New().(*container)
 
@@ -72,7 +72,7 @@ func TestCreateDestroyHookAllPaths(t *testing.T) {
 }
 
 // 测试checkAndGetCachedInstance的所有路径
-func TestCheckAndGetCachedInstanceAllPaths(t *testing.T) {
+func Test_CheckAndGetCachedInstanceAllPaths(t *testing.T) {
 	t.Run("first check finds instance", func(t *testing.T) {
 		c := New().(*container)
 		key := "test-key"
@@ -107,7 +107,7 @@ func TestCheckAndGetCachedInstanceAllPaths(t *testing.T) {
 }
 
 // 测试ShutdownOnSignals的默认参数
-func TestShutdownOnSignalsDefaults(t *testing.T) {
+func Test_ShutdownOnSignalsDefaults(t *testing.T) {
 	c := New().(*container)
 
 	// 使用默认参数
@@ -118,7 +118,7 @@ func TestShutdownOnSignalsDefaults(t *testing.T) {
 }
 
 // 测试executeBeforeCreateHooks的错误路径
-func TestExecuteBeforeCreateHooksErrors(t *testing.T) {
+func Test_ExecuteBeforeCreateHooksErrors(t *testing.T) {
 	t.Run("provider hook returns error", func(t *testing.T) {
 		c := New().(*container)
 		entry := providerEntry{
@@ -159,7 +159,7 @@ func TestExecuteBeforeCreateHooksErrors(t *testing.T) {
 }
 
 // 测试GetNamedAll的黑名单检查
-func TestGetNamedAllBlacklist(t *testing.T) {
+func Test_GetNamedAllBlacklist(t *testing.T) {
 	c := New()
 
 	// 尝试对string类型调用GetNamedAll（string在黑名单中）
@@ -170,7 +170,7 @@ func TestGetNamedAllBlacklist(t *testing.T) {
 }
 
 // 测试injectToInstance的更多场景
-func TestInjectToInstanceAdvanced(t *testing.T) {
+func Test_InjectToInstanceAdvanced(t *testing.T) {
 	t.Run("struct with multiple fields", func(t *testing.T) {
 		c := New().(*container)
 
@@ -202,7 +202,7 @@ func TestInjectToInstanceAdvanced(t *testing.T) {
 }
 
 // 测试setFieldValue的更多类型转换场景
-func TestSetFieldValueAdvanced(t *testing.T) {
+func Test_SetFieldValueAdvanced(t *testing.T) {
 	t.Run("string to bool", func(t *testing.T) {
 		field := reflect.New(reflect.TypeOf(false)).Elem()
 		err := setFieldValue(field, "true")

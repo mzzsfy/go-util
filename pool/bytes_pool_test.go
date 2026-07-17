@@ -153,7 +153,7 @@ func TestBufferPoolConcurrentConfig(t *testing.T) {
 }
 
 // TestBytes_Write 验证 Write 方法正确追加字节数据
-func TestBytes_Write(t *testing.T) {
+func Test_Bytes_Write(t *testing.T) {
 	t.Parallel()
 	var b Bytes
 
@@ -182,7 +182,7 @@ func TestBytes_Write(t *testing.T) {
 }
 
 // TestBytes_WriteString 验证 WriteString 方法正确追加字符串
-func TestBytes_WriteString(t *testing.T) {
+func Test_Bytes_WriteString(t *testing.T) {
 	t.Parallel()
 	var b Bytes
 
@@ -205,7 +205,7 @@ func TestBytes_WriteString(t *testing.T) {
 }
 
 // TestBytes_WriteByte 验证 WriteByte 方法逐字节写入
-func TestBytes_WriteByte(t *testing.T) {
+func Test_Bytes_WriteByte(t *testing.T) {
 	t.Parallel()
 	var b Bytes
 
@@ -220,7 +220,7 @@ func TestBytes_WriteByte(t *testing.T) {
 }
 
 // TestBytes_LenCap 验证 Len 和 Cap 方法返回正确值
-func TestBytes_LenCap(t *testing.T) {
+func Test_Bytes_LenCap(t *testing.T) {
 	t.Parallel()
 	var b Bytes
 
@@ -243,7 +243,7 @@ func TestBytes_LenCap(t *testing.T) {
 }
 
 // TestBytes_Reset 验证 Reset 清空内容但保留底层数组容量
-func TestBytes_Reset(t *testing.T) {
+func Test_Bytes_Reset(t *testing.T) {
 	t.Parallel()
 	var b Bytes
 
@@ -270,7 +270,7 @@ func TestBytes_Reset(t *testing.T) {
 }
 
 // TestBytes_Bytes 验证 Bytes 方法返回原始切片引用
-func TestBytes_Bytes(t *testing.T) {
+func Test_Bytes_Bytes(t *testing.T) {
 	t.Parallel()
 	var b Bytes
 
@@ -287,7 +287,7 @@ func TestBytes_Bytes(t *testing.T) {
 }
 
 // TestBytes_String 验证 String 方法返回内容的字符串副本
-func TestBytes_String(t *testing.T) {
+func Test_Bytes_String(t *testing.T) {
 	t.Parallel()
 	var b Bytes
 
@@ -304,7 +304,7 @@ func TestBytes_String(t *testing.T) {
 }
 
 // TestBytes_MixedOperations 混合使用 Write/WriteString/WriteByte 后验证结果
-func TestBytes_MixedOperations(t *testing.T) {
+func Test_Bytes_MixedOperations(t *testing.T) {
 	t.Parallel()
 	var b Bytes
 
@@ -324,7 +324,7 @@ func TestBytes_MixedOperations(t *testing.T) {
 }
 
 // TestBufferPool_MaxCap_Boundary 验证 BufferPool 的 maxCap 边界行为
-func TestBufferPool_MaxCap_Boundary(t *testing.T) {
+func Test_BufferPool_MaxCap_Boundary(t *testing.T) {
 	t.Parallel()
 
 	t.Run("超过maxCap丢弃", func(t *testing.T) {
@@ -367,7 +367,7 @@ func TestBufferPool_MaxCap_Boundary(t *testing.T) {
 }
 
 // TestBytePool_InitCap_Boundary 验证 BytePool 的 initCap 边界行为
-func TestBytePool_InitCap_Boundary(t *testing.T) {
+func Test_BytePool_InitCap_Boundary(t *testing.T) {
 	t.Parallel()
 
 	t.Run("Get返回buffer容量满足initCap", func(t *testing.T) {

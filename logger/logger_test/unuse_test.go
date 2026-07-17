@@ -7,7 +7,7 @@ import (
 )
 
 // TestUnuse_ChainCall 验证链式调用后 Unuse 能正确回收
-func TestUnuse_ChainCall(t *testing.T) {
+func Test_Unuse_ChainCall(t *testing.T) {
     log := logger.Logger("test.unuse.chain")
 
     // 验证 With().I().Unuse() 模式不会 panic
@@ -15,7 +15,7 @@ func TestUnuse_ChainCall(t *testing.T) {
 }
 
 // TestUnuse_NamedLogger 验证命名 logger 调用 Unuse 不会被回收
-func TestUnuse_NamedLogger(t *testing.T) {
+func Test_Unuse_NamedLogger(t *testing.T) {
     // 获取命名 logger
     log1 := logger.Logger("test.unuse.named1")
     log2 := logger.Logger("test.unuse.named1")
@@ -33,7 +33,7 @@ func TestUnuse_NamedLogger(t *testing.T) {
 }
 
 // TestUnuse_DerivedLogger 验证派生 logger 可以被回收
-func TestUnuse_DerivedLogger(t *testing.T) {
+func Test_Unuse_DerivedLogger(t *testing.T) {
     log := logger.Logger("test.unuse.derived")
 
     // 多次派生并回收
@@ -44,7 +44,7 @@ func TestUnuse_DerivedLogger(t *testing.T) {
 }
 
 // TestUnuse_MultipleWith 验证多次 With 后 Unuse
-func TestUnuse_MultipleWith(t *testing.T) {
+func Test_Unuse_MultipleWith(t *testing.T) {
     log := logger.Logger("test.unuse.multi")
 
     // 链式 With

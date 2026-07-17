@@ -7,7 +7,7 @@ import (
 )
 
 // 测试泛型 API 函数
-func TestGenericAPIProvide(t *testing.T) {
+func Test_GenericAPIProvide(t *testing.T) {
 	c := New()
 
 	// 测试 Provide（使用命名服务）
@@ -39,7 +39,7 @@ func TestGenericAPIProvide(t *testing.T) {
 	}
 }
 
-func TestGenericAPIGet(t *testing.T) {
+func Test_GenericAPIGet(t *testing.T) {
 	c := New()
 
 	// 注册服务（使用命名）
@@ -62,7 +62,7 @@ func TestGenericAPIGet(t *testing.T) {
 	}
 }
 
-func TestGenericAPIMustGetPanic(t *testing.T) {
+func Test_GenericAPIMustGetPanic(t *testing.T) {
 	c := New()
 
 	defer func() {
@@ -74,7 +74,7 @@ func TestGenericAPIMustGetPanic(t *testing.T) {
 	_ = MustGetNamed[int](c, "non-existent") // 应该 panic
 }
 
-func TestGenericAPIMustGetNamedPanic(t *testing.T) {
+func Test_GenericAPIMustGetNamedPanic(t *testing.T) {
 	c := New()
 
 	defer func() {
@@ -86,7 +86,7 @@ func TestGenericAPIMustGetNamedPanic(t *testing.T) {
 	_ = MustGetNamed[int](c, "non-existent") // 应该 panic
 }
 
-func TestGenericAPIHas(t *testing.T) {
+func Test_GenericAPIHas(t *testing.T) {
 	c := New()
 
 	// 测试未注册时
@@ -103,7 +103,7 @@ func TestGenericAPIHas(t *testing.T) {
 	}
 }
 
-func TestGenericAPIGetNamedAll(t *testing.T) {
+func Test_GenericAPIGetNamedAll(t *testing.T) {
 	c := New()
 
 	// 注册多个同类型服务（使用 float64，不在黑名单中）
@@ -123,7 +123,7 @@ func TestGenericAPIGetNamedAll(t *testing.T) {
 	}
 }
 
-func TestGenericAPIGetNamedAllError(t *testing.T) {
+func Test_GenericAPIGetNamedAllError(t *testing.T) {
 	c := New()
 
 	// 测试黑名单类型
@@ -134,7 +134,7 @@ func TestGenericAPIGetNamedAllError(t *testing.T) {
 }
 
 // 测试 ContainerContext
-func TestContainerContext(t *testing.T) {
+func Test_ContainerContext(t *testing.T) {
 	// 测试没有父 context
 	ctx := ContainerContext{}
 
@@ -159,7 +159,7 @@ func TestContainerContext(t *testing.T) {
 	}
 }
 
-func TestContainerContextWithParent(t *testing.T) {
+func Test_ContainerContextWithParent(t *testing.T) {
 	// 创建带超时的父 context
 	parentCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -197,7 +197,7 @@ func TestContainerContextWithParent(t *testing.T) {
 	}
 }
 
-func TestContainerContextValue(t *testing.T) {
+func Test_ContainerContextValue(t *testing.T) {
 	// 测试带值的父 context
 	parentCtx := context.WithValue(context.Background(), "test-key", "test-value")
 	ctx := ContainerContext{parent: parentCtx}
@@ -216,7 +216,7 @@ func TestContainerContextValue(t *testing.T) {
 }
 
 // 测试全局容器
-func TestGlobalContainer(t *testing.T) {
+func Test_GlobalContainer(t *testing.T) {
 	gc := GlobalContainer()
 	if gc == nil {
 		t.Error("GlobalContainer should not be nil")
@@ -230,7 +230,7 @@ func TestGlobalContainer(t *testing.T) {
 }
 
 // 测试错误场景
-func TestGenericAPIGetError(t *testing.T) {
+func Test_GenericAPIGetError(t *testing.T) {
 	c := New()
 
 	// 测试获取不存在的服务
@@ -241,7 +241,7 @@ func TestGenericAPIGetError(t *testing.T) {
 }
 
 // 测试 GetNamedAll 的错误路径
-func TestGetNamedAllWithBlacklist(t *testing.T) {
+func Test_GetNamedAllWithBlacklist(t *testing.T) {
 	c := New()
 
 	// 尝试获取黑名单类型（string 在黑名单中）
@@ -252,7 +252,7 @@ func TestGetNamedAllWithBlacklist(t *testing.T) {
 }
 
 // 测试空名称的 GetNamed
-func TestGenericGetNamedEmptyName(t *testing.T) {
+func Test_GenericGetNamedEmptyName(t *testing.T) {
 	c := New()
 
 	// 使用命名服务

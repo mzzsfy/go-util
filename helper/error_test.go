@@ -5,7 +5,7 @@ import (
 )
 
 // TestStringError_Error 测试 Error 方法
-func TestStringError_Error(t *testing.T) {
+func Test_StringError_Error(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name    string
@@ -28,7 +28,7 @@ func TestStringError_Error(t *testing.T) {
 }
 
 // TestStringError_String 测试 String 方法
-func TestStringError_String(t *testing.T) {
+func Test_StringError_String(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name    string
@@ -50,7 +50,7 @@ func TestStringError_String(t *testing.T) {
 }
 
 // TestStringError_ErrorAndStringEquivalent 测试 Error 和 String 返回相同值
-func TestStringError_ErrorAndStringEquivalent(t *testing.T) {
+func Test_StringError_ErrorAndStringEquivalent(t *testing.T) {
 	t.Parallel()
 	err := StringError("test message")
 	if err.Error() != err.String() {
@@ -59,7 +59,7 @@ func TestStringError_ErrorAndStringEquivalent(t *testing.T) {
 }
 
 // TestNewError 测试 NewError 函数
-func TestNewError(t *testing.T) {
+func Test_NewError(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name    string
@@ -86,7 +86,7 @@ func TestNewError(t *testing.T) {
 }
 
 // TestNewError_ReturnsStringError 测试 NewError 返回 StringError 类型
-func TestNewError_ReturnsStringError(t *testing.T) {
+func Test_NewError_ReturnsStringError(t *testing.T) {
 	t.Parallel()
 	err := NewError("test")
 	// 验证类型转换

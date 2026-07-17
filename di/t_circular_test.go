@@ -7,7 +7,7 @@ import (
 )
 
 // 测试 Provide 函数（使用自定义类型避免黑名单）
-func TestProvideWithCustomType(t *testing.T) {
+func Test_ProvideWithCustomType(t *testing.T) {
 	c := New()
 
 	// Provide 函数调用 ProvideNamed("", ...)
@@ -29,7 +29,7 @@ func TestProvideWithCustomType(t *testing.T) {
 }
 
 // 测试 MustGet 函数
-func TestMustGetWithCustomType(t *testing.T) {
+func Test_MustGetWithCustomType(t *testing.T) {
 	c := New()
 
 	_ = ProvideValue(c, &TestService{Value: 200})
@@ -42,7 +42,7 @@ func TestMustGetWithCustomType(t *testing.T) {
 }
 
 // 测试 MustGet panic
-func TestMustGetPanicWithCustomType(t *testing.T) {
+func Test_MustGetPanicWithCustomType(t *testing.T) {
 	c := New()
 
 	defer func() {
@@ -55,7 +55,7 @@ func TestMustGetPanicWithCustomType(t *testing.T) {
 }
 
 // 测试 Has 函数
-func TestHasWithCustomType(t *testing.T) {
+func Test_HasWithCustomType(t *testing.T) {
 	c := New()
 
 	// 测试未注册
@@ -73,7 +73,7 @@ func TestHasWithCustomType(t *testing.T) {
 }
 
 // 测试 ProvideValue 函数
-func TestProvideValueWithCustomType(t *testing.T) {
+func Test_ProvideValueWithCustomType(t *testing.T) {
 	c := New()
 
 	service := &TestService{Value: 400}
@@ -92,7 +92,7 @@ func TestProvideValueWithCustomType(t *testing.T) {
 }
 
 // 测试更多的容器钩子
-func TestContainerHooksBeforeCreate(t *testing.T) {
+func Test_ContainerHooksBeforeCreate(t *testing.T) {
 	c := New()
 
 	hookCalled := false
@@ -109,7 +109,7 @@ func TestContainerHooksBeforeCreate(t *testing.T) {
 	}
 }
 
-func TestContainerHooksAfterCreate(t *testing.T) {
+func Test_ContainerHooksAfterCreate(t *testing.T) {
 	c := New()
 
 	hookCalled := false
@@ -126,7 +126,7 @@ func TestContainerHooksAfterCreate(t *testing.T) {
 	}
 }
 
-func TestContainerHooksBeforeDestroy(t *testing.T) {
+func Test_ContainerHooksBeforeDestroy(t *testing.T) {
 	c := New()
 
 	hookCalled := false
@@ -144,7 +144,7 @@ func TestContainerHooksBeforeDestroy(t *testing.T) {
 	t.Logf("Before destroy hook called: %v", hookCalled)
 }
 
-func TestContainerHooksAfterDestroy(t *testing.T) {
+func Test_ContainerHooksAfterDestroy(t *testing.T) {
 	c := New()
 
 	hookCalled := false
@@ -159,7 +159,7 @@ func TestContainerHooksAfterDestroy(t *testing.T) {
 	t.Logf("After destroy hook called: %v", hookCalled)
 }
 
-func TestContainerHooksOnStart(t *testing.T) {
+func Test_ContainerHooksOnStart(t *testing.T) {
 	c := New()
 
 	hookCalled := false
@@ -181,7 +181,7 @@ func TestContainerHooksOnStart(t *testing.T) {
 	_ = c.Shutdown(context.Background())
 }
 
-func TestContainerHooksAfterStart(t *testing.T) {
+func Test_ContainerHooksAfterStart(t *testing.T) {
 	c := New()
 
 	hookCalled := false
@@ -204,7 +204,7 @@ func TestContainerHooksAfterStart(t *testing.T) {
 }
 
 // 测试 getServiceNameFromKey 更多场景
-func TestGetServiceNameFromKeyAdvanced(t *testing.T) {
+func Test_GetServiceNameFromKeyAdvanced(t *testing.T) {
 	tests := []struct {
 		key          string
 		defaultName  string
@@ -226,7 +226,7 @@ func TestGetServiceNameFromKeyAdvanced(t *testing.T) {
 }
 
 // 测试 validateProviderFunction 更多错误场景
-func TestValidateProviderFunctionAdvanced(t *testing.T) {
+func Test_ValidateProviderFunctionAdvanced(t *testing.T) {
 	t.Run("InvalidNoErrorReturn", func(t *testing.T) {
 		fn := func(c Container) int {
 			return 42
@@ -259,7 +259,7 @@ func TestValidateProviderFunctionAdvanced(t *testing.T) {
 }
 
 // 测试 tryDirectOrInterfaceMatch 更多场景
-func TestTryDirectOrInterfaceMatchAdvanced(t *testing.T) {
+func Test_TryDirectOrInterfaceMatchAdvanced(t *testing.T) {
 	t.Run("DirectMatch", func(t *testing.T) {
 		field := reflect.ValueOf(new(int)).Elem()
 		value := 42

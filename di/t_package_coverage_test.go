@@ -10,7 +10,7 @@ import (
 )
 
 // TestPackage 测试Package函数
-func TestPackage(t *testing.T) {
+func Test_Package(t *testing.T) {
 	// 测试：单个provider成功
 	t.Run("single provider success", func(t *testing.T) {
 		executed := false
@@ -122,7 +122,7 @@ func TestPackage(t *testing.T) {
 }
 
 // TestLoadPackages 测试LoadPackages函数
-func TestLoadPackages(t *testing.T) {
+func Test_LoadPackages(t *testing.T) {
 	// 测试：单个package成功
 	t.Run("single package success", func(t *testing.T) {
 		executed := false
@@ -250,7 +250,7 @@ func TestLoadPackages(t *testing.T) {
 }
 
 // TestPrepareLazyDependenciesEdgeCases 测试prepareLazyDependencies的边界情况
-func TestPrepareLazyDependenciesEdgeCases(t *testing.T) {
+func Test_PrepareLazyDependenciesEdgeCases(t *testing.T) {
 	// 测试：非Lazy模式
 	t.Run("non lazy mode", func(t *testing.T) {
 		type Service struct {
@@ -429,7 +429,7 @@ func TestPrepareLazyDependenciesEdgeCases(t *testing.T) {
 }
 
 // TestValidateInstanceEdgeCases 测试validateInstance的边界情况
-func TestValidateInstanceEdgeCases(t *testing.T) {
+func Test_ValidateInstanceEdgeCases(t *testing.T) {
 	// 测试：nil实例
 	t.Run("nil instance", func(t *testing.T) {
 		ctr := New().(*container)
@@ -471,7 +471,7 @@ func TestValidateInstanceEdgeCases(t *testing.T) {
 }
 
 // TestFindDependEdgeCases 测试findDepend的边界情况
-func TestFindDependEdgeCases(t *testing.T) {
+func Test_FindDependEdgeCases(t *testing.T) {
 	// 测试：非struct/pointer类型
 	t.Run("non struct or pointer type", func(t *testing.T) {
 		ctr := New().(*container)
@@ -757,7 +757,7 @@ func TestShutdownWithContextCancellation(t *testing.T) {
 }
 
 // TestConfigSourceNilScenarios 测试配置源为nil的场景
-func TestConfigSourceNilScenarios(t *testing.T) {
+func Test_ConfigSourceNilScenarios(t *testing.T) {
 	// 测试：GetConfigSource返回nil
 	t.Run("get nil config source", func(t *testing.T) {
 		ctr := New().(*container)
@@ -822,7 +822,7 @@ func TestConcurrentRaceConditions(t *testing.T) {
 }
 
 // TestComplexPackageScenarios 测试复杂package场景
-func TestComplexPackageScenarios(t *testing.T) {
+func Test_ComplexPackageScenarios(t *testing.T) {
 	// 测试：package依赖链
 	t.Run("package dependency chain", func(t *testing.T) {
 		type DB struct{ Name string }

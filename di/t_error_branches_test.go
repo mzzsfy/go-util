@@ -12,7 +12,7 @@ import (
 // ========== container_config.go: getConfigFromSource - 66.7% ==========
 // 需要覆盖：配置值不存在的情况（recordConfigMiss分支）
 
-func TestGetConfigFromSourceMiss(t *testing.T) {
+func Test_GetConfigFromSourceMiss(t *testing.T) {
 	c := New().(*container)
 	configSource := NewMapConfigSource()
 	c.SetConfigSource(configSource)
@@ -35,7 +35,7 @@ func TestGetConfigFromSourceMiss(t *testing.T) {
 // ========== container_creation.go ==========
 
 // 测试 tryGetCachedInstance 找到实例的分支
-func TestTryGetCachedInstanceFound(t *testing.T) {
+func Test_TryGetCachedInstanceFound(t *testing.T) {
 	c := New().(*container)
 	key := "test-key"
 	instance := "test-instance"
@@ -56,7 +56,7 @@ func TestTryGetCachedInstanceFound(t *testing.T) {
 }
 
 // 测试 checkExistingInstanceDuringCreation 找到实例的分支
-func TestCheckExistingInstanceDuringCreationFoundNonTransient(t *testing.T) {
+func Test_CheckExistingInstanceDuringCreationFoundNonTransient(t *testing.T) {
 	c := New().(*container)
 	key := "test-key"
 	instance := "test-instance"
@@ -77,7 +77,7 @@ func TestCheckExistingInstanceDuringCreationFoundNonTransient(t *testing.T) {
 }
 
 // 测试 createDependencies provider 不存在的分支
-func TestCreateDependenciesProviderNotFound(t *testing.T) {
+func Test_CreateDependenciesProviderNotFound(t *testing.T) {
 	c := New().(*container)
 
 	// 依赖列表包含不存在的provider
@@ -92,7 +92,7 @@ func TestCreateDependenciesProviderNotFound(t *testing.T) {
 // ========== container_injection.go ==========
 
 // 测试 injectService 类型不兼容分支
-func TestInjectServiceSetFieldError(t *testing.T) {
+func Test_InjectServiceSetFieldError(t *testing.T) {
 	c := New().(*container)
 
 	type TestStruct struct {
@@ -115,7 +115,7 @@ func TestInjectServiceSetFieldError(t *testing.T) {
 }
 
 // 测试 injectStruct 非结构体类型的错误分支
-func TestInjectStructNonStructType(t *testing.T) {
+func Test_InjectStructNonStructType(t *testing.T) {
 	c := New().(*container)
 
 	// 传入一个非结构体类型的值
@@ -128,7 +128,7 @@ func TestInjectStructNonStructType(t *testing.T) {
 }
 
 // 测试 dereferencePointer nil 指针分支
-func TestDereferencePointerNil(t *testing.T) {
+func Test_DereferencePointerNil(t *testing.T) {
 	c := New().(*container)
 
 	var nilPtr *string
@@ -140,7 +140,7 @@ func TestDereferencePointerNil(t *testing.T) {
 }
 
 // 测试 dereferencePointer 返回非指针值
-func TestDereferencePointerNonPtr(t *testing.T) {
+func Test_DereferencePointerNonPtr(t *testing.T) {
 	c := New().(*container)
 
 	value := 42
@@ -152,7 +152,7 @@ func TestDereferencePointerNonPtr(t *testing.T) {
 }
 
 // 测试 injectUnaddressableStruct 错误分支
-func TestInjectUnaddressableStructError(t *testing.T) {
+func Test_InjectUnaddressableStructError(t *testing.T) {
 	c := New().(*container)
 
 	type TestStruct struct {
@@ -170,7 +170,7 @@ func TestInjectUnaddressableStructError(t *testing.T) {
 }
 
 // 测试 validateAndInject nil 实例分支
-func TestValidateAndInjectNilInstance(t *testing.T) {
+func Test_ValidateAndInjectNilInstance(t *testing.T) {
 	c := New().(*container)
 
 	result, err := c.validateAndInject(nil)
@@ -183,7 +183,7 @@ func TestValidateAndInjectNilInstance(t *testing.T) {
 }
 
 // 测试 validateAndInject 无效实例分支
-func TestValidateAndInjectInvalidInstance(t *testing.T) {
+func Test_ValidateAndInjectInvalidInstance(t *testing.T) {
 	c := New().(*container)
 
 	// 创建一个无效的reflect.Value
@@ -201,7 +201,7 @@ func TestValidateAndInjectInvalidInstance(t *testing.T) {
 // ========== container_instance.go ==========
 
 // 测试 collectSingleInstance 错误分支（非ErrorConditionFail错误）
-func TestCollectSingleInstanceNonConditionError(t *testing.T) {
+func Test_CollectSingleInstanceNonConditionError(t *testing.T) {
 	c := New().(*container)
 
 	type MyService struct{}
@@ -223,7 +223,7 @@ func TestCollectSingleInstanceNonConditionError(t *testing.T) {
 }
 
 // 测试 collectMatchingInstances 错误分支
-func TestCollectMatchingInstancesError(t *testing.T) {
+func Test_CollectMatchingInstancesError(t *testing.T) {
 	c := New().(*container)
 
 	type MyService struct{}
@@ -240,7 +240,7 @@ func TestCollectMatchingInstancesError(t *testing.T) {
 }
 
 // 测试 GetNamedAll 合并父容器错误分支
-func TestGetNamedAllMergeParentError(t *testing.T) {
+func Test_GetNamedAllMergeParentError(t *testing.T) {
 	parent := New().(*container)
 	child := parent.CreateChildScope().(*container)
 
@@ -259,7 +259,7 @@ func TestGetNamedAllMergeParentError(t *testing.T) {
 }
 
 // 测试 ReplaceInstance 类型不兼容分支
-func TestReplaceInstanceIncompatibleType(t *testing.T) {
+func Test_ReplaceInstanceIncompatibleType(t *testing.T) {
 	c := New().(*container)
 
 	type MyService struct{}
@@ -280,7 +280,7 @@ func TestReplaceInstanceIncompatibleType(t *testing.T) {
 // ========== container_lifecycle.go ==========
 
 // 测试 checkAndSetStartedState 已经启动的分支
-func TestCheckAndSetStartedStateAlreadyStarted(t *testing.T) {
+func Test_CheckAndSetStartedStateAlreadyStarted(t *testing.T) {
 	c := New().(*container)
 
 	// 第一次启动
@@ -293,7 +293,7 @@ func TestCheckAndSetStartedStateAlreadyStarted(t *testing.T) {
 }
 
 // 测试 executeShutdownHooks 钩子返回错误的分支
-func TestExecuteShutdownHooksError(t *testing.T) {
+func Test_ExecuteShutdownHooksError(t *testing.T) {
 	c := New().(*container)
 
 	// 添加一个会失败的关闭钩子
@@ -308,7 +308,7 @@ func TestExecuteShutdownHooksError(t *testing.T) {
 }
 
 // 测试 ShutdownOnSignals 信号触发关闭的分支
-func TestShutdownOnSignalsTriggerShutdown(t *testing.T) {
+func Test_ShutdownOnSignalsTriggerShutdown(t *testing.T) {
 	c := New().(*container)
 
 	// 监听信号
@@ -326,7 +326,7 @@ func TestShutdownOnSignalsTriggerShutdown(t *testing.T) {
 // ========== container_type_conversion.go ==========
 
 // 测试 tryInterfaceMatch 指针类型实现接口的分支
-func TestTryInterfaceMatchPointerImplementsInterface(t *testing.T) {
+func Test_TryInterfaceMatchPointerImplementsInterface(t *testing.T) {
 	type MyInterface interface {
 		Method()
 	}
@@ -346,7 +346,7 @@ func TestTryInterfaceMatchPointerImplementsInterface(t *testing.T) {
 }
 
 // 测试 convertValueToPointer 不能取地址的分支
-func TestConvertValueToPointerCannotAddr(t *testing.T) {
+func Test_ConvertValueToPointerCannotAddr(t *testing.T) {
 	// 创建一个不能直接取地址的值（函数返回值）
 	getValue := func() int { return 42 }
 	value := getValue()
@@ -370,7 +370,7 @@ func TestConvertValueToPointerCannotAddr(t *testing.T) {
 // ========== container_provide.go ==========
 
 // 测试 validateProviderFunction 非 Func 类型的分支
-func TestValidateProviderFunctionNonFunc(t *testing.T) {
+func Test_ValidateProviderFunctionNonFunc(t *testing.T) {
 	notFunc := 42
 	fnType := reflect.TypeOf(notFunc)
 
@@ -381,7 +381,7 @@ func TestValidateProviderFunctionNonFunc(t *testing.T) {
 }
 
 // 测试 validateProviderFunction 验证失败的分支
-func TestValidateProviderFunctionValidationFail(t *testing.T) {
+func Test_ValidateProviderFunctionValidationFail(t *testing.T) {
 	// 返回值数量不对
 	fn := func() {}
 	fnType := reflect.TypeOf(fn)
@@ -395,7 +395,7 @@ func TestValidateProviderFunctionValidationFail(t *testing.T) {
 // ========== 综合测试 ==========
 
 // 测试完整的依赖注入流程，确保覆盖更多代码路径
-func TestFullDependencyInjectionFlow(t *testing.T) {
+func Test_FullDependencyInjectionFlow(t *testing.T) {
 	c := New().(*container)
 
 	// 设置配置源
@@ -442,7 +442,7 @@ func TestFullDependencyInjectionFlow(t *testing.T) {
 }
 
 // 测试 executeAfterCreateHooks 容器级别钩子错误的分支
-func TestExecuteAfterCreateHooksContainerError(t *testing.T) {
+func Test_ExecuteAfterCreateHooksContainerError(t *testing.T) {
 	c := New().(*container)
 
 	// 添加容器级别的 afterCreate 钩子，返回错误
@@ -466,7 +466,7 @@ func TestExecuteAfterCreateHooksContainerError(t *testing.T) {
 // ========== 更多边界测试 ==========
 
 // 测试 tryInterfaceMatch 指针元素实现接口的分支（覆盖valueReflect.Elem().Type().Implements）
-func TestTryInterfaceMatchElemImplementsInterface(t *testing.T) {
+func Test_TryInterfaceMatchElemImplementsInterface(t *testing.T) {
 	// 定义一个接口
 	type Stringer interface {
 		String() string
@@ -491,7 +491,7 @@ func TestTryInterfaceMatchElemImplementsInterface(t *testing.T) {
 }
 
 // 测试 tryPointerConversion 值转指针分支
-func TestTryPointerConversionValueToPointer(t *testing.T) {
+func Test_TryPointerConversionValueToPointer(t *testing.T) {
 	value := 42
 	field := reflect.New(reflect.TypeOf(&value)).Elem()
 	val := reflect.ValueOf(value)
@@ -508,7 +508,7 @@ func TestTryPointerConversionValueToPointer(t *testing.T) {
 }
 
 // 测试 tryPointerConversion 指针转值分支
-func TestTryPointerConversionPointerToValue(t *testing.T) {
+func Test_TryPointerConversionPointerToValue(t *testing.T) {
 	value := 42
 	ptr := &value
 	field := reflect.New(reflect.TypeOf(0)).Elem()
@@ -526,7 +526,7 @@ func TestTryPointerConversionPointerToValue(t *testing.T) {
 }
 
 // 测试 tryPointerConversion 不匹配的分支（两边都是值或两边都是指针）
-func TestTryPointerConversionNoMatch(t *testing.T) {
+func Test_TryPointerConversionNoMatch(t *testing.T) {
 	// 两边都是值
 	value1 := 42
 	field1 := reflect.New(reflect.TypeOf(0)).Elem()
@@ -554,7 +554,7 @@ func TestTryPointerConversionNoMatch(t *testing.T) {
 }
 
 // 测试 create 函数的完整路径（从缓存获取）
-func TestCreateFromCache(t *testing.T) {
+func Test_CreateFromCache(t *testing.T) {
 	c := New().(*container)
 
 	type MyService struct{}
@@ -584,7 +584,7 @@ func TestCreateFromCache(t *testing.T) {
 }
 
 // 测试 createNewInstance 的 checkExistingInstanceDuringCreation 分支
-func TestCreateNewInstanceExistingDuringCreation(t *testing.T) {
+func Test_CreateNewInstanceExistingDuringCreation(t *testing.T) {
 	c := New().(*container)
 
 	type MyService struct{}
@@ -612,7 +612,7 @@ func TestCreateNewInstanceExistingDuringCreation(t *testing.T) {
 }
 
 // 测试 validateAndInject 的成功注入分支
-func TestValidateAndInjectSuccess(t *testing.T) {
+func Test_ValidateAndInjectSuccess(t *testing.T) {
 	c := New().(*container)
 
 	type TestStruct struct {
@@ -649,7 +649,7 @@ func TestValidateAndInjectSuccess(t *testing.T) {
 }
 
 // 测试 injectStruct 的成功路径
-func TestInjectStructSuccess(t *testing.T) {
+func Test_InjectStructSuccess(t *testing.T) {
 	c := New().(*container)
 
 	type TestStruct struct {
@@ -677,7 +677,7 @@ func TestInjectStructSuccess(t *testing.T) {
 }
 
 // 测试 dereferencePointer 解引用成功
-func TestDereferencePointerSuccess(t *testing.T) {
+func Test_DereferencePointerSuccess(t *testing.T) {
 	c := New().(*container)
 
 	value := 42
@@ -693,7 +693,7 @@ func TestDereferencePointerSuccess(t *testing.T) {
 }
 
 // 测试 injectToInstance 处理不可寻址结构体
-func TestInjectToInstanceUnaddressableStruct(t *testing.T) {
+func Test_InjectToInstanceUnaddressableStruct(t *testing.T) {
 	c := New().(*container)
 
 	type TestStruct struct {
@@ -731,7 +731,7 @@ func TestInjectToInstanceUnaddressableStruct(t *testing.T) {
 }
 
 // 测试 tryDirectOrInterfaceMatch 非接口类型分支
-func TestTryDirectOrInterfaceMatchNonInterfaceV2(t *testing.T) {
+func Test_TryDirectOrInterfaceMatchNonInterfaceV2(t *testing.T) {
 	value := 42
 	field := reflect.New(reflect.TypeOf("")).Elem() // string 类型
 	val := reflect.ValueOf(value)
@@ -745,7 +745,7 @@ func TestTryDirectOrInterfaceMatchNonInterfaceV2(t *testing.T) {
 }
 
 // 测试 tryConvertibleOrSmartConversion 的智能转换分支
-func TestTryConvertibleOrSmartConversionSmart(t *testing.T) {
+func Test_TryConvertibleOrSmartConversionSmart(t *testing.T) {
 	// 字符串转 int
 	field := reflect.New(reflect.TypeOf(0)).Elem()
 	val := reflect.ValueOf("42")
@@ -762,7 +762,7 @@ func TestTryConvertibleOrSmartConversionSmart(t *testing.T) {
 }
 
 // 测试 setFieldValue 不可设置字段
-func TestSetFieldValueNotSettable(t *testing.T) {
+func Test_SetFieldValueNotSettable(t *testing.T) {
 	// 创建一个不可设置的字段值
 	field := reflect.ValueOf(42) // 不可设置
 
@@ -795,7 +795,7 @@ func (e *errorServiceForDestroy) OnDestroyCallback(ctx context.Context) error {
 }
 
 // 测试 tryInterfaceMatch 的指针元素实现接口分支
-func TestTryInterfaceMatchPtrElemImplements(t *testing.T) {
+func Test_TryInterfaceMatchPtrElemImplements(t *testing.T) {
 	// 测试 *testImplForMatch 实现了 testInterfaceForMatch
 	field := reflect.New(reflect.TypeOf((*testInterfaceForMatch)(nil)).Elem()).Elem()
 	val := reflect.ValueOf(&testImplForMatch{})
@@ -810,7 +810,7 @@ func TestTryInterfaceMatchPtrElemImplements(t *testing.T) {
 }
 
 // 测试 tryInterfaceMatch 的元素实现接口分支（Elem().Implements）
-func TestTryInterfaceMatchElemImplementsV2(t *testing.T) {
+func Test_TryInterfaceMatchElemImplementsV2(t *testing.T) {
 	// 测试当传入的是 testImplForMatchValue 值，但 *testImplForMatchValue 实现接口
 	field := reflect.New(reflect.TypeOf((*testInterfaceForMatch)(nil)).Elem()).Elem()
 	val := reflect.ValueOf(testImplForMatchValue{}) // 值类型
@@ -825,7 +825,7 @@ func TestTryInterfaceMatchElemImplementsV2(t *testing.T) {
 }
 
 // 测试 convertValueToPointer 的 CanAddr 分支
-func TestConvertValueToPointerCanAddr(t *testing.T) {
+func Test_ConvertValueToPointerCanAddr(t *testing.T) {
 	// 创建一个可寻址的值
 	value := 42
 	field := reflect.New(reflect.TypeOf(&value)).Elem()
@@ -845,7 +845,7 @@ func TestConvertValueToPointerCanAddr(t *testing.T) {
 }
 
 // 测试 getConfigFromSource 的命中分支
-func TestGetConfigFromSourceHit(t *testing.T) {
+func Test_GetConfigFromSourceHit(t *testing.T) {
 	c := New().(*container)
 	configSource := NewMapConfigSource()
 	configSource.Set("existing-key", "existing-value")
@@ -866,7 +866,7 @@ func TestGetConfigFromSourceHit(t *testing.T) {
 }
 
 // 测试 validateAndInject validateInstance 返回 false 的分支
-func TestValidateAndInjectValidateFalse(t *testing.T) {
+func Test_ValidateAndInjectValidateFalse(t *testing.T) {
 	c := New().(*container)
 
 	// 传入 nil 值，validateInstance 会返回 false
@@ -880,7 +880,7 @@ func TestValidateAndInjectValidateFalse(t *testing.T) {
 }
 
 // 测试 checkAndSetStartedState 的双重检查分支
-func TestCheckAndSetStartedStateDoubleCheck(t *testing.T) {
+func Test_CheckAndSetStartedStateDoubleCheck(t *testing.T) {
 	c := New().(*container)
 
 	// 第一次检查通过
@@ -901,7 +901,7 @@ func TestCheckAndSetStartedStateDoubleCheck(t *testing.T) {
 }
 
 // 测试 createDestroyHook 的 executeInstanceDestroy 错误分支
-func TestCreateDestroyHookInstanceDestroyError(t *testing.T) {
+func Test_CreateDestroyHookInstanceDestroyError(t *testing.T) {
 	c := New().(*container)
 
 	svc := &errorServiceForDestroy{}
@@ -927,7 +927,7 @@ func TestCreateDestroyHookInstanceDestroyError(t *testing.T) {
 }
 
 // 测试 ProvideNamedWith 的验证失败分支
-func TestProvideNamedWithValidationFail(t *testing.T) {
+func Test_ProvideNamedWithValidationFail(t *testing.T) {
 	c := New().(*container)
 
 	// 传入无效的 provider（非函数类型）
@@ -938,7 +938,7 @@ func TestProvideNamedWithValidationFail(t *testing.T) {
 }
 
 // 测试 injectService 的 setFieldValue 错误分支
-func TestInjectServiceSetFieldErrorV2(t *testing.T) {
+func Test_InjectServiceSetFieldErrorV2(t *testing.T) {
 	c := New().(*container)
 
 	type TestStruct struct {

@@ -8,7 +8,7 @@ import (
     "unsafe"
 )
 
-func TestSize(t *testing.T) {
+func Test_Size(t *testing.T) {
     t.Log(0, unsafe.Sizeof(struct {
         int64
     }{}))

@@ -50,7 +50,7 @@ func TestShutdownOnSignalsEmpty(t *testing.T) {
 }
 
 // 测试 GetAllInstances
-func TestGetAllInstances(t *testing.T) {
+func Test_GetAllInstances(t *testing.T) {
 	c := New()
 
 	// 初始应该为空
@@ -74,7 +74,7 @@ func TestGetAllInstances(t *testing.T) {
 }
 
 // 测试 updateGetCallsStats
-func TestUpdateGetCallsStats(t *testing.T) {
+func Test_UpdateGetCallsStats(t *testing.T) {
 	c := New().(*container) // 类型断言
 
 	_ = ProvideValueNamed(c, "test", 42)
@@ -94,7 +94,7 @@ func TestUpdateGetCallsStats(t *testing.T) {
 }
 
 // 测试 prepareLazyDependencies 的错误路径
-func TestPrepareLazyDependenciesError(t *testing.T) {
+func Test_PrepareLazyDependenciesError(t *testing.T) {
 	c := New()
 
 	// 注册一个懒加载服务，依赖不存在的服务
@@ -119,7 +119,7 @@ func TestPrepareLazyDependenciesError(t *testing.T) {
 }
 
 // 测试 HasNamed 的更多场景
-func TestHasNamedAdvanced(t *testing.T) {
+func Test_HasNamedAdvanced(t *testing.T) {
 	c := New()
 
 	// 测试不存在的服务
@@ -142,7 +142,7 @@ func TestHasNamedAdvanced(t *testing.T) {
 }
 
 // 测试 findDepend 的更多场景
-func TestFindDependAdvanced(t *testing.T) {
+func Test_FindDependAdvanced(t *testing.T) {
 	c := New().(*container) // 类型断言
 
 	// 测试查找不存在的依赖
@@ -153,7 +153,7 @@ func TestFindDependAdvanced(t *testing.T) {
 }
 
 // 测试 ConvertStringToUint
-func TestConvertStringToUint(t *testing.T) {
+func Test_ConvertStringToUint(t *testing.T) {
 	tests := []struct {
 		input    string
 		expected uint64
@@ -192,7 +192,7 @@ func TestConvertStringToUint(t *testing.T) {
 }
 
 // 测试 ConvertStringToFloat 错误场景
-func TestConvertStringToFloatErrors(t *testing.T) {
+func Test_ConvertStringToFloatErrors(t *testing.T) {
 	tests := []string{
 		"abc",
 		"",

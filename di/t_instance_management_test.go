@@ -9,12 +9,12 @@ import (
 )
 
 // TestHasNamedMore 测试HasNamed的更多场景 - 已有测试覆盖，这里留空避免重复
-func TestHasNamedMore(t *testing.T) {
+func Test_HasNamedMore(t *testing.T) {
 	// HasNamed 已经在现有测试中有良好的覆盖
 }
 
 // TestAppendOptionMore 测试AppendOption的更多场景
-func TestAppendOptionMore(t *testing.T) {
+func Test_AppendOptionMore(t *testing.T) {
 	// 测试：启动后调用AppendOption应该失败
 	t.Run("append option after start", func(t *testing.T) {
 		ctr := New()
@@ -64,7 +64,7 @@ func TestAppendOptionMore(t *testing.T) {
 }
 
 // TestCreateChildScopeMore 测试CreateChildScope的更多场景
-func TestCreateChildScopeMore(t *testing.T) {
+func Test_CreateChildScopeMore(t *testing.T) {
 	// 测试：子容器可以覆盖父容器的服务
 	t.Run("child override parent service", func(t *testing.T) {
 		type Service struct{ Name string }
@@ -150,7 +150,7 @@ func TestShutdownOnSignalsMore(t *testing.T) {
 }
 
 // TestRemoveInstanceMore 测试RemoveInstance的更多场景
-func TestRemoveInstanceMore(t *testing.T) {
+func Test_RemoveInstanceMore(t *testing.T) {
 	// 测试：删除存在的实例
 	t.Run("remove existing instance", func(t *testing.T) {
 		ctr := New()
@@ -182,7 +182,7 @@ func TestRemoveInstanceMore(t *testing.T) {
 }
 
 // TestValidateProviderFunctionMore 测试validateProviderFunction的更多场景
-func TestValidateProviderFunctionMore(t *testing.T) {
+func Test_ValidateProviderFunctionMore(t *testing.T) {
 	// 测试：错误的输入参数数量
 	t.Run("wrong number of inputs", func(t *testing.T) {
 		provider := func() (int, error) {
@@ -229,7 +229,7 @@ func TestValidateProviderFunctionMore(t *testing.T) {
 }
 
 // TestExecuteBeforeCreateHooksMore 测试executeBeforeCreateHooks的更多场景
-func TestExecuteBeforeCreateHooksMore(t *testing.T) {
+func Test_ExecuteBeforeCreateHooksMore(t *testing.T) {
 	// 测试：多个hook
 	t.Run("multiple hooks", func(t *testing.T) {
 		ctr := New()
@@ -284,7 +284,7 @@ func TestExecuteBeforeCreateHooksMore(t *testing.T) {
 }
 
 // TestInjectServiceMore 测试injectService的更多场景
-func TestInjectServiceMore(t *testing.T) {
+func Test_InjectServiceMore(t *testing.T) {
 	// 测试：注入到非指针字段
 	t.Run("inject to non-pointer field", func(t *testing.T) {
 		type Dep struct{ Value int }
@@ -318,7 +318,7 @@ func TestInjectServiceMore(t *testing.T) {
 }
 
 // TestMergeParentResultsMore 测试mergeParentResults的更多场景
-func TestMergeParentResultsMore(t *testing.T) {
+func Test_MergeParentResultsMore(t *testing.T) {
 	// 测试：父容器有多个同名服务
 	t.Run("parent has multiple named services", func(t *testing.T) {
 		type Service struct{ Name string }
@@ -353,7 +353,7 @@ func TestMergeParentResultsMore(t *testing.T) {
 }
 
 // TestGetConfigValueMore 测试getConfigValue的更多场景
-func TestGetConfigValueMore(t *testing.T) {
+func Test_GetConfigValueMore(t *testing.T) {
 	// 测试：配置值为nil
 	t.Run("config value is nil", func(t *testing.T) {
 		ctr := New().(*container)
@@ -386,7 +386,7 @@ func TestGetConfigValueMore(t *testing.T) {
 }
 
 // TestCollectMatchingInstancesMore 测试collectMatchingInstances的更多场景
-func TestCollectMatchingInstancesMore(t *testing.T) {
+func Test_CollectMatchingInstancesMore(t *testing.T) {
 	// 测试：按接口匹配
 	t.Run("match by interface", func(t *testing.T) {
 		type Service interface {
@@ -422,7 +422,7 @@ func TestCollectMatchingInstancesMore(t *testing.T) {
 }
 
 // TestTryDirectOrInterfaceMatchMore 测试tryDirectOrInterfaceMatch的更多场景
-func TestTryDirectOrInterfaceMatchMore(t *testing.T) {
+func Test_TryDirectOrInterfaceMatchMore(t *testing.T) {
 	// 测试：类型完全匹配
 	t.Run("type exact match", func(t *testing.T) {
 		ctr := New().(*container)
@@ -445,7 +445,7 @@ func TestTryDirectOrInterfaceMatchMore(t *testing.T) {
 }
 
 // TestSmartTypeConversionMore 测试smartTypeConversion的更多场景
-func TestSmartTypeConversionMore(t *testing.T) {
+func Test_SmartTypeConversionMore(t *testing.T) {
 	// 测试：字符串到复杂类型的转换
 	t.Run("string to complex type", func(t *testing.T) {
 		ctr := New().(*container)
@@ -477,7 +477,7 @@ func TestSmartTypeConversionMore(t *testing.T) {
 }
 
 // TestCreateMore 测试create的更多场景
-func TestCreateMore(t *testing.T) {
+func Test_CreateMore(t *testing.T) {
 	// 测试：LoadModeTransient模式
 	t.Run("load mode transient", func(t *testing.T) {
 		ctr := New().(*container)

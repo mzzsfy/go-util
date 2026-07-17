@@ -7,7 +7,7 @@ import (
 )
 
 // TestObjectPool_GetPut_Basic 基本 Get/Put 循环, 验证对象复用
-func TestObjectPool_GetPut_Basic(t *testing.T) {
+func Test_ObjectPool_GetPut_Basic(t *testing.T) {
 	t.Parallel()
 
 	var resetCalls int32
@@ -38,7 +38,7 @@ func TestObjectPool_GetPut_Basic(t *testing.T) {
 }
 
 // TestObjectPool_ResetCalled 验证每次 Put 都调用 reset 函数
-func TestObjectPool_ResetCalled(t *testing.T) {
+func Test_ObjectPool_ResetCalled(t *testing.T) {
 	t.Parallel()
 
 	type item struct {
@@ -98,7 +98,7 @@ func TestObjectPool_Concurrent(t *testing.T) {
 }
 
 // TestObjectPool_MultipleTypes 验证泛型对不同类型都能正常工作
-func TestObjectPool_MultipleTypes(t *testing.T) {
+func Test_ObjectPool_MultipleTypes(t *testing.T) {
 	t.Parallel()
 
 	t.Run("string", func(t *testing.T) {

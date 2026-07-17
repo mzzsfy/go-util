@@ -156,7 +156,7 @@ func Test_TryWithStack_StackDepth(t *testing.T) {
 }
 
 // TestCleanTryFrame 验证 cleanTryFrame 的 boundary 缓存和移除逻辑
-func TestCleanTryFrame(t *testing.T) {
+func Test_CleanTryFrame(t *testing.T) {
     // cleanTryFrame 依赖 panic 上下文的 runtime.Callers, 无法用伪栈直接测试
     // 通过 Test_TryWithStack_BoundaryRemoved 实际调用验证
     // 此处验证空栈和无关栈不被修改

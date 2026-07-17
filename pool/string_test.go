@@ -7,7 +7,7 @@ import (
 )
 
 // TestStringPool_UseUnUse_Counting 验证同一字符串多次 Use/UnUse 计数正确
-func TestStringPool_UseUnUse_Counting(t *testing.T) {
+func Test_StringPool_UseUnUse_Counting(t *testing.T) {
     p := NewStringPool()
     s := "test-string"
 
@@ -44,7 +44,7 @@ func TestStringPool_UseUnUse_Counting(t *testing.T) {
 }
 
 // TestStringPool_UnUse_DeletesEntry 验证最后一次 UnUse 后条目会被删除
-func TestStringPool_UnUse_DeletesEntry(t *testing.T) {
+func Test_StringPool_UnUse_DeletesEntry(t *testing.T) {
     p := NewStringPool()
 
     // 单次 Use -> 单次 UnUse, 条目应被删除
@@ -90,7 +90,7 @@ func TestStringPool_UnUse_DeletesEntry(t *testing.T) {
 }
 
 // TestStringPool_Peek_NoSideEffects 验证 Peek 不影响引用计数
-func TestStringPool_Peek_NoSideEffects(t *testing.T) {
+func Test_StringPool_Peek_NoSideEffects(t *testing.T) {
     p := NewStringPool()
     s := "peek-test"
 
@@ -117,7 +117,7 @@ func TestStringPool_Peek_NoSideEffects(t *testing.T) {
 }
 
 // TestStringPool_DifferentStrings 不同字符串获得不同 id
-func TestStringPool_DifferentStrings(t *testing.T) {
+func Test_StringPool_DifferentStrings(t *testing.T) {
     p := NewStringPool()
     ids := make(map[uint64]string)
 
@@ -184,7 +184,7 @@ func TestStringPool_ConcurrentUseUnUse(t *testing.T) {
 }
 
 // TestStringPool_UnUseNonExistent 对不存在的字符串调用 UnUse 不 panic
-func TestStringPool_UnUseNonExistent(t *testing.T) {
+func Test_StringPool_UnUseNonExistent(t *testing.T) {
     p := NewStringPool()
     // 不应 panic
     p.UnUse("nonexistent")

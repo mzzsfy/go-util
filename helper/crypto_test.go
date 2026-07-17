@@ -5,7 +5,7 @@ import (
     "testing"
 )
 
-func TestMd5(t *testing.T) {
+func Test_Md5(t *testing.T) {
     tests := []struct {
         name   string
         input  string
@@ -25,7 +25,7 @@ func TestMd5(t *testing.T) {
     }
 }
 
-func TestMd5Base64(t *testing.T) {
+func Test_Md5Base64(t *testing.T) {
     got := Md5Base64("hello")
     if got == "" {
         t.Error("Md5Base64 返回空字符串")
@@ -38,7 +38,7 @@ func TestMd5Base64(t *testing.T) {
     }
 }
 
-func TestBase64(t *testing.T) {
+func Test_Base64(t *testing.T) {
     tests := []struct {
         name   string
         input  string
@@ -58,7 +58,7 @@ func TestBase64(t *testing.T) {
     }
 }
 
-func TestDeBase64(t *testing.T) {
+func Test_DeBase64(t *testing.T) {
     tests := []struct {
         name   string
         input  string
@@ -78,7 +78,7 @@ func TestDeBase64(t *testing.T) {
     }
 }
 
-func TestBase64RoundTrip(t *testing.T) {
+func Test_Base64RoundTrip(t *testing.T) {
     tests := []string{"hello world", "测试base64", "", "!@#$%^&*()"}
     for _, input := range tests {
         encoded := Base64(input)
@@ -89,7 +89,7 @@ func TestBase64RoundTrip(t *testing.T) {
     }
 }
 
-func TestDeBase64Byte(t *testing.T) {
+func Test_DeBase64Byte(t *testing.T) {
     got := DeBase64Byte("aGVsbG8=")
     if string(got) != "hello" {
         t.Errorf("DeBase64Byte = %q, want %q", string(got), "hello")

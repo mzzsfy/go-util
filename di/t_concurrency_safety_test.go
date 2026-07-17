@@ -30,7 +30,7 @@ func TestCheckAndGetCachedInstanceConcurrent(t *testing.T) {
 }
 
 // 测试 executeBeforeCreateHooks 的多个beforeCreate钩子链
-func TestExecuteBeforeCreateHooksChain(t *testing.T) {
+func Test_ExecuteBeforeCreateHooksChain(t *testing.T) {
 	c := New().(*container)
 
 	callCount := 0
@@ -63,7 +63,7 @@ func TestExecuteBeforeCreateHooksChain(t *testing.T) {
 }
 
 // 测试 createDestroyHook 的完整生命周期
-func TestCreateDestroyHookWithLifecycle(t *testing.T) {
+func Test_CreateDestroyHookWithLifecycle(t *testing.T) {
 	c := New().(*container)
 
 	// 实现ServiceLifecycle接口的类型
@@ -96,7 +96,7 @@ func TestCreateDestroyHookWithLifecycle(t *testing.T) {
 }
 
 // 测试 injectService 的成功场景
-func TestInjectServiceSuccess(t *testing.T) {
+func Test_InjectServiceSuccess(t *testing.T) {
 	c := New().(*container)
 
 	type TestStruct struct {
@@ -126,7 +126,7 @@ func TestInjectServiceSuccess(t *testing.T) {
 }
 
 // 测试 tryDirectOrInterfaceMatch 的接口实现场景
-func TestTryDirectOrInterfaceMatchWithInterface(t *testing.T) {
+func Test_TryDirectOrInterfaceMatchWithInterface(t *testing.T) {
 	// 测试内置接口类型
 	type Stringer interface {
 		String() string
@@ -147,7 +147,7 @@ func TestTryDirectOrInterfaceMatchWithInterface(t *testing.T) {
 }
 
 // 测试 tryPointerConversion 的各种场景
-func TestTryPointerConversionAdvanced(t *testing.T) {
+func Test_TryPointerConversionAdvanced(t *testing.T) {
 	t.Run("指针转值", func(t *testing.T) {
 		value := 42
 		valuePtr := &value
@@ -180,7 +180,7 @@ func TestTryPointerConversionAdvanced(t *testing.T) {
 }
 
 // 测试 WithContainerAfterStart 的边界情况
-func TestWithContainerAfterStartPanics(t *testing.T) {
+func Test_WithContainerAfterStartPanics(t *testing.T) {
 	defer func() {
 		if r := recover(); r == nil {
 			t.Error("Expected panic when adding option to started container")
@@ -198,7 +198,7 @@ func TestWithContainerAfterStartPanics(t *testing.T) {
 }
 
 // 测试 GetNamedAll 的多个provider场景
-func TestGetNamedAllMultipleProviders(t *testing.T) {
+func Test_GetNamedAllMultipleProviders(t *testing.T) {
 	c := New()
 
 	// 定义一个自定义类型（不在黑名单中）

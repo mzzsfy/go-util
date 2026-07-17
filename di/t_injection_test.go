@@ -8,7 +8,7 @@ import (
 )
 
 // 测试 checkAndGetCachedInstance 的缓存命中
-func TestCheckAndGetCachedInstanceHit(t *testing.T) {
+func Test_CheckAndGetCachedInstanceHit(t *testing.T) {
 	c := New().(*container)
 
 	_ = ProvideValueNamed(c, "test", 42)
@@ -27,7 +27,7 @@ func TestCheckAndGetCachedInstanceHit(t *testing.T) {
 }
 
 // 测试 prepareLazyDependencies 更多场景
-func TestPrepareLazyDependenciesMoreCases(t *testing.T) {
+func Test_PrepareLazyDependenciesMoreCases(t *testing.T) {
 	t.Run("NonLazyMode", func(t *testing.T) {
 		c := New().(*container)
 
@@ -45,7 +45,7 @@ func TestPrepareLazyDependenciesMoreCases(t *testing.T) {
 }
 
 // 测试 validateInstance 更多场景
-func TestValidateInstanceMoreCases(t *testing.T) {
+func Test_ValidateInstanceMoreCases(t *testing.T) {
 	c := New().(*container)
 
 	t.Run("ValidInstance", func(t *testing.T) {
@@ -60,7 +60,7 @@ func TestValidateInstanceMoreCases(t *testing.T) {
 }
 
 // 测试 findDepend 更多场景
-func TestFindDependMoreCases(t *testing.T) {
+func Test_FindDependMoreCases(t *testing.T) {
 	c := New().(*container)
 
 	_ = ProvideValueNamed(c, "dep1", 10)
@@ -79,7 +79,7 @@ func TestFindDependMoreCases(t *testing.T) {
 }
 
 // 测试 mergeParentResults
-func TestMergeParentResults(t *testing.T) {
+func Test_MergeParentResults(t *testing.T) {
 	parent := New()
 	_ = ProvideValueNamed(parent, "parent-service", 100.0)
 
@@ -99,7 +99,7 @@ func TestMergeParentResults(t *testing.T) {
 }
 
 // 测试 validateProviderFunction 更多场景
-func TestValidateProviderFunctionMoreCases(t *testing.T) {
+func Test_ValidateProviderFunctionMoreCases(t *testing.T) {
 	t.Run("ValidFunction", func(t *testing.T) {
 		fn := func(c Container) (int, error) {
 			return 42, nil

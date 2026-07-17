@@ -10,7 +10,7 @@ import (
 )
 
 // 测试 getConfigValue 的所有分支
-func TestGetConfigValueAllBranches(t *testing.T) {
+func Test_GetConfigValueAllBranches(t *testing.T) {
 	t.Run("空key场景", func(t *testing.T) {
 		c := New().(*container)
 		configSource := NewMapConfigSource()
@@ -233,7 +233,7 @@ func TestCheckAndGetCachedInstanceAllBranches(t *testing.T) {
 }
 
 // 测试 tryDirectOrInterfaceMatch 的边界情况
-func TestTryDirectOrInterfaceMatchAdvancedExtra(t *testing.T) {
+func Test_TryDirectOrInterfaceMatchAdvancedExtra(t *testing.T) {
 	t.Run("类型直接匹配", func(t *testing.T) {
 		value := 42
 		field := reflect.New(reflect.TypeOf(0)).Elem()
@@ -284,7 +284,7 @@ func TestTryDirectOrInterfaceMatchAdvancedExtra(t *testing.T) {
 }
 
 // 测试 CreateChildScope 的完整生命周期
-func TestCreateChildScopeLifecycle(t *testing.T) {
+func Test_CreateChildScopeLifecycle(t *testing.T) {
 	t.Run("子容器继承配置源", func(t *testing.T) {
 		parent := New().(*container)
 		configSource := NewMapConfigSource()
@@ -341,7 +341,7 @@ func TestCreateChildScopeLifecycle(t *testing.T) {
 }
 
 // 测试 validateProviderFunction 的边界情况
-func TestValidateProviderFunctionAdvancedExtra(t *testing.T) {
+func Test_ValidateProviderFunctionAdvancedExtra(t *testing.T) {
 	t.Run("有效函数", func(t *testing.T) {
 		fn := func(c Container) (string, error) { return "test", nil }
 		fnType := reflect.TypeOf(fn)
@@ -394,7 +394,7 @@ func TestValidateProviderFunctionAdvancedExtra(t *testing.T) {
 }
 
 // 测试 executeBeforeCreateHooks 的所有分支
-func TestExecuteBeforeCreateHooksAllBranches(t *testing.T) {
+func Test_ExecuteBeforeCreateHooksAllBranches(t *testing.T) {
 	t.Run("provider级别的beforeCreate返回nil", func(t *testing.T) {
 		c := New().(*container)
 		entry := providerEntry{
@@ -485,7 +485,7 @@ func TestExecuteBeforeCreateHooksAllBranches(t *testing.T) {
 }
 
 // 测试 GetNamedAll 的错误场景
-func TestGetNamedAllErrorCases(t *testing.T) {
+func Test_GetNamedAllErrorCases(t *testing.T) {
 	t.Run("没有provider", func(t *testing.T) {
 		c := New()
 
@@ -517,7 +517,7 @@ func TestGetNamedAllErrorCases(t *testing.T) {
 }
 
 // 测试 injectService 的错误场景
-func TestInjectServiceErrorCases(t *testing.T) {
+func Test_InjectServiceErrorCases(t *testing.T) {
 	t.Run("服务不存在", func(t *testing.T) {
 		c := New().(*container)
 
@@ -561,7 +561,7 @@ func TestInjectServiceErrorCases(t *testing.T) {
 }
 
 // 测试 checkExistingInstanceDuringCreation 的所有分支
-func TestCheckExistingInstanceDuringCreationAllBranches(t *testing.T) {
+func Test_CheckExistingInstanceDuringCreationAllBranches(t *testing.T) {
 	t.Run("实例存在且非Transient模式", func(t *testing.T) {
 		c := New().(*container)
 		key := "test-key"
@@ -614,7 +614,7 @@ func TestCheckExistingInstanceDuringCreationAllBranches(t *testing.T) {
 }
 
 // 测试 createDestroyHook 的所有分支
-func TestCreateDestroyHookAllBranches(t *testing.T) {
+func Test_CreateDestroyHookAllBranches(t *testing.T) {
 	t.Run("同时有钩子和接口", func(t *testing.T) {
 		c := New().(*container)
 
@@ -687,7 +687,7 @@ func TestCreateDestroyHookAllBranches(t *testing.T) {
 }
 
 // 测试信号处理的边界情况
-func TestSignalHandlingEdgeCases(t *testing.T) {
+func Test_SignalHandlingEdgeCases(t *testing.T) {
 	t.Run("多个信号监听", func(t *testing.T) {
 		c := New().(*container)
 

@@ -4,7 +4,7 @@ import (
     "testing"
 )
 
-func TestIsZero(t *testing.T) {
+func Test_IsZero(t *testing.T) {
     tests := []struct {
         name  string
         input any
@@ -34,7 +34,7 @@ func TestIsZero(t *testing.T) {
     }
 }
 
-func TestPtr(t *testing.T) {
+func Test_Ptr(t *testing.T) {
     val := 42
     p := Ptr(val)
     if p == nil {
@@ -50,7 +50,7 @@ func TestPtr(t *testing.T) {
     }
 }
 
-func TestNew(t *testing.T) {
+func Test_New(t *testing.T) {
     t.Run("非指针类型", func(t *testing.T) {
         got := New(0)
         if got != 0 {

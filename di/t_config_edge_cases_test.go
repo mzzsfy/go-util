@@ -5,7 +5,7 @@ import (
 )
 
 // 测试 resolveConfigValueSimple
-func TestResolveConfigValueSimple(t *testing.T) {
+func Test_ResolveConfigValueSimple(t *testing.T) {
 	c := New().(*container) // 类型断言获取内部实现
 
 	// 设置配置源
@@ -27,7 +27,7 @@ func TestResolveConfigValueSimple(t *testing.T) {
 }
 
 // 测试 resolveConfigValueSimple 无配置源
-func TestResolveConfigValueSimpleNoSource(t *testing.T) {
+func Test_ResolveConfigValueSimpleNoSource(t *testing.T) {
 	c := New().(*container) // 类型断言
 
 	// 不设置配置源
@@ -38,7 +38,7 @@ func TestResolveConfigValueSimpleNoSource(t *testing.T) {
 }
 
 // 测试 parseConfigVariable
-func TestParseConfigVariable(t *testing.T) {
+func Test_ParseConfigVariable(t *testing.T) {
 	tests := []struct {
 		input         string
 		expectedKey   string
@@ -64,7 +64,7 @@ func TestParseConfigVariable(t *testing.T) {
 }
 
 // 测试 extractVariablePart 错误场景
-func TestExtractVariablePartErrors(t *testing.T) {
+func Test_ExtractVariablePartErrors(t *testing.T) {
 	tests := []struct {
 		input string
 	}{
@@ -85,7 +85,7 @@ func TestExtractVariablePartErrors(t *testing.T) {
 }
 
 // 测试 extractVariablePart 成功场景
-func TestExtractVariablePartSuccess(t *testing.T) {
+func Test_ExtractVariablePartSuccess(t *testing.T) {
 	tests := []struct {
 		input         string
 		expectedVar   string
@@ -111,7 +111,7 @@ func TestExtractVariablePartSuccess(t *testing.T) {
 }
 
 // 测试 appendFixedText 的等价逻辑（已内联到 resolveConfigValueWithVariables）
-func TestAppendFixedText(t *testing.T) {
+func Test_AppendFixedText(t *testing.T) {
 	tests := []struct {
 		result    string
 		remaining string
@@ -139,7 +139,7 @@ func TestAppendFixedText(t *testing.T) {
 }
 
 // 测试 resolveConfigVariable 更多场景
-func TestResolveConfigVariableAdvanced(t *testing.T) {
+func Test_ResolveConfigVariableAdvanced(t *testing.T) {
 	tests := []struct {
 		input           string
 		expectedKey     string
@@ -165,7 +165,7 @@ func TestResolveConfigVariableAdvanced(t *testing.T) {
 }
 
 // 测试 appendResolvedVariable 的等价逻辑（已内联到 resolveConfigValueWithVariables）
-func TestAppendResolvedVariable(t *testing.T) {
+func Test_AppendResolvedVariable(t *testing.T) {
 	c := New().(*container) // 类型断言
 	configSource := NewMapConfigSource()
 	configSource.Set("key1", "value1")
@@ -195,7 +195,7 @@ func TestAppendResolvedVariable(t *testing.T) {
 }
 
 // 测试完整的 resolveConfigValue 流程
-func TestResolveConfigValueComplex(t *testing.T) {
+func Test_ResolveConfigValueComplex(t *testing.T) {
 	c := New().(*container) // 类型断言
 	configSource := NewMapConfigSource()
 	configSource.Set("name", "world")
@@ -226,7 +226,7 @@ func TestResolveConfigValueComplex(t *testing.T) {
 }
 
 // 测试 parseConfigInjection 更多场景
-func TestParseConfigInjectionAdvanced(t *testing.T) {
+func Test_ParseConfigInjectionAdvanced(t *testing.T) {
 	tests := []struct {
 		input         string
 		expectedKey   string
@@ -258,7 +258,7 @@ func TestParseConfigInjectionAdvanced(t *testing.T) {
 }
 
 // 测试 getConfigValue 空键
-func TestGetConfigValueEmptyKey(t *testing.T) {
+func Test_GetConfigValueEmptyKey(t *testing.T) {
 	c := New().(*container) // 类型断言
 	configSource := NewMapConfigSource()
 	configSource.Set("key", "value")
@@ -272,7 +272,7 @@ func TestGetConfigValueEmptyKey(t *testing.T) {
 }
 
 // 测试 getConfigValue 无配置源
-func TestGetConfigValueNoSource(t *testing.T) {
+func Test_GetConfigValueNoSource(t *testing.T) {
 	c := New().(*container) // 类型断言
 
 	// 测试无配置源的情况
@@ -283,7 +283,7 @@ func TestGetConfigValueNoSource(t *testing.T) {
 }
 
 // 测试配置命中和未命中的统计
-func TestConfigStatsTracking(t *testing.T) {
+func Test_ConfigStatsTracking(t *testing.T) {
 	c := New().(*container) // 类型断言
 	configSource := NewMapConfigSource()
 	configSource.Set("existing", "value")
