@@ -38,20 +38,94 @@
 - [config](./config)  
   工作模式类似spring配置工具类
 
+    ```go
+    // 构造嵌套配置map
+    cfg := map[string]any{
+        "database": map[string]any{
+            "host": "localhost",
+            "port": 3306,
+        },
+    }
+    // 通过路径读取嵌套值,支持自动类型转换和默认值
+    host := config.GetByPath(cfg, "database.host")           // "localhost"
+    port := config.ValueFromPath(cfg, "database.port").Int()  // 3306
+    timeout := config.ValueFromPath(cfg, "database.timeout").IntD(5) // 5 (默认值)
+    ```
+  更多例子见: [config/README.md](./config/README.md) [config_test.go](./config/item_test.go)
+
 - [unsafe](./unsafe)  
   获取goroutine id,hash等不安全操作
 
 - [concurrent](./concurrent)  
   一些并发相关的工具,包含可重入锁等
 
+    ```go
+    // Int64Adder: 高并发原子计数器,类似Java LongAdder
+    adder := &concurrent.Int64Adder{}
+    adder.AddSimple(10) // 原子递增
+    adder.AddSimple(20)
+    val := adder.Sum() // 30
+
+    // 滑动窗口限流: 1秒内最多允许100次请求,分为10个窗口
+    sw := concurrent.NewSlidingWindow(1000, 100, 10)
+    if sw.CanDo() {
+        // 允许执行
+    } else {
+        // 被限流,拒绝
+    }
+    ```
+  更多例子见: [README.md](./concurrent/README.md) [int64_adder_test.go](./concurrent/int64_adder_test.go) [sliding_window_test.go](./concurrent/sliding_window_test.go)
+
 - [pool](./pool)  
   一些池化工具:携程池,对象池
+
+    ```go
+    // 对象池:复用对象减少GC压力
+    pool := pool.NewObjectPool[bytes.Buffer](
+        func() *bytes.Buffer { return &bytes.Buffer{} },
+        func(b *bytes.Buffer) { b.Reset() }, // 归还时重置状态
+    )
+    buf := pool.Get()   // 获取对象
+    buf.WriteString("hello")
+    pool.Put(buf)       // 归还对象
+
+    // 字符串池:用数字ID代替长字符串,适合做Map的Key
+    sp := pool.NewStringPool()
+    id := sp.Use("long-long-key-string")  // 分配ID,引用计数+1
+    sp.UnUse("long-long-key-string")      // 释放引用,归零时自动清理
+    ```
 
 - [queue](./queue)  
   简单的队列
 
 - [storage](./storage)  
   map等存储工具,swissMap,gls等
+
+    ```go
+    // 泛型Map:默认使用高性能Swiss Map实现
+    m := storage.NewMap[string, int]() // 等价于 storage.NewMap(storage.MapTypeSwiss[string, int](16))
+    m.Put("hello", 1)
+    v, ok := m.Get("hello")  // 1, true
+    m.Iter(func(k string, v int) bool {
+        println(k, v)
+        return false
+    })
+    m.Delete("hello")
+
+    // 并发安全Map
+    cm := storage.NewMap(storage.MapTypeSwissConcurrent[string, int]())
+
+    // Goroutine Local Storage:类似Java ThreadLocal
+    storage.KnowHowToUseGls() // 使用前必须声明已知用法
+    var traceId = storage.NewGlsItem[string]() // 全局定义key
+    func() {
+        traceId.Set("abc-123")            // 在当前goroutine存储
+        val, _ := traceId.Get()           // "abc-123"
+        println(val)
+        traceId.Delete(true)              // 使用完毕必须清理,参数true表示自动清理无其他key的goroutine
+    }()
+    ```
+  更多例子见: [map_test.go](./storage/map_test.go) [gls_test.go](./storage/gls_test.go)
 
 - [logger](./logger)
   日志工具

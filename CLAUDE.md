@@ -79,19 +79,22 @@ The codebase is organized into modular packages, each serving a specific purpose
 ## Development Commands
 
 ### Testing
+
+> tests must add timeouts to prevent bugs from causing high CPU usage for a long time
+
 ```bash
 # Run all tests
-go test ./...
+go test -timeout 30s ./...
 
 # Run specific package tests
-go test -v ./seq
-go test -v ./di
+go test -timeout 30s -v ./seq  timeout 30s
+go test -timeout 30s -v ./di 
 
 # Run specific test
-go test -v ./seq -run Test_1
+go test -timeout 30s -v ./seq -run Test_1
 
 # Run benchmarks
-go test -bench=. -benchmem ./seq
+go test -timeout 120s -bench=. -benchmem ./seq
 ```
 
 ### Building

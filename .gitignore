@@ -45,3 +45,5 @@ fuzz
 *.vsix
 
 data
+docs
+.superpower
