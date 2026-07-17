@@ -128,6 +128,19 @@ func waitFor(t *testing.T, ch <-chan struct{}, timeout time.Duration, msg string
     }
 }
 
+// waitForCondition 等待条件满足，超时则 fatal
+func waitForCondition(t *testing.T, timeout time.Duration, condition func() bool, msg string) {
+    t.Helper()
+    deadline := time.Now().Add(timeout)
+    for time.Now().Before(deadline) {
+        if condition() {
+            return
+        }
+        time.Sleep(10 * time.Millisecond)
+    }
+    t.Fatal(msg)
+}
+
 // ==================== Schedule 单次调度 ====================
 
 func TestTimerWheel_Schedule(t *testing.T) {
@@ -166,14 +179,13 @@ func TestTimerWheel_Schedule(t *testing.T) {
         delay := 100 * time.Millisecond
         start := time.Now()
         w.Schedule(delay, FuncTask(func() {}))
-        time.Sleep(delay + tick*3)
-        et.mu.Lock()
-        executedCount := len(et.tasks)
-        et.mu.Unlock()
-        if executedCount == 0 {
-            t.Error("任务未执行")
-            return
-        }
+        // 使用条件等待任务执行完成
+        waitForCondition(t, delay+tick*3, func() bool {
+            et.mu.Lock()
+            count := len(et.tasks)
+            et.mu.Unlock()
+            return count > 0
+        }, "任务未在预期时间内执行")
         if elapsed := time.Since(start); elapsed < delay-tick {
             t.Errorf("任务执行过早: %v, 预期至少 %v", elapsed, delay)
         }
@@ -237,7 +249,13 @@ func TestTimerWheel_Schedule(t *testing.T) {
 
                 start := time.Now().UnixMilli()
                 w.Schedule(tt.delay, FuncTask(func() {}))
-                time.Sleep(tt.delay*2 + tt.extraWait)
+                // 使用条件等待任务执行完成
+                waitForCondition(t, tt.delay*2+tt.extraWait, func() bool {
+                    et.mu.Lock()
+                    hasTimes := len(et.times) > 0
+                    et.mu.Unlock()
+                    return hasTimes
+                }, "边界延迟任务未执行")
 
                 et.mu.Lock()
                 times := et.times
@@ -334,10 +352,10 @@ func TestTimerWheel_Schedule(t *testing.T) {
         var et execTracker
         w := newTestWheel(t, 100*time.Millisecond, et.executor)
         w.Schedule(50*time.Millisecond, FuncTask(func() {}))
-        time.Sleep(300 * time.Millisecond)
-        if atomic.LoadInt32(&et.count) == 0 {
-            t.Error("任务未执行")
-        }
+        // 使用条件等待任务执行完成
+        waitForCondition(t, 300*time.Millisecond, func() bool {
+            return atomic.LoadInt32(&et.count) > 0
+        }, "任务未执行")
     })
 }
 
@@ -352,10 +370,10 @@ func TestTimerWheel_ScheduleRepeating(t *testing.T) {
         w := newTestWheel(t, tick, et.executor)
         interval := 100 * time.Millisecond
         w.ScheduleRepeating(interval, FuncTask(func() {}))
-        time.Sleep(interval*5 + tick*2)
-        if count := atomic.LoadInt32(&et.count); count < 3 {
-            t.Errorf("重复任务执行次数不足: %d, 预期至少 3 次", count)
-        }
+        // 使用条件等待任务至少执行3次
+        waitForCondition(t, interval*5+tick*2, func() bool {
+            return atomic.LoadInt32(&et.count) >= 3
+        }, "重复任务执行次数不足，预期至少 3 次")
     })
 
     t.Run("Cancel", func(t *testing.T) {
@@ -365,10 +383,13 @@ func TestTimerWheel_ScheduleRepeating(t *testing.T) {
         w := newTestWheel(t, tick, et.executor)
         interval := 100 * time.Millisecond
         handle := w.ScheduleRepeating(interval, FuncTask(func() {}))
-        // 等待几次执行后取消
-        time.Sleep(interval*2 + tick)
+        // 等待至少执行1次后取消
+        waitForCondition(t, interval*2+tick, func() bool {
+            return atomic.LoadInt32(&et.count) >= 1
+        }, "等待重复任务执行超时")
         handle.Cancel()
         countBeforeCancel := atomic.LoadInt32(&et.count)
+        // 等待足够长时间，验证取消后没有新执行
         time.Sleep(interval * 3)
         countAfterWait := atomic.LoadInt32(&et.count)
         if countAfterWait > countBeforeCancel+1 {
@@ -384,7 +405,13 @@ func TestTimerWheel_ScheduleRepeating(t *testing.T) {
         w := newTestWheel(t, tick, et.timingExecutor)
         interval := 100 * time.Millisecond
         w.ScheduleRepeating(interval, FuncTask(func() {}))
-        time.Sleep(interval*5 + tick*3)
+        // 使用条件等待至少执行4次
+        waitForCondition(t, interval*5+tick*3, func() bool {
+            et.mu.Lock()
+            hasEnough := len(et.times) >= 4
+            et.mu.Unlock()
+            return hasEnough
+        }, "重复任务执行次数不足，预期至少 4 次")
         et.mu.Lock()
         times := et.times
         et.mu.Unlock()
@@ -420,7 +447,10 @@ func TestTimerWheel_ScheduleRepeating(t *testing.T) {
             time.Sleep(interval * 2)
             atomic.AddInt32(&currentConcurrent, -1)
         }))
-        time.Sleep(interval*8 + tick*4)
+        // 使用条件等待至少执行几次
+        waitForCondition(t, interval*8+tick*4, func() bool {
+            return atomic.LoadInt32(&totalRuns) >= 3
+        }, "慢任务执行次数不足")
         t.Logf("总执行次数: %d, 最大并发: %d", atomic.LoadInt32(&totalRuns), atomic.LoadInt32(&maxConcurrent))
         if atomic.LoadInt32(&maxConcurrent) > 1 {
             t.Errorf("重复任务并发重入: 最大并发数 %d, 预期 1", atomic.LoadInt32(&maxConcurrent))
@@ -445,7 +475,10 @@ func TestTimerWheel_ScheduleCustom(t *testing.T) {
             }
             return now.Add(80 * time.Millisecond)
         }, FuncTask(func() {}))
-        time.Sleep(500 * time.Millisecond)
+        // 使用条件等待任务执行完毕
+        waitForCondition(t, 500*time.Millisecond, func() bool {
+            return atomic.LoadInt32(&et.count) >= 3
+        }, "任务执行次数不足")
         if count := atomic.LoadInt32(&et.count); count > 3 {
             t.Errorf("任务执行次数过多: %d, 预期最多 3 次", count)
         }

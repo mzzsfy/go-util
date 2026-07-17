@@ -171,3 +171,19 @@ func TestCleanTryFrame(t *testing.T) {
         t.Fatal("无匹配 PC 时栈不应被修改")
     }
 }
+
+// BenchmarkTryWithStack_NoPanic 测试无 panic 场景性能
+func BenchmarkTryWithStack_NoPanic(b *testing.B) {
+    b.ReportAllocs()
+    for i := 0; i < b.N; i++ {
+        TryWithStack(func() {}, func(recoverValue any, stack Stacks) {})
+    }
+}
+
+// BenchmarkTryWithStack_WithPanic 测试有 panic 场景性能
+func BenchmarkTryWithStack_WithPanic(b *testing.B) {
+    b.ReportAllocs()
+    for i := 0; i < b.N; i++ {
+        TryWithStack(func() { panic("test") }, func(recoverValue any, stack Stacks) {})
+    }
+}

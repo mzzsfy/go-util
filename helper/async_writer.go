@@ -9,10 +9,20 @@ import (
     "time"
 )
 
+// 默认异步写入器配置常量
+const (
+    // defaultCacheSize 默认缓存通道大小
+    defaultCacheSize = 128
+    // defaultFlushSize 默认刷写阈值(字节)
+    defaultFlushSize = 2 * 1024
+    // defaultConsoleFlushSize 默认控制台刷写阈值(字节)
+    defaultConsoleFlushSize = 8 * 1024
+)
+
 // 默认异步控制台输出
 var defaultAsyncConsole = func() *AsyncWrite {
     a := NewAsyncWriter(os.Stdout)
-    a.SetFlushSize(1024 * 8)
+    a.SetFlushSize(defaultConsoleFlushSize)
     return a
 }()
 
@@ -31,8 +41,8 @@ func AsyncConsole() *AsyncWrite {
 func NewAsyncWriter(writer io.Writer) *AsyncWrite {
     a := &AsyncWrite{
         target:    writer,
-        cacheSize: 128,
-        flushSize: 1024 * 2,
+        cacheSize: defaultCacheSize,
+        flushSize: defaultFlushSize,
         pool: sync.Pool{
             New: func() any { return &cell{} },
         },

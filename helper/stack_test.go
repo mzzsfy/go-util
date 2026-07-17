@@ -114,3 +114,29 @@ func TestCallerStack_RuntimeSkip(t *testing.T) {
         }
     }
 }
+
+// BenchmarkCallerStack 测试调用栈获取性能
+func BenchmarkCallerStack(b *testing.B) {
+    b.ReportAllocs()
+    for i := 0; i < b.N; i++ {
+        CallerStack(0)
+    }
+}
+
+// BenchmarkCallerStack_WithLimit 测试带限制的调用栈获取性能
+func BenchmarkCallerStack_WithLimit(b *testing.B) {
+    b.ReportAllocs()
+    for i := 0; i < b.N; i++ {
+        CallerStack(0, 10)
+    }
+}
+
+// BenchmarkFormatStack 测试格式化调用栈性能
+func BenchmarkFormatStack(b *testing.B) {
+    b.ReportAllocs()
+    stacks := CallerStack(0)
+    b.ResetTimer()
+    for i := 0; i < b.N; i++ {
+        FormatStack(stacks)
+    }
+}

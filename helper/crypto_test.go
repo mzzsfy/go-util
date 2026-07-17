@@ -1,6 +1,7 @@
 package helper
 
 import (
+    "strings"
     "testing"
 )
 
@@ -92,5 +93,51 @@ func TestDeBase64Byte(t *testing.T) {
     got := DeBase64Byte("aGVsbG8=")
     if string(got) != "hello" {
         t.Errorf("DeBase64Byte = %q, want %q", string(got), "hello")
+    }
+}
+
+// BenchmarkMd5 测试 MD5 计算性能
+func BenchmarkMd5(b *testing.B) {
+    b.ReportAllocs()
+    data := "benchmark test string for md5 hash"
+    for i := 0; i < b.N; i++ {
+        Md5(data)
+    }
+}
+
+// BenchmarkMd5_Short 测试短字符串 MD5 计算性能
+func BenchmarkMd5_Short(b *testing.B) {
+    b.ReportAllocs()
+    data := "hello"
+    for i := 0; i < b.N; i++ {
+        Md5(data)
+    }
+}
+
+// BenchmarkMd5_Long 测试长字符串 MD5 计算性能
+func BenchmarkMd5_Long(b *testing.B) {
+    b.ReportAllocs()
+    // 1KB 字符串
+    data := strings.Repeat("a", 1024)
+    for i := 0; i < b.N; i++ {
+        Md5(data)
+    }
+}
+
+// BenchmarkBase64 测试 Base64 编码性能
+func BenchmarkBase64(b *testing.B) {
+    b.ReportAllocs()
+    data := "benchmark test string for base64 encode"
+    for i := 0; i < b.N; i++ {
+        Base64(data)
+    }
+}
+
+// BenchmarkDeBase64 测试 Base64 解码性能
+func BenchmarkDeBase64(b *testing.B) {
+    b.ReportAllocs()
+    data := "YmVuY2htYXJrIHRlc3Qgc3RyaW5nIGZvciBiYXNlNjQgZW5jb2Rl"
+    for i := 0; i < b.N; i++ {
+        DeBase64(data)
     }
 }

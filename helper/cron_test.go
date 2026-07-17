@@ -759,3 +759,35 @@ func TestWeekdayOf_Sakamoto(t *testing.T) {
         })
     }
 }
+
+// BenchmarkParseCron 测试基础 cron 表达式解析性能
+func BenchmarkParseCron(b *testing.B) {
+    b.ReportAllocs()
+    for i := 0; i < b.N; i++ {
+        ParseCron("*/5 * * * * ?")
+    }
+}
+
+// BenchmarkParseCron_Complex 测试复杂 cron 表达式解析性能
+func BenchmarkParseCron_Complex(b *testing.B) {
+    b.ReportAllocs()
+    for i := 0; i < b.N; i++ {
+        ParseCron("0,30 0,30 9-17 * * 1-5")
+    }
+}
+
+// BenchmarkParseCron_Every 测试 @every 表达式解析性能
+func BenchmarkParseCron_Every(b *testing.B) {
+    b.ReportAllocs()
+    for i := 0; i < b.N; i++ {
+        ParseCron("@every 1h30m")
+    }
+}
+
+// BenchmarkParseCron_Yearly 测试内置表达式解析性能
+func BenchmarkParseCron_Yearly(b *testing.B) {
+    b.ReportAllocs()
+    for i := 0; i < b.N; i++ {
+        ParseCron("@yearly")
+    }
+}
