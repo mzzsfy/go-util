@@ -40,7 +40,7 @@ func NewSlidingWindow(time int64, allowNumber, windowNumber int32) *SlidingWindo
         panic("窗口数量必须大于2否则有bug")
     }
 
-    if time < int64(windowNumber) {
+    if time <= int64(windowNumber) {
         panic("时间窗口长度必须大于窗口数量")
     }
 
