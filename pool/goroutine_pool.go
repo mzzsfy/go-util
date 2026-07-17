@@ -211,7 +211,7 @@ func NewGopool(options ...Option) *GoPool {
 		maxWorks:    defaultMaxWorks,
 		idleTimeout: defaultIdleTimeout,
 		taskQueue: concurrent.BlockQueueWrapper(
-			concurrent.NewQueue(concurrent.WithTypeLink[*task]()),
+			concurrent.NewQueue(concurrent.WithTypeSegment[*task]()),
 		),
 	}
 	for _, option := range options {

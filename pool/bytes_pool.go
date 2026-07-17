@@ -9,6 +9,12 @@ import (
 // minPoolCap 字节池最小容量阈值
 const minPoolCap = 16
 
+// defaultMaxBufferCap BufferPool默认最大容量,超过此容量的buffer不会被放回池中
+const defaultMaxBufferCap = 2 * 1024
+
+// defaultBytesMaxCap BytePool默认最大容量,超过此容量的字节切片不会被放回池中
+const defaultBytesMaxCap = 256
+
 // BufferPool is a pool of bytes.Buffer.
 type BufferPool struct {
 	pool   sync.Pool
@@ -22,7 +28,7 @@ func NewBufferPool() *BufferPool {
 				return new(bytes.Buffer)
 			},
 		},
-		maxCap: 2 * 1024,
+		maxCap: defaultMaxBufferCap,
 	}
 }
 
@@ -87,8 +93,8 @@ type BytePool struct {
 func NewSimpleBytesPool() *BytePool {
 	b := &BytePool{
 		pool:    sync.Pool{},
-		maxCap:  256,
-		initCap: 16,
+		maxCap:  defaultBytesMaxCap,
+		initCap: minPoolCap,
 	}
 	b.pool.New = func() any {
 		return &Bytes{
