@@ -301,7 +301,7 @@ func testMapIter[K comparable](t *testing.T, keys []K, m Map[K, int]) {
     }
 }
 
-func Equal(t *testing.T, a, b interface{}) {
+func Equal(t *testing.T, a, b any) {
     t.Helper()
     if a != b {
         t.Errorf("expected %v, got %v", a, b)
