@@ -1,6 +1,6 @@
 //copy from golang.org/x/time v0.12.0
 
-package slding_window_test
+package sliding_window_test
 
 import (
     "context"

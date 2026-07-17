@@ -12,8 +12,8 @@ type RwLocker interface {
     TryRLock() bool
 }
 
-// CasRwLocker 大部分情况下没有 sync.RWMutex 性能好,不要使用
-// Deprecated: 使用sync.RWMutex
+// CasRwLocker 基于CAS实现的读写锁,性能不如sync.RWMutex,仅保留用于基准测试对比
+// Deprecated: 使用sync.RWMutex替代,CAS实现在高并发场景下性能较差
 type CasRwLocker struct {
     lock int32
 }

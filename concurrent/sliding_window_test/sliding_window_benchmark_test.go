@@ -1,4 +1,4 @@
-package slding_window_test
+package sliding_window_test
 
 import (
     "fmt"
