@@ -20,7 +20,7 @@ func (c *container) GetNamed(serviceType any, name string) (any, error) {
 	key := typeKey(t, name)
 
 	// 首先检查缓存
-	if instance := c.getCachedInstance(key); instance != nil {
+	if instance, found := c.getCachedInstance(key); found {
 		return instance, nil
 	}
 

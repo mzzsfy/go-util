@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"reflect"
+	"sync/atomic"
 	"syscall"
 
 	"github.com/mzzsfy/go-util/helper"
@@ -140,9 +141,13 @@ func (c *container) cleanupResources() {
 	c.configSource = NewMapConfigSource()
 	c.configMu.Unlock()
 
-	c.statsMu.Lock()
-	c.stats = containerStats{}
-	c.statsMu.Unlock()
+	// 使用 atomic 重置统计信息
+	atomic.StoreInt64(&c.stats.createdInstances, 0)
+	atomic.StoreInt64(&c.stats.getCalls, 0)
+	atomic.StoreInt64(&c.stats.provideCalls, 0)
+	atomic.StoreInt64(&c.stats.configHits, 0)
+	atomic.StoreInt64(&c.stats.configMisses, 0)
+	atomic.StoreInt64(&c.stats.createDuration, 0)
 
 	close(c.done)
 }

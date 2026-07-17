@@ -3,6 +3,7 @@ package di
 
 import (
 	"strings"
+	"sync/atomic"
 
 	"github.com/mzzsfy/go-util/config"
 )
@@ -36,23 +37,6 @@ func extractVariablePart(remaining string) (varPart string, end int, found bool)
 	return varPart, end, true
 }
 
-// appendFixedText 将固定文本追加到结果中
-// 用于处理变量之前的普通文本
-func appendFixedText(result, remaining string, varStart int) string {
-	if varStart > 0 {
-		result += remaining[:varStart]
-	}
-	return result
-}
-
-// appendResolvedVariable 将解析后的变量值追加到结果中
-func (c *container) appendResolvedVariable(result, varPart string) string {
-	key, defaultValue := parseConfigVariable(varPart)
-	value := c.getConfigValue(key)
-	resolvedValue := value.StringD(defaultValue)
-	return result + resolvedValue
-}
-
 // resolveConfigValueSimple 简单配置值解析
 // 直接从配置源获取值
 func (c *container) resolveConfigValueSimple(tag string) string {
@@ -62,26 +46,33 @@ func (c *container) resolveConfigValueSimple(tag string) string {
 
 // resolveConfigValueWithVariables 带变量的配置值解析
 // 支持 ${key:default} 格式的变量替换
+// 使用 strings.Builder 优化字符串拼接性能
 func (c *container) resolveConfigValueWithVariables(tag string) string {
-	result := ""
-	remaining := tag
+	// 预计算容量：至少等于原字符串长度
+	var sb strings.Builder
+	sb.Grow(len(tag))
 
+	remaining := tag
 	for {
 		varPart, end, found := extractVariablePart(remaining)
 		if !found {
-			result += remaining
+			sb.WriteString(remaining)
 			break
 		}
 
 		varStart := strings.Index(remaining, "${")
+		if varStart > 0 {
+			sb.WriteString(remaining[:varStart])
+		}
 
-		result = appendFixedText(result, remaining, varStart)
-		result = c.appendResolvedVariable(result, varPart)
+		key, defaultValue := parseConfigVariable(varPart)
+		value := c.getConfigValue(key)
+		sb.WriteString(value.StringD(defaultValue))
 
 		remaining = remaining[end+1:]
 	}
 
-	return result
+	return sb.String()
 }
 
 // resolveConfigValue 配置值解析入口
@@ -124,13 +115,11 @@ func (c *container) getConfigValue(key string) config.Value {
 
 // updateConfigStats 更新配置访问统计
 func (c *container) updateConfigStats(hit bool) {
-	c.statsMu.Lock()
 	if hit {
-		c.stats.configHits++
+		atomic.AddInt64(&c.stats.configHits, 1)
 	} else {
-		c.stats.configMisses++
+		atomic.AddInt64(&c.stats.configMisses, 1)
 	}
-	c.statsMu.Unlock()
 }
 
 // getConfigFromSource 从配置源获取值

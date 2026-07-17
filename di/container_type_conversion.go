@@ -4,6 +4,7 @@ package di
 import (
 	"fmt"
 	"reflect"
+	"strconv"
 )
 
 // tryDirectOrInterfaceMatch 尝试直接类型匹配或接口匹配
@@ -141,20 +142,20 @@ func convertStringToBool(field reflect.Value, strValue string) error {
 func convertStringToNumber(field reflect.Value, strValue string, kind reflect.Kind) error {
 	switch {
 	case kind == reflect.Float32 || kind == reflect.Float64:
-		var floatValue float64
-		if _, err := fmt.Sscanf(strValue, "%f", &floatValue); err != nil {
+		floatValue, err := strconv.ParseFloat(strValue, 64)
+		if err != nil {
 			return fmt.Errorf("cannot convert string '%s' to float: %w", strValue, err)
 		}
 		field.SetFloat(floatValue)
 	case kind >= reflect.Int && kind <= reflect.Int64:
-		var intValue int64
-		if _, err := fmt.Sscanf(strValue, "%d", &intValue); err != nil {
+		intValue, err := strconv.ParseInt(strValue, 10, 64)
+		if err != nil {
 			return fmt.Errorf("cannot convert string '%s' to integer: %w", strValue, err)
 		}
 		field.SetInt(intValue)
 	default:
-		var uintValue uint64
-		if _, err := fmt.Sscanf(strValue, "%d", &uintValue); err != nil {
+		uintValue, err := strconv.ParseUint(strValue, 10, 64)
+		if err != nil {
 			return fmt.Errorf("cannot convert string '%s' to uint: %w", strValue, err)
 		}
 		field.SetUint(uintValue)

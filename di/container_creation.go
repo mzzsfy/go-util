@@ -12,7 +12,11 @@ import (
 // 协调各个创建阶段：钩子执行、缓存检查、实例创建
 func (c *container) create(entry providerEntry, name string) (any, error) {
 	startTime := time.Now()
-	key := typeKey(entry.reflectType, name)
+	// 优先使用缓存的 key，避免重复计算
+	key := entry.key
+	if key == "" {
+		key = typeKey(entry.reflectType, name)
+	}
 
 	// 执行 beforeCreate 钩子
 	instance, err := c.executeBeforeCreateHooks(entry, name)

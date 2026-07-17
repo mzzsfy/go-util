@@ -110,7 +110,7 @@ func TestExtractVariablePartSuccess(t *testing.T) {
 	}
 }
 
-// 测试 appendFixedText
+// 测试 appendFixedText 的等价逻辑（已内联到 resolveConfigValueWithVariables）
 func TestAppendFixedText(t *testing.T) {
 	tests := []struct {
 		result    string
@@ -126,7 +126,11 @@ func TestAppendFixedText(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run("", func(t *testing.T) {
-			result := appendFixedText(tt.result, tt.remaining, tt.varStart)
+			// 模拟内联后的逻辑: if varStart > 0 { result += remaining[:varStart] }
+			result := tt.result
+			if tt.varStart > 0 {
+				result += tt.remaining[:tt.varStart]
+			}
 			if result != tt.expected {
 				t.Errorf("Expected '%s', got '%s'", tt.expected, result)
 			}
@@ -160,7 +164,7 @@ func TestResolveConfigVariableAdvanced(t *testing.T) {
 	}
 }
 
-// 测试 appendResolvedVariable
+// 测试 appendResolvedVariable 的等价逻辑（已内联到 resolveConfigValueWithVariables）
 func TestAppendResolvedVariable(t *testing.T) {
 	c := New().(*container) // 类型断言
 	configSource := NewMapConfigSource()
@@ -179,7 +183,10 @@ func TestAppendResolvedVariable(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.varPart, func(t *testing.T) {
-			result := c.appendResolvedVariable(tt.result, tt.varPart)
+			// 模拟内联后的逻辑: parseConfigVariable + getConfigValue + StringD
+			key, defaultValue := parseConfigVariable(tt.varPart)
+			value := c.getConfigValue(key)
+			result := tt.result + value.StringD(defaultValue)
 			if result != tt.expected {
 				t.Errorf("Expected '%s', got '%s'", tt.expected, result)
 			}

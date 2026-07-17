@@ -4,6 +4,7 @@ package di
 import (
 	"fmt"
 	"reflect"
+	"sync/atomic"
 )
 
 // containerType 缓存 Container 类型
@@ -85,14 +86,13 @@ func (c *container) doRegisterProvider(key string, returnType reflect.Type, prov
 	}
 
 	c.providers[key] = providerEntry{
+		key:         key,
 		reflectType: returnType,
 		provider:    createProviderWrapper(provider),
 		config:      p,
 	}
 
-	c.statsMu.Lock()
-	c.stats.provideCalls++
-	c.statsMu.Unlock()
+	atomic.AddInt64(&c.stats.provideCalls, 1)
 	c.mu.Unlock()
 
 	// 如果是立即加载模式，额外调用一次,保证创建实例
@@ -101,9 +101,11 @@ func (c *container) doRegisterProvider(key string, returnType reflect.Type, prov
 
 // createProviderWrapper 创建提供者包装函数
 // 使用反射调用 provider 函数，保证泛型兼容
+// 缓存 reflect.Value 以避免重复创建
 func createProviderWrapper(provider any) func(Container) (any, error) {
+	pv := reflect.ValueOf(provider)
 	return func(cont Container) (any, error) {
-		results := reflect.ValueOf(provider).Call([]reflect.Value{reflect.ValueOf(cont)})
+		results := pv.Call([]reflect.Value{reflect.ValueOf(cont)})
 		if !results[1].IsNil() {
 			return nil, results[1].Interface().(error)
 		}

@@ -679,15 +679,15 @@ func testSpecialTypes(t *testing.T) {
         container := New()
 
         // 注册不同类型的空接口
-        container.ProvideNamedWith("intf", func(c Container) (interface{}, error) {
+        container.ProvideNamedWith("intf", func(c Container) (any, error) {
             return "string value", nil
         })
 
-        container.ProvideNamedWith("intf2", func(c Container) (interface{}, error) {
+        container.ProvideNamedWith("intf2", func(c Container) (any, error) {
             return 42, nil
         })
 
-        val1, err := GetNamed[interface{}](container, "intf")
+        val1, err := GetNamed[any](container, "intf")
         if err != nil {
             t.Fatalf("获取空接口1失败: %v", err)
         }
@@ -695,7 +695,7 @@ func testSpecialTypes(t *testing.T) {
             t.Error("空接口值1错误")
         }
 
-        val2, err := GetNamed[interface{}](container, "intf2")
+        val2, err := GetNamed[any](container, "intf2")
         if err != nil {
             t.Fatalf("获取空接口2失败: %v", err)
         }

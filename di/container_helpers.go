@@ -4,19 +4,13 @@ package di
 import (
 	"fmt"
 	"reflect"
+	"sync/atomic"
 	"time"
 
 	"github.com/mzzsfy/go-util/config"
 )
 
 // ========== 锁辅助函数 ==========
-
-// withRLock 使用读锁执行函数
-func (c *container) withRLock(fn func()) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	fn()
-}
 
 // withWLock 使用写锁执行函数
 func (c *container) withWLock(fn func()) {
@@ -106,34 +100,27 @@ func shutdownError(t reflect.Type, name string, err error) error {
 
 // ========== 统计更新函数 ==========
 
-// updateStats 通用统计更新函数
-func (c *container) updateStats(updateFn func(stats *containerStats)) {
-	c.statsMu.Lock()
-	defer c.statsMu.Unlock()
-	updateFn(&c.stats)
-}
-
 // updateGetCallsStats 更新 GetCalls 统计
 func (c *container) updateGetCallsStats() {
-	c.updateStats(func(stats *containerStats) {
-		stats.getCalls++
-	})
+	atomic.AddInt64(&c.stats.getCalls, 1)
 }
 
 // updateCreateStats 更新创建统计信息
 func (c *container) updateCreateStats(startTime time.Time) {
-	c.updateStats(func(stats *containerStats) {
-		stats.createdInstances++
-		stats.getCalls++
-		stats.createDuration += time.Since(startTime)
-	})
+	atomic.AddInt64(&c.stats.createdInstances, 1)
+	atomic.AddInt64(&c.stats.getCalls, 1)
+	atomic.AddInt64(&c.stats.createDuration, int64(time.Since(startTime)))
 }
 
 // ========== 缓存辅助函数 ==========
 
 // getCachedInstance 获取缓存的实例
-func (c *container) getCachedInstance(key string) any {
-	return withRLockResult(c, func() any { return c.instances[key] })
+// 返回实例和是否存在标记，区分 nil 实例和缓存未命中
+func (c *container) getCachedInstance(key string) (any, bool) {
+	c.mu.RLock()
+	instance, exists := c.instances[key]
+	c.mu.RUnlock()
+	return instance, exists
 }
 
 // getProvider 获取提供者
@@ -178,9 +165,14 @@ func (c *container) checkAndGetCachedInstance(key string) (any, bool) {
 }
 
 // cacheInstance 缓存实例，非 Transient 模式下才会缓存
+// 使用缓存的 entry.key 避免 typeKey 重复计算
 func (c *container) cacheInstance(entry providerEntry, name string, instance any) {
 	if entry.config.loadMode != LoadModeTransient {
-		key := typeKey(entry.reflectType, name)
+		// 优先使用缓存的 key
+		key := entry.key
+		if key == "" {
+			key = typeKey(entry.reflectType, name)
+		}
 		c.instances[key] = instance
 	}
 }
@@ -197,33 +189,34 @@ func (c *container) cacheAndRegisterHooks(entry providerEntry, name string, inst
 
 // GetStats 获取容器统计信息
 func (c *container) GetStats() ContainerStats {
-	c.statsMu.RLock()
-	defer c.statsMu.RUnlock()
 	return ContainerStats{
-		CreatedInstances: c.stats.createdInstances,
-		GetCalls:         c.stats.getCalls,
-		ProvideCalls:     c.stats.provideCalls,
-		ConfigHits:       c.stats.configHits,
-		ConfigMisses:     c.stats.configMisses,
-		CreateDuration:   c.stats.createDuration,
+		CreatedInstances: int(atomic.LoadInt64(&c.stats.createdInstances)),
+		GetCalls:         int(atomic.LoadInt64(&c.stats.getCalls)),
+		ProvideCalls:     int(atomic.LoadInt64(&c.stats.provideCalls)),
+		ConfigHits:       int(atomic.LoadInt64(&c.stats.configHits)),
+		ConfigMisses:     int(atomic.LoadInt64(&c.stats.configMisses)),
+		CreateDuration:   time.Duration(atomic.LoadInt64(&c.stats.createDuration)),
 	}
 }
 
 // ResetStats 重置统计信息
 func (c *container) ResetStats() {
-	c.statsMu.Lock()
-	defer c.statsMu.Unlock()
-	c.stats = containerStats{}
+	atomic.StoreInt64(&c.stats.createdInstances, 0)
+	atomic.StoreInt64(&c.stats.getCalls, 0)
+	atomic.StoreInt64(&c.stats.provideCalls, 0)
+	atomic.StoreInt64(&c.stats.configHits, 0)
+	atomic.StoreInt64(&c.stats.configMisses, 0)
+	atomic.StoreInt64(&c.stats.createDuration, 0)
 }
 
 // GetAverageCreateDuration 获取平均创建耗时
 func (c *container) GetAverageCreateDuration() time.Duration {
-	c.statsMu.RLock()
-	defer c.statsMu.RUnlock()
-	if c.stats.createdInstances == 0 {
+	created := atomic.LoadInt64(&c.stats.createdInstances)
+	if created == 0 {
 		return 0
 	}
-	return c.stats.createDuration / time.Duration(c.stats.createdInstances)
+	duration := atomic.LoadInt64(&c.stats.createDuration)
+	return time.Duration(duration) / time.Duration(created)
 }
 
 // ========== 配置接口实现 ==========
