@@ -59,8 +59,9 @@ func (l *Int64Adder) Add(goid int64, v int64) {
 }
 
 func (l *Int64Adder) addNoCompete(v int64) bool {
-    if l.init == 0 {
-        old := l.base
+    // init 三态: 0=未初始化, 1=初始化中, 2=就绪
+    if atomic.LoadInt32(&l.init) == 0 {
+        old := atomic.LoadInt64(&l.base)
         //没有并发竞争的场景下,直接CAS
         if atomic.CompareAndSwapInt64(&l.base, old, old+v) {
             return true
@@ -72,13 +73,15 @@ func (l *Int64Adder) addNoCompete(v int64) bool {
                 ceils[i] = int64AdderCeil{int64: 0}
             }
             l.values = ceils
+            // 必须先写 values 再发布: store 之前的写入对读到该值的 load 可见
+            atomic.StoreInt32(&l.init, 2)
             return false
         }
     }
-    if len(l.values) == 0 || l.init == 0 {
-        //等待初始化
+    if atomic.LoadInt32(&l.init) != 2 {
+        //等待初始化完成, init==2 后 values 必然可见
         for i := 0; ; i++ {
-            if len(l.values) != 0 && atomic.LoadInt32(&l.init) != 0 {
+            if atomic.LoadInt32(&l.init) == 2 {
                 break
             }
             if i > 10 {
@@ -123,8 +126,8 @@ func (l *Int64Adder) AddSimple(v int64) {
 }
 
 func (l *Int64Adder) Sum() int64 {
-    r := l.base
-    if l.init == 0 {
+    r := atomic.LoadInt64(&l.base)
+    if atomic.LoadInt32(&l.init) != 2 {
         return r
     }
     for i := range l.values {
@@ -139,10 +142,10 @@ func (l *Int64Adder) SumInt() int {
 
 func (l *Int64Adder) Reset() {
     l.base = 0
-    if len(l.values) == 0 {
+    if atomic.LoadInt32(&l.init) != 2 {
         return
     }
     for i := range l.values {
-        l.values[i].int64 = 0
+        atomic.StoreInt64(&l.values[i].int64, 0)
     }
 }
