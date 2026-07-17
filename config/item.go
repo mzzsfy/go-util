@@ -32,21 +32,26 @@ func ValueFrom(a any) Value {
 }
 
 type Value interface {
-    Any() any
-    AnyD(any) any
-    String() string
-    StringD(defaultValue string) string
-    Int() int
-    IntD(defaultValue int) int
-    Float() float64
-    FloatD(defaultValue float64) float64
-    Bool() bool
-    BoolD(defaultValue bool) bool
-    Child(name string) Value
+	// IsNil 检查值是否为nil
+	IsNil() bool
+	Any() any
+	AnyD(any) any
+	String() string
+	StringD(defaultValue string) string
+	Int() int
+	IntD(defaultValue int) int
+	Float() float64
+	FloatD(defaultValue float64) float64
+	Bool() bool
+	BoolD(defaultValue bool) bool
+	Child(name string) Value
 }
 
 type valueNil struct{}
 
+func (v valueNil) IsNil() bool {
+	return true
+}
 func (v valueNil) Any() any {
     return nil
 }
@@ -83,6 +88,9 @@ func (v valueNil) Child(name string) Value {
 
 type valueString string
 
+func (v valueString) IsNil() bool {
+	return false
+}
 func (v valueString) Any() any {
     return string(v)
 }
@@ -138,6 +146,9 @@ func (v valueString) Child(name string) Value {
 
 type valueAny struct{ value any }
 
+func (v valueAny) IsNil() bool {
+	return v.value == nil
+}
 func (v valueAny) Any() any {
     return v.value
 }

@@ -254,6 +254,10 @@ func GetByPathAny(obj any, path string) any {
     if path == "" {
         return obj
     }
+    // 校验路径格式: 不允许以点号开头/结尾, 或包含连续点号
+    if path[0] == '.' || path[len(path)-1] == '.' || strings.Contains(path, "..") {
+        panic("不支持的路径")
+    }
     return getByPath(reflect.ValueOf(obj), path)
 }
 func getByPath(vv reflect.Value, path string) any {
@@ -282,13 +286,20 @@ func getByPath(vv reflect.Value, path string) any {
         if err != nil {
             panic("不支持的路径")
         }
+        // 越界返回nil，负数等非法值仍panic
+        if i >= vv.Len() {
+            return nil
+        }
         value := vv.Index(i)
+        if nextKey == "" {
+            return value.Interface()
+        }
         if value.Kind() != reflect.Invalid {
             return getByPath(value, nextKey)
         }
         return nil
     default:
-        panic("不支持的路径")
+        return nil
     }
 }
 
