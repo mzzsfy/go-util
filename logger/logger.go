@@ -33,9 +33,9 @@ var (
     hasKvFmt int32        // 快速跳过: 无注册格式化器时跳过查找
     kvFmtMu  sync.Mutex   // 保护 kvFmtMap 写入
 
-    // caller 缓存
-    callerCache   map[uintptr]string
-    callerCacheMu sync.RWMutex
+    // caller 缓存 (sync.Map 读路径无锁, 适合读多写少场景)
+    callerCache     sync.Map // map[uintptr]string
+    callerCacheSize int32    // 缓存条目计数, 配合淘汰判断
 )
 
 const (
@@ -43,14 +43,21 @@ const (
     callerCacheMaxMul      = 8    // 最大可扩展到原始上限的8倍
 )
 
+// buffer池配置常量
+const (
+    // defaultBufferInitCap buffer池默认初始容量
+    defaultBufferInitCap = 128
+    // defaultBufferMaxCap buffer池默认最大容量
+    defaultBufferMaxCap = 512
+)
+
 var (
-    callerCacheMaxSize = callerCacheOrigMaxSize // 动态缓存上限, 可自适应扩容
+    callerCacheMaxSize int32 = callerCacheOrigMaxSize // 动态缓存上限, 可自适应扩容
 )
 
 func init() {
     globalHooks.Store([]Hook(nil))
     kvFmtMap.Store(map[string]KvFormatter(nil))
-    callerCache = make(map[uintptr]string, 1024)
 }
 
 // SetPrintYearInfo 设置年份打印格式: 0=4位年份, 1=2位, 2=无年份
@@ -469,8 +476,8 @@ func (l *logger) write(lv Level, msg string, args []any) {
 
 var bfPool = func() *pool.BytePool {
     p := pool.NewSimpleBytesPool()
-    p.SetInitCap(128)
-    p.SetMaxCap(512)
+    p.SetInitCap(defaultBufferInitCap)
+    p.SetMaxCap(defaultBufferMaxCap)
     return p
 }()
 
@@ -479,17 +486,14 @@ func formatCaller(s *pool.Bytes, pc uintptr, showFunc bool) {
     if pc == 0 {
         return
     }
-    // 检查缓存 (读锁保护)
+    // 检查缓存 (sync.Map 读路径无锁)
     cacheKey := pc
     if showFunc {
         // 带 func 的用不同 key, 避免与无 func 缓存冲突
         cacheKey = pc | (1 << 63)
     }
-    callerCacheMu.RLock()
-    v, ok := callerCache[cacheKey]
-    callerCacheMu.RUnlock()
-    if ok {
-        s.WriteString(v)
+    if v, ok := callerCache.Load(cacheKey); ok {
+        s.WriteString(v.(string))
         return
     }
     // 计算
@@ -517,19 +521,23 @@ func formatCaller(s *pool.Bytes, pc uintptr, showFunc bool) {
         result = name + " " + result
     }
     // 缓存或淘汰
-    callerCacheMu.Lock()
-    if len(callerCache) >= callerCacheMaxSize {
+    curSize := atomic.AddInt32(&callerCacheSize, 1)
+    if curSize > callerCacheMaxSize {
         // 清空重建: 热点 caller 会因后续访问迅速重新填充
         // 同时自适应扩容上限 1.5 倍, 最大不超过原始上限的 callerCacheMaxMul 倍
-        callerCache = make(map[uintptr]string, callerCacheMaxSize/2)
+        callerCache.Range(func(key, _ any) bool {
+            callerCache.Delete(key)
+            return true
+        })
         newSize := callerCacheMaxSize + callerCacheMaxSize/2
-        if max := callerCacheOrigMaxSize * callerCacheMaxMul; newSize > max {
+        if max := int32(callerCacheOrigMaxSize * callerCacheMaxMul); newSize > max {
             newSize = max
         }
+        // 重置计数 (可能会有少量并发写入, 用 curSize 近似即可)
+        atomic.StoreInt32(&callerCacheSize, 1)
         callerCacheMaxSize = newSize
     }
-    callerCache[cacheKey] = result
-    callerCacheMu.Unlock()
+    callerCache.Store(cacheKey, result)
     s.WriteString(result)
 }
 
