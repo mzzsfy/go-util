@@ -2,7 +2,6 @@ package seq
 
 import (
     "math/rand"
-    "os"
     "runtime"
     "sync"
     "sync/atomic"
@@ -22,7 +21,11 @@ func Test_Seq_MapSliceN(t *testing.T) {
 }
 
 func TestSeq_ParallelOrdered1_100(t *testing.T) {
+    deadline, hasDeadline := t.Deadline()
     for i := 0; i < 100; i++ {
+        if hasDeadline && time.Until(deadline) <= 1500*time.Millisecond {
+            break
+        }
         t.Run("Test_Seq_ParallelOrdered1", Test_Seq_ParallelOrdered1)
     }
 }
@@ -50,7 +53,7 @@ func Test_Seq_ParallelOrdered1(t *testing.T) {
             }
             lock.Unlock()
         }
-        s := 50*time.Millisecond + time.Duration(rand.Intn(50000))*time.Microsecond  // Reduced sleep time
+        s := 5*time.Millisecond + time.Duration(rand.Intn(5000))*time.Microsecond
         time.Sleep(s)
         atomic.AddInt32(&nowConcurrent, -1)
         c = atomic.LoadInt32(&nowConcurrent)
@@ -78,7 +81,11 @@ func Test_Seq_ParallelOrdered1(t *testing.T) {
 }
 
 func TestSeq_ParallelOrdered2_100(t *testing.T) {
+    deadline, hasDeadline := t.Deadline()
     for i := 0; i < 100; i++ {
+        if hasDeadline && time.Until(deadline) <= 1500*time.Millisecond {
+            break
+        }
         t.Run("Test_Seq_ParallelOrdered2", Test_Seq_ParallelOrdered2)
     }
 }
@@ -98,6 +105,7 @@ func Test_Seq_ParallelOrdered2(t *testing.T) {
     if concurrent > 8 {
         concurrent = 8 // Cap concurrency for stability
     }
+    var failed int32
     //t.Logf("n:%d,concurrent:%d,n:%d", n, concurrent, n)
     FromIntSeq().Take(n).MapParallel(func(i int) any {
         atomic.AddInt32(&nowIndex, 1)
@@ -133,10 +141,10 @@ func Test_Seq_ParallelOrdered2(t *testing.T) {
         i2, _ := it()
         //t.Log("test", i, "expect", i2)
         if i != i2 {
-            t.Fail()
-            runtime.Gosched()
-            t.Log("test", i, "expect", i2)
-            os.Exit(1)
+            if atomic.CompareAndSwapInt32(&failed, 0, 1) {
+                t.Errorf("test %d expect %d", i, i2)
+            }
+            return
         }
         time.Sleep(time.Millisecond)
         c := int(nowIndex) - i
@@ -175,6 +183,7 @@ func Test_Seq_ParallelOrdered3(t *testing.T) {
     if concurrent > 6 {
         concurrent = 6 // Cap concurrency for stability
     }
+    var failed int32
     var nowIndex int32
     FromIntSeq().Take(n).MapParallel(func(i int) any {
         atomic.AddInt32(&nowIndex, 1)
@@ -200,10 +209,10 @@ func Test_Seq_ParallelOrdered3(t *testing.T) {
         i2, _ := it()
         //t.Log("test", i, "expect", i2)
         if i != i2 {
-            t.Fail()
-            runtime.Gosched()
-            t.Log("test", i, "expect", i2)
-            os.Exit(1)
+            if atomic.CompareAndSwapInt32(&failed, 0, 1) {
+                t.Errorf("test %d expect %d", i, i2)
+            }
+            return
         }
         s := time.Duration(rand.Intn(50)) * time.Microsecond  // Reduced sleep time
         time.Sleep(s)

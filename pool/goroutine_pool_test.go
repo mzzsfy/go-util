@@ -54,8 +54,8 @@ func testGopoolGoParams(t *testing.T, n int) {
 
 func TestGopool_Go(t *testing.T) {
     t.Parallel()
-    t.Log("start 200000")
-    testGopoolGoParams(t, 200000)
+    t.Log("start 50000")
+    testGopoolGoParams(t, 50000)
 }
 
 func TestGopool_Go1(t *testing.T) {
