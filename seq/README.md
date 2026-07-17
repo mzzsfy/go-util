@@ -140,7 +140,6 @@ interface Seq[T]{
     SumByFloat64(f func(T) float64) float64
     JoinStringBy(f func(T) string, delimiter ...string) string
     JoinString(delimiter ...string) string
-    Stoppable() Seq[T]
     Catch(f func(any)) Seq[T]
     CatchWithValue(f func(T, any)) Seq[T]
     OnEach(f func(T)) Seq[T]
@@ -173,7 +172,6 @@ interface BiSeq[K,V]{
     MapIntBy(f func(K, V) int) Seq[int]
     MapSliceN(n int) Seq[any]
     MapSliceBy(f func(K, V, any) bool) Seq[any]
-    Stoppable() BiSeq[K, V]
     Catch(f func(any)) BiSeq[K, V]
     CatchWithValue(f func(K, V, any)) BiSeq[K, V]
     OnEach(f func(K, V)) BiSeq[K, V]

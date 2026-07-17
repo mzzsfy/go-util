@@ -16,11 +16,28 @@ var DefaultParallelFunc = func(fn func()) { go fn() }
 //======生成,产生新的seq========
 
 // From 从函数生成Seq,是一个便捷方法
-func From[T any](f Seq[T]) Seq[T] { return f }
+func From[T any](f Seq[T]) Seq[T] {
+    return func(t func(T)) {
+        defer stopRecover()
+        f(t)
+    }
+}
+
+// FromSeq 从函数生成Seq,是一个便捷方法
+func FromSeq[T any](f func(func(T) bool)) Seq[T] {
+    return func(t func(T)) {
+        defer stopRecover()
+        f(func(v T) bool {
+            t(v)
+            return true
+        })
+    }
+}
 
 // FromSlice 从数组生成Seq
 func FromSlice[T any](arr []T) Seq[T] {
     return func(t func(T)) {
+        defer stopRecover()
         for _, v := range arr {
             t(v)
         }
@@ -42,6 +59,7 @@ func FromBiV[V, K any](biSeq BiSeq[K, V]) Seq[V] {
 // FromSliceRepeat 从数组生成Seq,可以指定重复次数
 func FromSliceRepeat[T any](arr []T, limit ...int) Seq[T] {
     return func(t func(T)) {
+        defer stopRecover()
         if len(limit) > 0 && limit[0] > 0 {
             l := limit[0]
             for i := 0; i < l; i++ {
@@ -63,6 +81,7 @@ func FromSliceRepeat[T any](arr []T, limit ...int) Seq[T] {
 // FromChan 从Chan生成Seq
 func FromChan[T any](c <-chan T) Seq[T] {
     return func(t func(T)) {
+        defer stopRecover()
         for v := range c {
             t(v)
         }
@@ -72,6 +91,7 @@ func FromChan[T any](c <-chan T) Seq[T] {
 // FromIterator 从Iterator生成Seq
 func FromIterator[T any](it Iterator[T]) Seq[T] {
     return func(t func(T)) {
+        defer stopRecover()
         for {
             item, ok := it()
             if !ok {
@@ -108,6 +128,7 @@ func FromRandIntSeq(i ...int) Seq[int] {
         r = i[1]
     }
     return func(t func(int)) {
+        defer stopRecover()
         if r > 0 {
             for st := 0; st <= l; st++ {
                 t(rand.Intn(r))
@@ -124,15 +145,11 @@ func FromRandIntSeq(i ...int) Seq[int] {
 // 参数1,起始值,默认为0
 // 参数2,结束值,默认为int类型的最大值
 // 参数3,步长,默认为1
+// 注意: 不传结束值时会生成无限序列,必须配合Take等限制操作使用,否则会无限循环或整数溢出
 func FromIntSeq(Range ...int) Seq[int] {
     return func(f func(int)) {
+        defer stopRecover()
         r := makeRange(Range...)
-        defer func() {
-            a := recover()
-            if a != nil && a != &Stop {
-                panic(a)
-            }
-        }()
         for {
             f(r())
         }
@@ -141,12 +158,14 @@ func FromIntSeq(Range ...int) Seq[int] {
 
 func FromTreeT[T any](t T, getChild func(T) Seq[T]) Seq[T] {
     return func(f func(T)) {
+        defer stopRecover()
         f(t)
         getChild(t).ForEach(func(t T) { FromTreeT(t, getChild).ForEach(f) })
     }
 }
 func FromTreeTV[T, V any](p T, getChild func(T) Seq[T], getValue func(T) V) Seq[V] {
     return func(f func(V)) {
+        defer stopRecover()
         f(getValue(p))
         getChild(p).ForEach(func(t T) { FromTreeTV(t, getChild, getValue).ForEach(f) })
     }
@@ -154,6 +173,7 @@ func FromTreeTV[T, V any](p T, getChild func(T) Seq[T], getValue func(T) V) Seq[
 
 func FromTreeAny(o any, getChild func(any) Seq[any]) Seq[any] {
     return func(f func(any)) {
+        defer stopRecover()
         f(o)
         getChild(o).ForEach(func(t any) { FromTreeAny(t, getChild).ForEach(f) })
     }
@@ -161,6 +181,7 @@ func FromTreeAny(o any, getChild func(any) Seq[any]) Seq[any] {
 
 func FromTreeAnyTV[V any](o any, getChild func(any) Seq[any], getValue func(any) V) Seq[V] {
     return func(f func(V)) {
+        defer stopRecover()
         f(getValue(o))
         getChild(o).ForEach(func(t any) { FromTreeAnyTV(t, getChild, getValue).ForEach(f) })
     }
@@ -184,6 +205,7 @@ func Map[E, T any](seq Seq[T], cast func(T) E) Seq[E] {
 // Join 合并多个Seq
 func Join[T any](seqs ...Seq[T]) Seq[T] {
     return func(c func(T)) {
+        defer stopRecover()
         for _, seq := range seqs {
             seq(func(t T) { c(t) })
         }
@@ -203,5 +225,12 @@ func JoinBy[T, E, R any](seq1 Seq[T], cast1 func(T) R, seq2 Seq[E], cast2 func(E
     return func(c func(R)) {
         seq1(func(t T) { c(cast1(t)) })
         seq2(func(t E) { c(cast2(t)) })
+    }
+}
+
+// stopRecover 捕获Stop panic,用于所有调用消费者回调的生产者函数
+func stopRecover() {
+    if a := recover(); a != nil && a != &Stop {
+        panic(a)
     }
 }

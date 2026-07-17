@@ -15,31 +15,31 @@ func (t Seq[T]) Filter(f func(T) bool) Seq[T] {
 
 // Take 保留前n个元素
 func (t Seq[T]) Take(n int) Seq[T] {
-    if n <= 0 {
-        return func(t func(T)) {}
-    }
-    return func(c func(T)) {
-        n := n
-        t.Stoppable()(func(e T) {
-            c(e)
-            n--
-            if n == 0 {
-                panic(&Stop)
-            }
-        })
-    }
+	if n <= 0 {
+		return func(t func(T)) {}
+	}
+	return func(c func(T)) {
+		n := n
+		t(func(e T) {
+			if n <= 0 {
+				panic(&Stop)
+			}
+			c(e)
+			n--
+		})
+	}
 }
 
 // TakeWhile 保留表达式返回true前的所有元素
 func (t Seq[T]) TakeWhile(f func(T) bool) Seq[T] {
-    return func(c func(T)) {
-        t(func(e T) {
-            if f(e) {
-                panic(&Stop)
-            }
-            c(e)
-        })
-    }
+	return func(c func(T)) {
+		t(func(e T) {
+			if !f(e) {
+				panic(&Stop)
+			}
+			c(e)
+		})
+	}
 }
 
 // Limit 保留前n个元素,Take的别名
@@ -101,4 +101,24 @@ func (t Seq[T]) Distinct(equals func(T, T) bool) Seq[T] {
 // DistinctCustomize 自定义去重
 func (t Seq[T]) DistinctCustomize(contains func(T) bool) Seq[T] {
     return t.Filter(func(t T) bool { return !contains(t) })
+}
+
+// DistinctByKey 使用key函数提取键值,基于map进行O(n)去重
+// 对于comparable类型,可使用 key=自身 作为键
+func DistinctByKey[K comparable, T any](t Seq[T], key func(T) K) Seq[T] {
+    return func(c func(T)) {
+        seen := make(map[K]struct{})
+        t(func(e T) {
+            k := key(e)
+            if _, ok := seen[k]; !ok {
+                seen[k] = struct{}{}
+                c(e)
+            }
+        })
+    }
+}
+
+// DistinctComparable 对comparable类型使用map进行O(n)去重
+func DistinctComparable[T comparable](t Seq[T]) Seq[T] {
+    return DistinctByKey(t, func(e T) T { return e })
 }

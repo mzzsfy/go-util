@@ -1,36 +1,26 @@
 package seq
 
 import (
+    "runtime"
     "sort"
     "sync"
 )
 
 //======增强,不改变内容========
 
-// Stoppable 调用后可以使用 panic(&Stop) 来主动停止迭代,否则会导致panic
-func (t Seq[T]) Stoppable() Seq[T] {
-    return func(c func(T)) {
-        defer func() {
-            a := recover()
-            if a != nil && a != &Stop {
-                panic(a)
-            }
-        }()
-        t(func(t T) { c(t) })
-    }
-}
-
 // RecoverErr defer recover 的简单封装,在发生panic时,会调用f函数,任何位置可用
 func (t Seq[T]) RecoverErr(f func(any)) Seq[T] {
-    return func(c func(T)) {
-        defer func() {
-            a := recover()
-            if a != nil && a != &Stop {
-                f(a)
-            }
-        }()
-        t(func(t T) { c(t) })
-    }
+	return func(c func(T)) {
+		defer func() {
+			if a := recover(); a != nil {
+				if a == &Stop {
+					panic(a)
+				}
+				f(a)
+			}
+		}()
+		t(c)
+	}
 }
 
 ////Deprecated: 不要使用这个方法,方法名称有歧义,请使用 RecoverErr
@@ -40,19 +30,21 @@ func (t Seq[T]) RecoverErr(f func(any)) Seq[T] {
 
 // RecoverErrWithValue defer recover 的简单封装,保留最后一次调用的值
 func (t Seq[T]) RecoverErrWithValue(f func(T, any)) Seq[T] {
-    return func(c func(T)) {
-        var last T
-        defer func() {
-            a := recover()
-            if a != nil && a != &Stop {
-                f(last, a)
-            }
-        }()
-        t(func(t T) {
-            last = t
-            c(t)
-        })
-    }
+	return func(c func(T)) {
+		var last T
+		defer func() {
+			if a := recover(); a != nil {
+				if a == &Stop {
+					panic(a)
+				}
+				f(last, a)
+			}
+		}()
+		t(func(t T) {
+			last = t
+			c(t)
+		})
+	}
 }
 
 //// Deprecated: 不要使用这个方法,方法名称有歧义,请使用 RecoverErrWithValue
@@ -207,41 +199,21 @@ func (t Seq[T]) Sync() Seq[T] {
     }
 }
 
-// Parallel 对后续操作启用并行执行 使用 Sync() 保证消费不竞争
+// Parallel 对后续操作启用并行执行,使用 Sync() 保证消费不竞争
+// concurrent 为空时默认并发数为 2*GOMAXPROCS,防止 goroutine 洪泛
 func (t Seq[T]) Parallel(concurrent ...int) Seq[T] {
-    sl := 0
-    if len(concurrent) > 0 {
+    sl := runtime.GOMAXPROCS(0) * 2
+    if len(concurrent) > 0 && concurrent[0] > 0 {
         sl = concurrent[0]
     }
     return func(c func(T)) {
-        if sl > 0 {
-            p := NewParallel(sl)
-            t(func(t T) {
-                p.Add(func() {
-                    c(t)
-                })
+        p := NewParallel(sl)
+        t(func(t T) {
+            p.Add(func() {
+                c(t)
             })
-            p.Wait()
-        } else {
-            wg := sync.WaitGroup{}
-            var err any
-            t(func(t T) {
-                wg.Add(1)
-                DefaultParallelFunc(func() {
-                    defer func() {
-                        if a := recover(); a != nil {
-                            err = a
-                        }
-                        wg.Done()
-                    }()
-                    c(t)
-                })
-                if err != nil {
-                    panic(err)
-                }
-            })
-            wg.Wait()
-        }
+        })
+        p.Wait()
     }
 }
 
@@ -271,81 +243,87 @@ func (t Seq[T]) ParallelCustomize(fn func(T, func())) Seq[T] {
 
 // Sort 排序,禁止无限流,会导致内存溢出
 func (t Seq[T]) Sort(less func(T, T) bool) Seq[T] {
-    var r []T
-    once := sync.Once{}
-    fn := func() {
-        t(func(t T) { r = append(r, t) })
-        sort.Slice(r, func(i, j int) bool { return less(r[i], r[j]) })
-    }
-    return func(t func(T)) {
-        once.Do(fn)
-        for _, v := range r {
-            t(v)
-        }
-    }
+	var r []T
+	once := sync.Once{}
+	fn := func() {
+		defer stopRecover()
+		t(func(t T) { r = append(r, t) })
+		sort.Slice(r, func(i, j int) bool { return less(r[i], r[j]) })
+	}
+	return func(t func(T)) {
+		once.Do(fn)
+		for _, v := range r {
+			t(v)
+		}
+	}
 }
 
 // SortCustomize 自定义排序,禁止无限流,会导致内存溢出
 func (t Seq[T]) SortCustomize(sort func([]T)) Seq[T] {
-    var r []T
-    once := sync.Once{}
-    fn := func() {
-        t(func(t T) { r = append(r, t) })
-        sort(r)
-    }
-    return func(t func(T)) {
-        once.Do(fn)
-        for _, v := range r {
-            t(v)
-        }
-    }
+	var r []T
+	once := sync.Once{}
+	fn := func() {
+		defer stopRecover()
+		t(func(t T) { r = append(r, t) })
+		sort(r)
+	}
+	return func(t func(T)) {
+		once.Do(fn)
+		for _, v := range r {
+			t(v)
+		}
+	}
 }
 
 // Reverse 逆序,禁止无限流,会导致内存溢出
 func (t Seq[T]) Reverse() Seq[T] {
-    var r []T
-    once := sync.Once{}
-    fn := func() {
-        t(func(t T) { r = append(r, t) })
-    }
-    return func(t func(T)) {
-        once.Do(fn)
-        for i := len(r) - 1; i >= 0; i-- {
-            t(r[i])
-        }
-    }
+	var r []T
+	once := sync.Once{}
+	fn := func() {
+		defer stopRecover()
+		t(func(t T) { r = append(r, t) })
+	}
+	return func(t func(T)) {
+		once.Do(fn)
+		for i := len(r) - 1; i >= 0; i-- {
+			t(r[i])
+		}
+	}
 }
 
 // Cache 缓存Seq,使该Seq可以多次重复消费,init为true时,会立刻触发消费行为
 func (t Seq[T]) Cache(init ...bool) Seq[T] {
-    var r []T
-    once := sync.Once{}
-    fn := func() {
-        t(func(t T) { r = append(r, t) })
-    }
-    if len(init) > 0 && init[0] {
-        once.Do(fn)
-    }
-    return func(t func(T)) {
-        once.Do(fn)
-        for _, v := range r {
-            t(v)
-        }
-    }
+	var r []T
+	once := sync.Once{}
+	fn := func() {
+		defer stopRecover()
+		t(func(t T) { r = append(r, t) })
+	}
+	if len(init) > 0 && init[0] {
+		once.Do(fn)
+	}
+	return func(t func(T)) {
+		defer stopRecover()
+		once.Do(fn)
+		for _, v := range r {
+			t(v)
+		}
+	}
 }
 
 // Repeat 重复该Seq n次,如果不传递n,则无限重复,当前seq如果比较重,建议先使用 Cache 缓存
 func (t Seq[T]) Repeat(n ...int) Seq[T] {
-    return func(f func(T)) {
-        if len(n) == 0 {
-            for {
-                t(f)
-            }
-        } else {
-            l := n[0]
-            for i := 0; i < l; i++ {
-                t(f)
-            }
-        }
-    }
+	return func(f func(T)) {
+		defer stopRecover()
+		if len(n) == 0 {
+			for {
+				t(f)
+			}
+		} else {
+			l := n[0]
+			for i := 0; i < l; i++ {
+				t(f)
+			}
+		}
+	}
 }

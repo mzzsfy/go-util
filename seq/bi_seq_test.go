@@ -43,7 +43,9 @@ func Test_BiParallel(t *testing.T) {
             time.Sleep(duration)
         })
         sub := time.Now().Sub(now)
-        if sub < duration || sub.Truncate(duration) != duration {
+        // 默认并发数为 GOMAXPROCS,验证并发执行即可
+        serialDuration := duration * 10
+        if sub < duration || sub >= serialDuration {
             t.Fail()
         }
     }()
@@ -54,7 +56,9 @@ func Test_BiParallel(t *testing.T) {
         return i, j
     }).ForEach(func(a any, a2 any) {})
     sub := time.Now().Sub(now)
-    if sub < duration || sub.Truncate(duration) != duration {
+    // 默认并发数为 GOMAXPROCS,验证并发执行即可
+    serialDuration := duration * 10
+    if sub < duration || sub >= serialDuration {
         t.Fail()
         t.Log("运行时间不正确", sub)
     }

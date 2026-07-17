@@ -92,16 +92,26 @@ func (t Seq[T]) LastOrF(d func() T) T {
 
 // AnyMatch 任意匹配
 func (t Seq[T]) AnyMatch(f func(T) bool) bool {
-    r := false
-    t.Filter(f).Take(1)(func(t T) { r = true })
-    return r
+	r := false
+	t(func(e T) {
+		if f(e) {
+			r = true
+			panic(&Stop)
+		}
+	})
+	return r
 }
 
 // AllMatch 全部匹配
 func (t Seq[T]) AllMatch(f func(T) bool) bool {
-    r := true
-    t.Filter(func(t T) bool { return !f(t) }).Take(1)(func(t T) { r = false })
-    return r
+	r := true
+	t(func(e T) {
+		if !f(e) {
+			r = false
+			panic(&Stop)
+		}
+	})
+	return r
 }
 
 // NonMatch 全部不匹配

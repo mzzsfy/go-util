@@ -30,7 +30,9 @@ func Test_Seq_Parallel(t *testing.T) {
             time.Sleep(allSleepDuration)
         })
         sub := time.Now().Sub(now)
-        if sub < allSleepDuration || sub.Truncate(allSleepDuration) != allSleepDuration {
+        // 默认并发数为 GOMAXPROCS,10 个任务需要多轮,验证并发执行即可
+        serialDuration := allSleepDuration * 10
+        if sub < allSleepDuration || sub >= serialDuration {
             t.Fail()
         }
     }()
@@ -40,7 +42,9 @@ func Test_Seq_Parallel(t *testing.T) {
         return i
     }).ForEach(func(a any) {})
     sub := time.Now().Sub(now)
-    if sub < allSleepDuration || sub.Truncate(allSleepDuration) != allSleepDuration {
+    // 默认并发数为 GOMAXPROCS,10 个任务需要多轮,验证并发执行即可
+    serialDuration := allSleepDuration * 10
+    if sub < allSleepDuration || sub >= serialDuration {
         t.Fail()
     }
 }

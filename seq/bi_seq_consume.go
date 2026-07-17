@@ -101,16 +101,26 @@ func (t BiSeq[K, V]) LastOrF(f func() (K, V)) (K, V) {
 
 // AnyMatch 任意匹配
 func (t BiSeq[K, V]) AnyMatch(f func(K, V) bool) bool {
-    r := false
-    t.Filter(f).Take(1)(func(K, V) { r = true })
-    return r
+	r := false
+	t(func(k K, v V) {
+		if f(k, v) {
+			r = true
+			panic(&Stop)
+		}
+	})
+	return r
 }
 
 // AllMatch 全部匹配
 func (t BiSeq[K, V]) AllMatch(f func(K, V) bool) bool {
-    r := true
-    t.Filter(func(k K, v V) bool { return !f(k, v) }).Take(1)(func(K, V) { r = false })
-    return r
+	r := true
+	t(func(k K, v V) {
+		if !f(k, v) {
+			r = false
+			panic(&Stop)
+		}
+	})
+	return r
 }
 
 //// Keys 获取所有K

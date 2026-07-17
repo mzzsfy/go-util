@@ -28,28 +28,23 @@ func (t Seq[T]) MapParallel(syncFn func(T) any, order ...int) Seq[any] {
         return func(c func(any)) {
             var currentIndex int32 = 1
             var id int32
-            var fns []*BiTuple[int32, func()]
+            // 待执行的有序回调,map查找O(1)
+            fns := make(map[int32]func())
             lock := &sync.Mutex{}
             l := sync.NewCond(lock)
             p := NewParallel(sl)
+            // 按序消费已完成的任务
             fn := func() {
                 lock.Lock()
                 defer lock.Unlock()
                 for {
-                    loaded := false
-                    idx := atomic.LoadInt32(&currentIndex)
-                    for i, b := range fns {
-                        if b != nil && b.K == idx {
-                            b.V()
-                            atomic.AddInt32(&currentIndex, 1)
-                            loaded = true
-                            fns[i] = nil
-                            break
-                        }
-                    }
-                    if !loaded {
+                    f, ok := fns[atomic.LoadInt32(&currentIndex)]
+                    if !ok {
                         break
                     }
+                    delete(fns, currentIndex)
+                    f()
+                    atomic.AddInt32(&currentIndex, 1)
                 }
             }
             t(func(t T) {
@@ -62,15 +57,12 @@ func (t Seq[T]) MapParallel(syncFn func(T) any, order ...int) Seq[any] {
                         lock.Lock()
                         defer lock.Unlock()
                         if atomic.LoadInt32(&currentIndex) != id {
-                            fns = append(fns, &BiTuple[int32, func()]{id, func() { c(a) }})
+                            fns[id] = func() { c(a) }
                         } else {
                             c(a)
                             atomic.AddInt32(&currentIndex, 1)
-                            for _, f := range fns {
-                                if f != nil {
-                                    DefaultParallelFunc(fn)
-                                    return
-                                }
+                            if len(fns) > 0 {
+                                DefaultParallelFunc(fn)
                             }
                         }
                     } else {
@@ -87,7 +79,9 @@ func (t Seq[T]) MapParallel(syncFn func(T) any, order ...int) Seq[any] {
             })
             p.Wait()
             fn()
-            fns = nil
+            for k := range fns {
+                delete(fns, k)
+            }
         }
     } else {
         return t.Parallel(sl).Map(syncFn)
@@ -136,38 +130,6 @@ func (t Seq[T]) MapInt(f func(T) int) Seq[int] {
 func (t Seq[T]) MapFlat(f func(T) Seq[any]) Seq[any] {
     return func(c func(any)) { t(func(t T) { f(t)(c) }) }
 }
-
-//// MapFlatInt 扁平化
-//func (t Seq[T]) MapFlatInt(f func(T) Seq[int]) Seq[int] {
-//    return func(c func(int)) { t(func(t T) { f(t)(c) }) }
-//}
-//
-//// MapFlatString 扁平化
-//func (t Seq[T]) MapFlatString(f func(T) Seq[string]) Seq[string] {
-//    return func(c func(string)) { t(func(t T) { f(t)(c) }) }
-//}
-
-//// MapSliceN 每n个元素合并为[]T,由于golang泛型问题,不能使用Seq[[]T],使用 CastAny 转换为Seq[[]T]
-//func (t Seq[T]) MapSliceN(n int) Seq[any] {
-//    return t.MapSliceBy(func(t T, ts []T) bool { return len(ts) == n })
-//}
-//
-//// MapSliceBy 自定义元素合并为[]T,由于golang泛型问题,不能返回[]Seq[T],使用 CastAny 转换为Seq[[]T]
-//func (t Seq[T]) MapSliceBy(f func(T, []T) bool) Seq[any] {
-//    return func(c func(any)) {
-//        var ts []T
-//        t(func(t T) {
-//            ts = append(ts, t)
-//            if f(t, ts) {
-//                c(ts)
-//                ts = nil
-//            }
-//        })
-//        if len(ts) > 0 {
-//            c(ts)
-//        }
-//    }
-//}
 
 // Join 合并多个Seq
 func (t Seq[T]) Join(seqs ...Seq[T]) Seq[T] {
@@ -248,8 +210,8 @@ func MapSliceBy[T any](t Seq[T], f func(T, []T) bool) Seq[any] {
         t(func(t T) {
             ts = append(ts, t)
             if f(t, ts) {
-                c(ts)
-                ts = nil
+                c(append([]T(nil), ts...))
+                ts = ts[:0]
             }
         })
         if len(ts) > 0 {

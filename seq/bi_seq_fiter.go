@@ -20,12 +20,12 @@ func (t BiSeq[K, V]) Take(n int) BiSeq[K, V] {
     }
     return func(c func(K, V)) {
         n := n
-        t.Stoppable()(func(k K, v V) {
-            c(k, v)
-            n--
-            if n == 0 {
+        t(func(k K, v V) {
+            if n <= 0 {
                 panic(&Stop)
             }
+            c(k, v)
+            n--
         })
     }
 }

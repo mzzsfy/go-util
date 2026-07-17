@@ -1,36 +1,26 @@
 package seq
 
 import (
+    "runtime"
     "sort"
     "sync"
 )
 
 //======增强========
 
-// Stoppable 调用后可以 panic(&Stop) 来主动停止迭代,正常情况不推荐这么做,性能相对很差
-func (t BiSeq[K, V]) Stoppable() BiSeq[K, V] {
-    return func(c func(K, V)) {
-        defer func() {
-            a := recover()
-            if a != nil && a != &Stop {
-                panic(a)
-            }
-        }()
-        t(func(k K, v V) { c(k, v) })
-    }
-}
-
 // RecoverErr defer recover 的简单封装
 func (t BiSeq[K, V]) RecoverErr(f func(any)) BiSeq[K, V] {
-    return func(c func(K, V)) {
-        defer func() {
-            a := recover()
-            if a != nil && a != &Stop {
-                f(a)
-            }
-        }()
-        t(func(k K, v V) { c(k, v) })
-    }
+	return func(c func(K, V)) {
+		defer func() {
+			if a := recover(); a != nil {
+				if a == &Stop {
+					panic(a)
+				}
+				f(a)
+			}
+		}()
+		t(c)
+	}
 }
 
 //// Deprecated: 不要使用这个方法,方法名称有歧义,请使用 RecoverErr
@@ -40,21 +30,23 @@ func (t BiSeq[K, V]) RecoverErr(f func(any)) BiSeq[K, V] {
 
 // RecoverErrWithValue defer recover 的简单封装,保留最后一次调用的值
 func (t BiSeq[K, V]) RecoverErrWithValue(f func(K, V, any)) BiSeq[K, V] {
-    return func(c func(K, V)) {
-        var lastK K
-        var lastV V
-        defer func() {
-            a := recover()
-            if a != nil && a != &Stop {
-                f(lastK, lastV, a)
-            }
-        }()
-        t(func(k K, v V) {
-            lastK = k
-            lastV = v
-            c(k, v)
-        })
-    }
+	return func(c func(K, V)) {
+		var lastK K
+		var lastV V
+		defer func() {
+			if a := recover(); a != nil {
+				if a == &Stop {
+					panic(a)
+				}
+				f(lastK, lastV, a)
+			}
+		}()
+		t(func(k K, v V) {
+			lastK = k
+			lastV = v
+			c(k, v)
+		})
+	}
 }
 
 //// Deprecated: 不要使用这个方法,方法名称有歧义,请使用 RecoverErrWithValue
@@ -196,20 +188,22 @@ func (t BiSeq[K, V]) OnLast(f func(*K, *V)) BiSeq[K, V] {
 
 // Cache 缓存Seq,使该Seq可以多次消费,init为true时,会立刻触发消费行为
 func (t BiSeq[K, V]) Cache(init ...bool) BiSeq[K, V] {
-    var r []BiTuple[K, V]
-    once := sync.Once{}
-    fn := func() {
-        t(func(k K, v V) { r = append(r, BiTuple[K, V]{k, v}) })
-    }
-    if len(init) > 0 && init[0] {
-        once.Do(fn)
-    }
-    return func(k func(K, V)) {
-        once.Do(fn)
-        for _, v := range r {
-            k(v.K, v.V)
-        }
-    }
+	var r []BiTuple[K, V]
+	once := sync.Once{}
+	fn := func() {
+		defer stopRecover()
+		t(func(k K, v V) { r = append(r, BiTuple[K, V]{k, v}) })
+	}
+	if len(init) > 0 && init[0] {
+		once.Do(fn)
+	}
+	return func(k func(K, V)) {
+		defer stopRecover()
+		once.Do(fn)
+		for _, v := range r {
+			k(v.K, v.V)
+		}
+	}
 }
 
 // Sync Parallel后串行执行
@@ -225,114 +219,65 @@ func (t BiSeq[K, V]) Sync() BiSeq[K, V] {
 }
 
 // Parallel 对后续操作启用并行执行,使用 Sync() 保证消费不竞争
+// concurrent 为空时默认并发数为 2*GOMAXPROCS,防止 goroutine 洪泛
 func (t BiSeq[K, V]) Parallel(concurrent ...int) BiSeq[K, V] {
-    sl := 0
-    if len(concurrent) > 0 {
+    sl := runtime.GOMAXPROCS(0) * 2
+    if len(concurrent) > 0 && concurrent[0] > 0 {
         sl = concurrent[0]
     }
     return func(c func(k K, v V)) {
-        if sl > 0 {
-            p := NewParallel(sl)
-            t(func(k K, v V) { p.Add(func() { c(k, v) }) })
-            p.Wait()
-        } else {
-            wg := sync.WaitGroup{}
-            var err any
-            t(func(k K, v V) {
-                wg.Add(1)
-                DefaultParallelFunc(func() {
-                    defer func() {
-                        if a := recover(); a != nil {
-                            err = a
-                        }
-                        wg.Done()
-                    }()
-                    c(k, v)
-                })
-                if err != nil {
-                    panic(err)
-                }
-            })
-            wg.Wait()
-        }
+        p := NewParallel(sl)
+        t(func(k K, v V) { p.Add(func() { c(k, v) }) })
+        p.Wait()
     }
 }
 
 // Sort 排序
 func (t BiSeq[K, V]) Sort(less func(K, V, K, V) bool) BiSeq[K, V] {
-    var r []BiTuple[K, V]
-    once := sync.Once{}
-    fn := func() {
-        t(func(k K, v V) { r = append(r, BiTuple[K, V]{k, v}) })
-        sort.Slice(r, func(i, j int) bool { return less(r[i].K, r[i].V, r[j].K, r[j].V) })
-    }
-    return BiFrom(func(k func(K, V)) {
-        once.Do(fn)
-        for _, v := range r {
-            k(v.K, v.V)
-        }
-    })
+	var r []BiTuple[K, V]
+	once := sync.Once{}
+	fn := func() {
+		defer stopRecover()
+		t(func(k K, v V) { r = append(r, BiTuple[K, V]{k, v}) })
+		sort.Slice(r, func(i, j int) bool { return less(r[i].K, r[i].V, r[j].K, r[j].V) })
+	}
+	return BiFrom(func(k func(K, V)) {
+		once.Do(fn)
+		for _, v := range r {
+			k(v.K, v.V)
+		}
+	})
 }
-
-//// SortK 根据K排序
-//func (t BiSeq[K, V]) SortK(less func(K, K) bool) BiSeq[K, V] {
-//    var r []BiTuple[K, V]
-//    once := sync.Once{}
-//    fn := func() {
-//        t(func(k K, v V) { r = append(r, BiTuple[K, V]{k, v}) })
-//        sort.Slice(r, func(i, j int) bool { return less(r[i].K, r[j].K) })
-//    }
-//    return BiFrom(func(k func(K, V)) {
-//        once.Do(fn)
-//        for _, v := range r {
-//            k(v.K, v.V)
-//        }
-//    })
-//}
-//
-//// SortV 根据V排序
-//func (t BiSeq[K, V]) SortV(less func(V, V) bool) BiSeq[K, V] {
-//    var r []BiTuple[K, V]
-//    once := sync.Once{}
-//    fn := func() {
-//        t(func(k K, v V) { r = append(r, BiTuple[K, V]{k, v}) })
-//        sort.Slice(r, func(i, j int) bool { return less(r[i].V, r[j].V) })
-//    }
-//    return BiFrom(func(k func(K, V)) {
-//        once.Do(fn)
-//        for _, v := range r {
-//            k(v.K, v.V)
-//        }
-//    })
-//}
 
 // Reverse 逆序
 func (t BiSeq[K, V]) Reverse() BiSeq[K, V] {
-    var r []BiTuple[K, V]
-    once := sync.Once{}
-    fn := func() {
-        t(func(k K, v V) { r = append(r, BiTuple[K, V]{k, v}) })
-    }
-    return BiFrom(func(k func(K, V)) {
-        once.Do(fn)
-        for i := len(r) - 1; i >= 0; i-- {
-            k(r[i].K, r[i].V)
-        }
-    })
+	var r []BiTuple[K, V]
+	once := sync.Once{}
+	fn := func() {
+		defer stopRecover()
+		t(func(k K, v V) { r = append(r, BiTuple[K, V]{k, v}) })
+	}
+	return BiFrom(func(k func(K, V)) {
+		once.Do(fn)
+		for i := len(r) - 1; i >= 0; i-- {
+			k(r[i].K, r[i].V)
+		}
+	})
 }
 
 // Repeat 重复该Seq n次
 func (t BiSeq[K, V]) Repeat(n ...int) BiSeq[K, V] {
-    return func(f func(K, V)) {
-        if len(n) == 0 {
-            for {
-                t(f)
-            }
-        } else {
-            l := n[1]
-            for i := 0; i < l; i++ {
-                t(f)
-            }
-        }
-    }
+	return func(f func(K, V)) {
+		defer stopRecover()
+		if len(n) == 0 {
+			for {
+				t(f)
+			}
+		} else {
+			l := n[0]
+			for i := 0; i < l; i++ {
+				t(f)
+			}
+		}
+	}
 }
