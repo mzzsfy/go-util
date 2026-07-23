@@ -24,7 +24,7 @@ The codebase is organized into modular packages, each serving a specific purpose
   - Configuration injection system
   - Hook system for before/after create/destroy
   - Performance statistics tracking
-  - Key files: `container.go`, `config_source.go`, `opt.go`
+  - Key files: `container.go`, `container_config.go`, `container_creation.go`, `container_helpers.go`, `container_injection.go`, `container_instance.go`, `container_lifecycle.go`, `container_provide.go`, `container_type_conversion.go`, `container_utils.go`, `api.go`, `config_source.go`, `core.go`, `opt.go`, `package.go`, `doc.go`
 
 - **`config`**: Configuration management system
   - Spring-like configuration patterns
@@ -38,7 +38,7 @@ The codebase is organized into modular packages, each serving a specific purpose
   - Sliding window implementation
   - ID generators
   - Queue implementations
-  - Key files: `Int64_adder.go`, `reentrant_lock.go`, `sliding_window_test.go`
+  - Key files: `int64_adder.go`, `reentrant_lock.go`, `sliding_window_test.go`
 
 - **`storage`**: Advanced data structures
   - Multiple map implementations (Go native, Swiss, concurrent variants)
@@ -58,15 +58,13 @@ The codebase is organized into modular packages, each serving a specific purpose
   - Delayed task execution
   - Bloom filters
   - Function reflection utilities
-  - Key files: `cron_test.go`, `scheduler_test.go`
+  - Key files: `cron_test.go`, `timer_wheel_test.go`
 
 - **`unsafe`**: Low-level operations
   - Goroutine ID retrieval
   - Runtime hash functions
   - Unsafe memory operations
   - Key files: `goid_test.go`, `hasher_runtime_test.go`
-
-- **`cmd`**: Command-line utilities (if present)
 
 ### Key Design Patterns
 

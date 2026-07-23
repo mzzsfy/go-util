@@ -6,7 +6,7 @@
 1. 读取文件并解析为map
 2. 将所有配置使用`MergeMultiAndTilingMap`扁平化并合并为单个map
 3. 单map使用`UntilingMap`转换为正常结构的map
-4. 使用`Item("路径")`或`GetByPath(config,"路径")`获取配置
+4. 使用`ValueFromPath(config,"路径")`或`GetByPath(config,"路径")`获取配置
 
 参考 [config_test.go](config_test.go)
 
@@ -60,7 +60,7 @@ func init() {
     config = UntilingMap(resolveMap)
 }
 func main() {
-    println("读取配置文件的值为",GetByPath(Config, "middlewares.rabbitmq.url"))
+    println("读取配置文件的值为",GetByPath(config, "middlewares.rabbitmq.url"))
 }
 ```
 
@@ -75,3 +75,29 @@ middlewares:
     vhost: ${RABBITMQ_VHOST:test_vhost}
     url: amqp://${middlewares.rabbitmq.username}:${middlewares.rabbitmq.password}@${middlewares.rabbitmq.host}:${middlewares.rabbitmq.port}/${middlewares.rabbitmq.vhost}
 ```
+
+## API
+
+### 值访问
+
+`ValueFromPath(m any, path string) Value` - 按路径获取Value,提供类型安全访问
+
+`ValueFrom(a any) Value` - 从any值创建Value
+
+`GetByPathAny(obj any, path string) any` - 类似GetByPath,接受任意类型
+
+`Value` 接口提供类型安全的值访问,支持默认值回退:
+
+- `IsNil() bool`
+- `Any() any` / `AnyD(defaultValue any) any`
+- `String() string` / `StringD(defaultValue string) string`
+- `Int() int` / `IntD(defaultValue int) int`
+- `Float() float64` / `FloatD(defaultValue float64) float64`
+- `Bool() bool` / `BoolD(defaultValue bool) bool`
+- `Child(name string) Value`
+
+### 其他工具函数
+
+- `ParseConfigs2Map(files ...*File) (map[string]any, error)`: 解析多个配置文件并合并为单个嵌套map,内部完成平铺、合并、占位符解析
+- `TilingMap(m map[string]any) map[string]any`: 将多层级map平铺为单层级map
+- `EnvMap() map[string]any`: 获取map格式的环境变量

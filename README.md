@@ -18,19 +18,21 @@
   可限制并行数量),排序等
 
     ```go
-    // 从19开始,每次减3,直到-10,额外添加100,10,0,1,过滤出偶数,再丢弃前5个,从小到大排序,打印到控制台
+    // 从19开始,每次减3,直到-10,额外添加-100,100,10,0,1,过滤出偶数,再丢弃前5个,从小到大排序,打印到控制台
     FromIntSeq(19, -10, -3).Add(-100,100,10,0,1).Filter(func(i int) bool {
         return i%2 == 0
-    }).Drop(5).Order(LessT[int]).ForEach(func(i int) {
-        fmt.t.Log(i)
+    }).Drop(5).Sort(LessT[int]).ForEach(func(i int) {
+        fmt.Println(i)
     })
     // a 1 b 2 c 3
-	// "a,b,c"
+    // "a,b,c"
     BiFromMap(map[string]int{"a": 1, "b": 2, "c": 3}).OnEach(func(k string, v int) {
         print(k, v)
-    }).KSeq().JoinString(func(s string){retrun s}, ",")
+    }).JoinStringBy(func(k string, v int) string {
+        return k
+    }, ",")
     ```
-  更多例子见: [seq_test.go](./seq/seq__test.go) [biSeq_test.go](./seq/biSeq_test.go)   
+  更多例子见: [seq_test.go](./seq/seq__test.go) [biSeq_test.go](./seq/bi_seq_test.go)
   **如果使用seq处理大interface{},可能会导致编译速度下降,编译缓存磁盘占用大**
 
   > 参考来源: https://mp.weixin.qq.com/s/v-HMKBWxtz1iakxFL09PDw
@@ -57,7 +59,7 @@
   获取goroutine id,hash等不安全操作
 
 - [concurrent](./concurrent)  
-  一些并发相关的工具,包含可重入锁等
+  一些并发相关的工具,包含可重入锁,MPMC队列,滑动窗口限流,原子计数器等
 
     ```go
     // Int64Adder: 高并发原子计数器,类似Java LongAdder
@@ -94,9 +96,6 @@
     id := sp.Use("long-long-key-string")  // 分配ID,引用计数+1
     sp.UnUse("long-long-key-string")      // 释放引用,归零时自动清理
     ```
-
-- [queue](./queue)  
-  简单的队列
 
 - [storage](./storage)  
   map等存储工具,swissMap,gls等

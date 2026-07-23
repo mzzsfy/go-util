@@ -39,7 +39,7 @@ thread).
 //强制转换
 Map(AnyBiTK[int]), 0, []byte{}).
 //写入下载文件名称
-OnBefore(1, func(_ i, _ []byte) {
+.OnBefore(1, func(_ i, _ []byte) {
     name := string(FromSlice(fileName).Take(40).ToSlice())
     writer.Header().Set("Content-Type", "text/plain")
     writer.Header().Set("Content-Disposition", `attachment; filename="`+time.Now().Format("02_15:04:05")+"_"+name+`.merge.txt"`)
@@ -61,7 +61,7 @@ BiFromMap(map[string]int{"a": 1, "b": 2, "c": 3}).OnEach(func(k string, v int) {
 println(k, v)
 }).
 	//转换为单元素的Seq
-	KSeq().JoinString(func(s string){retrun s}, ",")
+	FromBiK().JoinString(func(s string){retrun s}, ",")
 ```
 
 更多例子见: [seq_test.go](./seq__test.go) [biSeq_test.go](./biSeq_test.go)
@@ -90,8 +90,13 @@ println(k, v)
 interface Seq[T]{
     Filter(f func(T) bool) Seq[T]
     Take(n int) Seq[T]
+    TakeWhile(f func(T) bool) Seq[T]
+    Limit(n int) Seq[T]
     Drop(n int) Seq[T]
+    DropWhile(f func(T) bool) Seq[T]
+    Skip(n int) Seq[T]
     Distinct(equals func(T, T) bool) Seq[T]
+    DistinctCustomize(contains func(T) bool) Seq[T]
     MergeBiInt(iterator Iterator[int]) BiSeq[int, T]
     MergeBiIntRight(iterator Iterator[int]) BiSeq[T, int]
     MergeBiString(iterator Iterator[string]) BiSeq[string, T]
@@ -103,7 +108,8 @@ interface Seq[T]{
     MapBiString(f func(T) string) BiSeq[string, T]
     MapBiAny(f func(T) any) BiSeq[any, T]
     MapBiAnyRight(f func(T) any) BiSeq[T, any]
-    MapParallel(f func(T) any, order ...int) Seq[any]
+    MapParallel(syncFn func(T) any, order ...int) Seq[any]
+    MapParallelCustomize(asyncFn func(T, func(any))) Seq[any]
     Map(f func(T) any) Seq[any]
     MapString(f func(T) string) Seq[string]
     MapInt(f func(T) int) Seq[int]
@@ -113,36 +119,33 @@ interface Seq[T]{
     MapSliceN(n int) Seq[any]
     MapSliceBy(f func(T, []T) bool) Seq[any]
     Join(seqs ...Seq[T]) Seq[T]
-    JoinF(seq Seq[any], cast func(any) T) Seq[T]
     Add(ts ...T) Seq[T]
-    AddF(cast func(any) T, ts ...any) Seq[T]
-    Complete()
+    AddIf(condition bool, ts ...T) Seq[T]
+    AddIfF(condition func(T) bool, ts ...T) Seq[T]
     ForEach(f func(T))
-    AsyncEach(f func(T))
+    FindFirstBy(f func(T) bool) *T
     First() *T
-    FirstOr(d T) T
     FirstOrF(d func() T) T
     Last() *T
-    LastOr(d T) T
     LastOrF(d func() T) T
     AnyMatch(f func(T) bool) bool
     AllMatch(f func(T) bool) bool
+    NonMatch(f func(T) bool) bool
     GroupBy(f func(T) any) map[any][]T
     GroupByFirst(f func(T) any) map[any]T
     GroupByLast(f func(T) any) map[any]T
     Reduce(f func(T, any) any, init any) any
     ToSlice() []T
     Count() int
-    Count64() int64
     SumBy(f func(T) int) int
-    SumBy64(f func(T) int64) int64
-    SumByFloat32(f func(T) float32) float32
     SumByFloat64(f func(T) float64) float64
     JoinStringBy(f func(T) string, delimiter ...string) string
     JoinString(delimiter ...string) string
-    Catch(f func(any)) Seq[T]
-    CatchWithValue(f func(T, any)) Seq[T]
+    RecoverErr(f func(any)) Seq[T]
+    RecoverErrWithValue(f func(T, any)) Seq[T]
+    Finally(f func()) Seq[T]
     OnEach(f func(T)) Seq[T]
+    OnEachF(step func(T) bool, f func(T), skip ...int) Seq[T]
     OnEachN(step int, f func(T), skip ...int) Seq[T]
     OnEachNX(step int, f func(T), skip ...int) Seq[T]
     OnBefore(i int, f func(T)) Seq[T]
@@ -151,8 +154,11 @@ interface Seq[T]{
     OnLast(f func(*T)) Seq[T]
     Sync() Seq[T]
     Parallel(concurrent ...int) Seq[T]
+    ParallelCustomize(fn func(T, func())) Seq[T]
     Sort(less func(T, T) bool) Seq[T]
-    Cache() Seq[T]
+    SortCustomize(sort func([]T)) Seq[T]
+    Reverse() Seq[T]
+    Cache(init ...bool) Seq[T]
     Repeat(n ...int) Seq[T]
 }
 
@@ -161,71 +167,41 @@ interface BiSeq[K,V]{
     Take(n int) BiSeq[K, V]
     Drop(n int) BiSeq[K, V]
     Distinct(equals func(K, V, K, V) bool) BiSeq[K, V]
-    DistinctK(equals func(K, K) bool) BiSeq[K, V]
-    DistinctV(equals func(V, V) bool) BiSeq[K, V]
-    SeqK() Seq[K]
-    SeqV() Seq[V]
-    SeqBy(f func(K, V) any) Seq[any]
-    SeqKBy(f func(K, V) K) Seq[K]
-    SeqVBy(f func(K, V) V) Seq[V]
-    MapStringBy(f func(K, V) string) Seq[string]
-    MapIntBy(f func(K, V) int) Seq[int]
-    MapSliceN(n int) Seq[any]
-    MapSliceBy(f func(K, V, any) bool) Seq[any]
-    Catch(f func(any)) BiSeq[K, V]
-    CatchWithValue(f func(K, V, any)) BiSeq[K, V]
+    MapVParallel(f func(k K, v V) any, order ...int) BiSeq[K, any]
+    Map(f func(K, V) (any, any)) BiSeq[any, any]
+    MapV(f func(K, V) any) BiSeq[K, any]
+    MapFlat(f func(K, V) BiSeq[any, any]) BiSeq[any, any]
+    Join(seqs ...BiSeq[K, V]) BiSeq[K, V]
+    JoinBy(seq BiSeq[any, any], cast func(any, any) (K, V)) BiSeq[K, V]
+    Add(k K, v V) BiSeq[K, V]
+    AddIf(condition bool, k K, v V) BiSeq[K, V]
+    AddIfF(condition func(BiSeq[K, V]) bool, k K, v V) BiSeq[K, V]
+    RecoverErr(f func(any)) BiSeq[K, V]
+    RecoverErrWithValue(f func(K, V, any)) BiSeq[K, V]
+    Finally(f func()) BiSeq[K, V]
     OnEach(f func(K, V)) BiSeq[K, V]
-    OnEachAfter(f func(K, V)) BiSeq[K, V]
-    OnEachN(step int, f func(k K, v V), skip ...int) BiSeq[K, V]
-    OnEachNX(step int, f func(k K, v V), skip ...int) BiSeq[K, V]
+    OnEachNX(step int, f func(idx int, k K, v V), skip ...int) BiSeq[K, V]
     OnBefore(i int, f func(K, V)) BiSeq[K, V]
     OnAfter(i int, f func(K, V)) BiSeq[K, V]
     OnFirst(f func(K, V)) BiSeq[K, V]
     OnLast(f func(*K, *V)) BiSeq[K, V]
-    Cache() BiSeq[K, V]
+    Cache(init ...bool) BiSeq[K, V]
     Sync() BiSeq[K, V]
     Parallel(concurrent ...int) BiSeq[K, V]
     Sort(less func(K, V, K, V) bool) BiSeq[K, V]
-    SortK(less func(K, K) bool) BiSeq[K, V]
-    SortV(less func(V, V) bool) BiSeq[K, V]
+    Reverse() BiSeq[K, V]
     Repeat(n ...int) BiSeq[K, V]
-    Complete()
     ForEach(f func(K, V))
-    AsyncEach(f func(K, V))
     First() (*K, *V)
-    FirstOr(k K, v V) (K, V)
     FirstOrF(f func() (K, V)) (K, V)
     Last() (*K, *V)
-    LastOr(k K, v V) (K, V)
     LastOrF(f func() (K, V)) (K, V)
     AnyMatch(f func(K, V) bool) bool
     AllMatch(f func(K, V) bool) bool
-    Keys() []K
-    Values() []V
     Count() int
-    Count64() int64
     SumBy(f func(K, V) int) int
+    SumByFloat64(f func(K, V) float64) float64
     JoinStringBy(f func(K, V) string, delimiter ...string) string
     Reduce(f func(K, V, any) any, init any) any
-    MapKParallel(f func(k K, v V) any, order ...int) BiSeq[any, V]
-    MapVParallel(f func(k K, v V) any, order ...int) BiSeq[K, any]
-    ExchangeKV() BiSeq[V, K]
-    Map(f func(K, V) (any, any)) BiSeq[any, any]
-    MapK(f func(K, V) any) BiSeq[any, V]
-    MapKInt(f func(K, V) int) BiSeq[int, V]
-    MapKString(f func(K, V) string) BiSeq[string, V]
-    MapV(f func(K, V) any) BiSeq[K, any]
-    MapVInt(f func(K, V) int) BiSeq[K, int]
-    MapVString(f func(K, V) string) BiSeq[K, string]
-    MapFlat(f func(K, V) BiSeq[any, any]) BiSeq[any, any]
-    MapFlatK(f func(K, V) Seq[any]) BiSeq[any, V]
-    MapFlatV(f func(K, V) Seq[any]) BiSeq[K, any]
-    MapFlatVInt(f func(K, V) Seq[int]) BiSeq[K, int]
-    MapFlatVString(f func(K, V) Seq[string]) BiSeq[K, string]
-    Join(seqs ...BiSeq[K, V]) BiSeq[K, V]
-    JoinBy(seq BiSeq[any, any], cast func(any, any) (K, V)) BiSeq[K, V]
-    Add(k K, v V) BiSeq[K, V]
-    AddTuple(vs ...BiTuple[K, V]) BiSeq[K, V]
-    AddBy(cast func(any, any) (K, V), es ...any) BiSeq[K, V]
 }
 ```
