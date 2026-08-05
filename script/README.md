@@ -970,11 +970,16 @@ engine := script.NewEngine()
 
 // 使用选项创建引擎
 engine := script.NewEngine(
-    script.WithMaxCallDepth(1000),
+    script.WithMaxCallDepth(1000),        // 最大调用深度(默认256)
+    script.WithMaxSteps(1000000),         // 最大指令数限制
+    script.WithTimeout(5 * time.Second),  // 执行超时
 )
 
 // 执行脚本
 result, err := engine.Run(ctx *Context, script *CompiledScript) (Value, error)
+
+// 停止所有正在运行的虚拟机
+engine.Stop()
 ```
 
 </details>

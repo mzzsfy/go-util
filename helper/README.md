@@ -208,3 +208,23 @@ NewAnonymousSymbols() Symbol            // 匿名 Symbol
 // StringBuilder 链式 strings.Builder
 type StringBuilder struct{ strings.Builder }
 ```
+
+## 异步写入
+
+批量缓冲写入,减少系统调用次数。配合 `logger` 等高频写入场景使用。
+
+```go
+// 异步控制台输出
+w := AsyncConsole()
+
+// 自定义异步写入器
+aw := NewAsyncWriter(os.Stdout)
+aw.SetCacheSize(8 * 1024)  // 缓存区大小
+aw.SetFlushSize(4 * 1024)  // 触发刷新的阈值
+aw.SetBusySize(1024)       // 忙碌阈值
+
+aw.Write([]byte("hello"))  // 写入缓存,达到 flush 阈值时异步刷新
+aw.WriterAsync(data, func() { /* 写入完成回调 */ })
+```
+
+`AsyncWrite` 方法: `Write`、`WriterAsync`、`Reset`、`CacheSize`/`SetCacheSize`、`FlushSize`/`SetFlushSize`、`BusySize`/`SetBusySize`。

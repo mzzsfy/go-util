@@ -3,7 +3,7 @@
 高性能日志库, 零依赖(仅标准库), 要求 Go 1.18+。双版本 API + 可插拔格式化。
 
 核心特性:
-- **双版本 API**: 性能版链式 (零分配) + 便捷版命令式 (D/I/L/DF/IF/LF)
+- **双版本 API**: 性能版链式 (零分配) + 便捷版命令式 (D/I/L/E/DF/IF/LF/EF)
 - **类型安全**: Str/Int/Bool 等链式方法避免 interface 装箱
 - **Formatter 接口**: ConsoleFormatter (默认, 控制台易读) / JSONFormatter (JSON 行), 支持自定义
 - **级别过滤零开销**: 不达级别返回 disabled Event, 所有方法 noop
@@ -267,9 +267,9 @@ WithCaller         362 ns/op    0 B/op    0 allocs/op
 | 分类 | 方法 | 说明 |
 | --- | --- | --- |
 | 级别 (链式) | Trace/Debug/Info/Warn/Error/Fatal | 返回 Event, 零分配链式 |
-| 命令式 | D/I/L(lv, ...) | 直接输出, 有装箱开销 |
-| 命令式 (延迟) | DF/IF/LF(lv, ...) | 级别不够时 f 不调用 |
-| 派生 | With / WithKvs | 返回带预设字段的新 Logger |
+| 命令式 | D/I/L/E(lv, ...) | 直接输出, 有装箱开销 |
+| 命令式 (延迟) | DF/IF/LF/EF(lv, ...) | 级别不够时 f 不调用 |
+| 派生 | With / WithKvs / WithContext | 返回带预设字段/上下文的新 Logger |
 | 状态 | SetLevel / Level / Name / Enabled | 级别与查询 |
 
 ### Event 方法

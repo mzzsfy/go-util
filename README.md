@@ -134,3 +134,31 @@
 
 - [di](./di)
   高性能依赖注入容器,支持完整的生命周期管理、配置注入和钩子系统
+
+- [script](./script)
+  嵌入式脚本语言引擎,支持动态脚本执行、变量绑定、外部函数调用和完整控制流
+
+    ```go
+    // 单行脚本执行
+    result, err := script.Eval("10 + 20")
+    fmt.Println(result.Int()) // 30
+
+    // 带变量绑定执行
+    result, _ = script.EvalWithBindings(`
+        x :=>int getBindValue("x")
+        y :=>int getBindValue("y")
+        x + y
+    `, map[string]any{"x": 10, "y": 20})
+
+    // 编译一次,多次执行
+    parser := script.NewParser()
+    engine := script.NewEngine()
+    ctx := script.NewContext()
+    ctx.BindFunc("double", func(x int) int { return x * 2 })
+    compiled, _ := parser.Compile(`
+        #fn double(int)=>int
+        double(21)
+    `)
+    result, _ = engine.Run(ctx, compiled) // 42
+    ```
+  更多例子见: [README.md](./script/README.md)

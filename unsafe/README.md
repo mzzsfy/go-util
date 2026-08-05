@@ -5,8 +5,17 @@
 获取go的hash方法,目前兼容了1.18以后的版本
 
 ```go
-hasher:=NewHasher[int]()
+type Hasher[K comparable] interface {
+    Hash(key K) uint64
+    NewSeed() Hasher[K]              // 使用新随机种子
+    WithSeed(seed uintptr) Hasher[K] // 使用指定种子
+}
+
+hasher := NewHasher[int]()
 hasher.Hash(1)
+
+h2 := hasher.NewSeed()       // 新随机种子
+h3 := hasher.WithSeed(123)   // 指定种子
 ```
 
 ## goroutine id

@@ -55,8 +55,8 @@ The codebase is organized into modular packages, each serving a specific purpose
 - **`helper`**: General utilities
   - String and time processing
   - Cron job scheduler
-  - Delayed task execution
-  - Bloom filters
+  - Timer wheel scheduling
+  - Call stack tracing and panic recovery
   - Function reflection utilities
   - Key files: `cron_test.go`, `timer_wheel_test.go`
 
@@ -65,6 +65,20 @@ The codebase is organized into modular packages, each serving a specific purpose
   - Runtime hash functions
   - Unsafe memory operations
   - Key files: `goid_test.go`, `hasher_runtime_test.go`
+
+- **`pool`**: Object reuse infrastructure
+  - Goroutine pool with graceful shutdown and restart
+  - Object pool (generic sync.Pool wrapper)
+  - Byte pool and buffer pool
+  - String pool with reference counting
+  - Key files: `goroutine_pool.go`, `object_pool.go`, `bytes_pool.go`, `string.go`
+
+- **`script`**: Embedded scripting language engine
+  - Lexer, parser, compiler and virtual machine
+  - Variable binding and external function calls
+  - Full control flow (if/for/break/continue/return)
+  - Dynamic typing with runtime type checking
+  - Key files: `script.go`, `lexer.go`, `parser.go`, `compiler.go`, `runtime.go`
 
 ### Key Design Patterns
 

@@ -29,6 +29,7 @@ type Queue[T any] interface {
 type BlockQueue[T any] interface {
     Queue[T]
     DequeueBlock(timeout ...time.Duration) (T, bool) // 阻塞出队
+    WaiterCount() int32                               // 阻塞等待中的消费者数量
 }
 
 // TryDequeuer 非阻塞尝试出队接口
@@ -84,6 +85,9 @@ adder.AddSimple(10)
 adder.IncrementSimple()
 adder.DecrementSimple()
 fmt.Println(adder.Sum())
+fmt.Println(adder.SumInt()) // 返回 int
+
+adder.Reset() // 重置为零
 
 // 高性能模式:手动传入goid
 goid := GoID()
@@ -118,14 +122,23 @@ Benchmark1Int64Adder/Atomic_32-6              51117     34734 ns/op
 
 ### 可重入锁
 
-依赖goid实现可重入语义,同一goroutine可多次加锁。
+依赖goid实现可重入语义,同一goroutine可多次加锁。返回`Locker`接口,支持`TryLock`非阻塞尝试。
 
 ```go
+type Locker interface {
+    sync.Locker
+    TryLock() bool
+}
+
 lock := NewReentrantLock()
 lock.Lock()
 lock.Lock() // 可重入
 lock.Unlock()
 lock.Unlock()
+
+if lock.TryLock() { // 非阻塞尝试加锁
+    lock.Unlock()
+}
 ```
 
 ### RwLocker接口

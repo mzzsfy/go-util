@@ -25,7 +25,7 @@ FromSlice([]int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}).Sort(func(i, j int) bool {
 }).JoinString(strconv.Itoa,",")
 
 
-// 远端下载多个文件,限制并发,限制顺序, 测试代码在 seq_download_test.go
+// 远端下载多个文件,限制并发,限制顺序, 测试代码在 seq_demo_download_test.go
 BiCastAnyT(FromSlice(urls).MapBiSerialNumber(1).OnEach(func(i int, s string) {
     fmt.Printf("开始下载第%d个文件:%s\n", i, s)
 }).MapVParallel(func(id int, s string) any {
@@ -64,7 +64,7 @@ println(k, v)
 	FromBiK().JoinString(func(s string){retrun s}, ",")
 ```
 
-更多例子见: [seq_test.go](./seq__test.go) [biSeq_test.go](./biSeq_test.go)
+更多例子见: [seq_test.go](./seq__test.go) [bi_seq_test.go](./bi_seq_test.go)
 
 优势:
 
@@ -72,7 +72,7 @@ println(k, v)
 - 基于函数回调,[超高性能](seq_bench_test.go)
 - 懒加载,无消费不生产元素
 - 生产者与消费者交替执行,不会造成相互阻塞
-- 可[透明并发](seq_enhance_test.go),并控制并发数量,[对于异步io操作极其友好](seq_download_test.go)
+- 可[透明并发](seq_enhance_test.go),并控制并发数量,[对于异步io操作极其友好](seq_demo_download_test.go)
 - 链式调用,可读性强,执行顺序与声明一致,可严格保证执行顺序
 - 无需关心Seq的长度,可单元素,可无限长度元素
 - 双方可终止任务,不会造成资源浪费
@@ -97,27 +97,12 @@ interface Seq[T]{
     Skip(n int) Seq[T]
     Distinct(equals func(T, T) bool) Seq[T]
     DistinctCustomize(contains func(T) bool) Seq[T]
-    MergeBiInt(iterator Iterator[int]) BiSeq[int, T]
-    MergeBiIntRight(iterator Iterator[int]) BiSeq[T, int]
-    MergeBiString(iterator Iterator[string]) BiSeq[string, T]
-    MergeBiStringRight(iterator Iterator[string]) BiSeq[T, string]
-    MergeBiAny(iterator Iterator[any]) BiSeq[any, T]
-    MergeBiAnyRight(iterator Iterator[any]) BiSeq[any, T]
-    MapBiSerialNumber(Range ...int) BiSeq[int, T]
-    MapBiInt(f func(T) int) BiSeq[int, T]
-    MapBiString(f func(T) string) BiSeq[string, T]
-    MapBiAny(f func(T) any) BiSeq[any, T]
-    MapBiAnyRight(f func(T) any) BiSeq[T, any]
     MapParallel(syncFn func(T) any, order ...int) Seq[any]
     MapParallelCustomize(asyncFn func(T, func(any))) Seq[any]
     Map(f func(T) any) Seq[any]
     MapString(f func(T) string) Seq[string]
     MapInt(f func(T) int) Seq[int]
     MapFlat(f func(T) Seq[any]) Seq[any]
-    MapFlatInt(f func(T) Seq[int]) Seq[int]
-    MapFlatString(f func(T) Seq[string]) Seq[string]
-    MapSliceN(n int) Seq[any]
-    MapSliceBy(f func(T, []T) bool) Seq[any]
     Join(seqs ...Seq[T]) Seq[T]
     Add(ts ...T) Seq[T]
     AddIf(condition bool, ts ...T) Seq[T]
@@ -204,4 +189,27 @@ interface BiSeq[K,V]{
     JoinStringBy(f func(K, V) string, delimiter ...string) string
     Reduce(f func(K, V, any) any, init any) any
 }
+```
+
+> 以下为包级函数(非 Seq/BiSeq 方法),调用方式为 `Func(seq, ...)`:
+
+```go
+// Seq -> BiSeq 转换
+MergeBiInt[T any](t Seq[T], iterator Iterator[int]) BiSeq[int, T]
+MergeBiIntRight[T any](t Seq[T], iterator Iterator[int]) BiSeq[T, int]
+MergeBiString[T any](t Seq[T], iterator Iterator[string]) BiSeq[string, T]
+MergeBiStringRight[T any](t Seq[T], iterator Iterator[string]) BiSeq[T, string]
+MergeBiAny[T any](t Seq[T], iterator Iterator[any]) BiSeq[any, T]
+MergeBiAnyRight[T any](t Seq[T], iterator Iterator[any]) BiSeq[T, any]
+MapBiSerialNumber[T any](t Seq[T], Range ...int) BiSeq[int, T]
+MapBiInt[T any](t Seq[T], f func(T) int) BiSeq[int, T]
+MapBiString[T any](t Seq[T], f func(T) string) BiSeq[string, T]
+MapBiAny[T any](t Seq[T], f func(T) any) BiSeq[any, T]
+MapBiAnyRight[T any](t Seq[T], f func(T) any) BiSeq[T, any]
+
+// Seq 扁平化/切片
+MapFlatInt[T any](t Seq[T], f func(T) Seq[int]) Seq[int]
+MapFlatString[T any](t Seq[T], f func(T) Seq[string]) Seq[string]
+MapSliceN[T any](t Seq[T], n int) Seq[any]
+MapSliceBy[T any](t Seq[T], f func(T, []T) bool) Seq[any]
 ```
