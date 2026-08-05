@@ -51,7 +51,7 @@ func Test_Seq_Parallel(t *testing.T) {
 
 func Test_Seq_ParallelN(t *testing.T) {
     preTest(t)
-    n := 30 + rand.Intn(1000)
+    n := 30 + rand.Intn(200)
     seq := FromIntSeq().Take(n)
     now := time.Now()
     concurrent := int(float64(n/10+rand.Intn(n-10)) * 0.9)

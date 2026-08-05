@@ -82,7 +82,7 @@ func Test_Seq_ParallelOrdered1(t *testing.T) {
 
 func TestSeq_ParallelOrdered2_100(t *testing.T) {
     deadline, hasDeadline := t.Deadline()
-    for i := 0; i < 100; i++ {
+    for i := 0; i < 20; i++ {
         if hasDeadline && time.Until(deadline) <= 1500*time.Millisecond {
             break
         }

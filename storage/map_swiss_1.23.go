@@ -214,7 +214,7 @@ func (m *swissMap[K, V]) DeleteWithHash(key K, hash uint64) (ok bool) {
             s := nextMatch(&matches)
             if key == m.groups[g].keys[s] {
                 ok = true
-                m.deleteAt(g, s, m.ctrl)
+                m.deleteAt(g, int(s), m.ctrl)
                 return
             }
         }

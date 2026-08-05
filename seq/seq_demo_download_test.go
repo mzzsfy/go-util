@@ -51,7 +51,7 @@ func TestFileDownload2(t *testing.T) {
         t.Logf("开始下载第%d个文件\n", i)
     }).MapVParallel(func(i int, s string) any {
         t.Logf("实际开始下载第%d个文件\n", i)
-        time.Sleep(time.Millisecond * time.Duration(rand.Intn(1000)))
+        time.Sleep(time.Millisecond * time.Duration(rand.Intn(200)))
         //下载文件,返回[]byte
         t.Logf("实际下载完成第%d个文件:%s\n", i, s)
         return []byte(s)
@@ -69,7 +69,7 @@ func TestFileDownload2(t *testing.T) {
         t.Logf("所有文件下载完成,%d\n", *i)
     }).ForEach(func(i int, a any) {
         t.Logf("开始本地费时逻辑,%d\n", i)
-        time.Sleep(time.Millisecond * time.Duration(rand.Intn(1000)))
+        time.Sleep(time.Millisecond * time.Duration(rand.Intn(100)))
         t.Logf("完成,%d\n", i)
         e, _ := it()
         if e != i {
@@ -110,7 +110,7 @@ func TestFileDownload3(t *testing.T) {
         t.Logf("所有文件下载完成,%d\n", *i)
     }).ForEach(func(i int, a any) {
         t.Logf("开始本地费时逻辑,%d\n", i)
-        time.Sleep(time.Millisecond * time.Duration(rand.Intn(1000)))
+        time.Sleep(time.Millisecond * time.Duration(rand.Intn(100)))
         t.Logf("完成,%d\n", i)
         e, _ := it()
         if e != i {

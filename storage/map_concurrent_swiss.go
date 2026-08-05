@@ -26,7 +26,7 @@ func (m *concurrentSwissMap[K, V]) GetSimple(key K) (value V) {
     hash := m.hash.Hash(key)
     shard := slotIdx(hash)
     m.locks[shard].RLock()
-    value = m.shards[shard].GetWithHash(key, hash)
+    value, _ = m.shards[shard].GetWithHash(key, hash)
     m.locks[shard].RUnlock()
     return
 }
