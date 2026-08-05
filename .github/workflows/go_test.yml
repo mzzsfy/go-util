@@ -27,7 +27,7 @@ jobs:
           done
 
       - name: Test_ARM64
-        uses: uraimo/run-on-arch-action@v2
+        uses: uraimo/run-on-arch-action@v3
         with:
           arch: aarch64
           base_image: golang:${{ matrix.go-version }}
