@@ -21,7 +21,7 @@ func Test_GetConfigFromSourceMiss(t *testing.T) {
 	c.ResetStats()
 
 	// 获取不存在的配置
-	value := c.getConfigFromSource("nonexistent-key")
+	value := c.getConfigFromSource(configSource, "nonexistent-key")
 	if value.Any() != nil {
 		t.Errorf("Expected nil for nonexistent key, got %v", value.Any())
 	}
@@ -34,19 +34,17 @@ func Test_GetConfigFromSourceMiss(t *testing.T) {
 
 // ========== container_creation.go ==========
 
-// 测试 tryGetCachedInstance 找到实例的分支
+// 测试 checkAndGetCachedInstance 找到实例的分支
 func Test_TryGetCachedInstanceFound(t *testing.T) {
 	c := New().(*container)
-	key := "test-key"
+	key := cacheKey{reflect.TypeOf(""), "test-key"}
 	instance := "test-instance"
 
 	// 预先缓存实例
-	c.mu.Lock()
-	c.instances[key] = instance
-	c.mu.Unlock()
+	c.storeInstance(key, instance)
 
 	// 应该找到实例
-	result, found := c.tryGetCachedInstance(key)
+	result, found := c.checkAndGetCachedInstance(key)
 	if !found {
 		t.Error("Expected to find cached instance")
 	}
@@ -58,13 +56,11 @@ func Test_TryGetCachedInstanceFound(t *testing.T) {
 // 测试 checkExistingInstanceDuringCreation 找到实例的分支
 func Test_CheckExistingInstanceDuringCreationFoundNonTransient(t *testing.T) {
 	c := New().(*container)
-	key := "test-key"
+	key := cacheKey{reflect.TypeOf(""), "test-key"}
 	instance := "test-instance"
 
 	// 预先缓存实例
-	c.mu.Lock()
-	c.instances[key] = instance
-	c.mu.Unlock()
+	c.storeInstance(key, instance)
 
 	// 非Transient模式，应该找到
 	result, found := c.checkExistingInstanceDuringCreation(key, LoadModeDefault)
@@ -81,7 +77,7 @@ func Test_CreateDependenciesProviderNotFound(t *testing.T) {
 	c := New().(*container)
 
 	// 依赖列表包含不存在的provider
-	depend := []string{"nonexistent-key"}
+	depend := []cacheKey{{reflect.TypeOf(""), "nonexistent-key"}}
 
 	err := c.createDependencies(depend)
 	if err == nil {
@@ -129,10 +125,8 @@ func Test_InjectStructNonStructType(t *testing.T) {
 
 // 测试 dereferencePointer nil 指针分支
 func Test_DereferencePointerNil(t *testing.T) {
-	c := New().(*container)
-
 	var nilPtr *string
-	result := c.dereferencePointer(reflect.ValueOf(nilPtr))
+	result := dereferencePointer(reflect.ValueOf(nilPtr))
 
 	if result.IsValid() {
 		t.Error("Expected invalid value for nil pointer")
@@ -141,10 +135,8 @@ func Test_DereferencePointerNil(t *testing.T) {
 
 // 测试 dereferencePointer 返回非指针值
 func Test_DereferencePointerNonPtr(t *testing.T) {
-	c := New().(*container)
-
 	value := 42
-	result := c.dereferencePointer(reflect.ValueOf(value))
+	result := dereferencePointer(reflect.ValueOf(value))
 
 	if result.Kind() == reflect.Ptr {
 		t.Error("Expected non-pointer value to be returned as-is")
@@ -212,11 +204,10 @@ func Test_CollectSingleInstanceNonConditionError(t *testing.T) {
 	})
 
 	results := make(map[string]any)
-	typeName := "di.MyService"
-	key := typeKey(reflect.TypeOf(MyService{}), "test")
+	key := cacheKey{reflect.TypeOf(MyService{}), "test"}
 	entry := c.providers[key]
 
-	err := c.collectSingleInstance(results, key, entry, typeName)
+	err := c.collectSingleInstance(results, key, entry)
 	if err == nil {
 		t.Error("Expected error when provider fails with non-condition error")
 	}
@@ -233,7 +224,7 @@ func Test_CollectMatchingInstancesError(t *testing.T) {
 		return MyService{}, context.Canceled
 	})
 
-	_, err := c.collectMatchingInstances(reflect.TypeOf(MyService{}), "di.MyService")
+	_, err := c.collectMatchingInstances(reflect.TypeOf(MyService{}))
 	if err == nil {
 		t.Error("Expected error when collecting instances fails")
 	}
@@ -565,13 +556,11 @@ func Test_CreateFromCache(t *testing.T) {
 	})
 
 	// 第一次创建
-	key := typeKey(reflect.TypeOf(MyService{}), "")
+	key := cacheKey{reflect.TypeOf(MyService{}), ""}
 	entry := c.providers[key]
 
 	// 预先缓存一个实例
-	c.mu.Lock()
-	c.instances[key] = MyService{}
-	c.mu.Unlock()
+	c.storeInstance(key, MyService{})
 
 	// 调用 create，应该从缓存返回
 	instance, err := c.create(entry, "")
@@ -594,13 +583,11 @@ func Test_CreateNewInstanceExistingDuringCreation(t *testing.T) {
 		return MyService{}, nil
 	}, WithLoadMode(LoadModeDefault))
 
-	key := typeKey(reflect.TypeOf(MyService{}), "")
+	key := cacheKey{reflect.TypeOf(MyService{}), ""}
 	entry := c.providers[key]
 
 	// 模拟在创建过程中其他 goroutine 已创建实例
-	c.mu.Lock()
-	c.instances[key] = MyService{}
-	c.mu.Unlock()
+	c.storeInstance(key, MyService{})
 
 	// 这个测试主要是为了覆盖代码路径
 	instance, err := c.createNewInstance(entry, "", key, time.Now())
@@ -678,11 +665,9 @@ func Test_InjectStructSuccess(t *testing.T) {
 
 // 测试 dereferencePointer 解引用成功
 func Test_DereferencePointerSuccess(t *testing.T) {
-	c := New().(*container)
-
 	value := 42
 	ptr := &value
-	result := c.dereferencePointer(reflect.ValueOf(ptr))
+	result := dereferencePointer(reflect.ValueOf(ptr))
 
 	if result.Kind() == reflect.Ptr {
 		t.Error("Expected dereferenced value")
@@ -692,7 +677,7 @@ func Test_DereferencePointerSuccess(t *testing.T) {
 	}
 }
 
-// 测试 injectToInstance 处理不可寻址结构体
+// 测试 validateAndInject 处理不可寻址结构体
 func Test_InjectToInstanceUnaddressableStruct(t *testing.T) {
 	c := New().(*container)
 
@@ -713,9 +698,9 @@ func Test_InjectToInstanceUnaddressableStruct(t *testing.T) {
 	instance := getStruct()
 
 	// 注入
-	result, err := c.injectToInstance(instance)
+	result, err := c.validateAndInject(instance)
 	if err != nil {
-		t.Logf("injectToInstance error (may be expected): %v", err)
+		t.Logf("validateAndInject error (may be expected): %v", err)
 		return
 	}
 
@@ -855,7 +840,7 @@ func Test_GetConfigFromSourceHit(t *testing.T) {
 	c.ResetStats()
 
 	// 获取存在的配置
-	value := c.getConfigFromSource("existing-key")
+	value := c.getConfigFromSource(configSource, "existing-key")
 	if value.Any() == nil {
 		t.Error("Expected non-nil value for existing key")
 	}

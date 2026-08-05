@@ -5,22 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"strings"
 )
-
-// getServiceNameFromKey 从 key 中提取服务名称
-// key 格式为 "类型名#名称"，返回名称部分
-func getServiceNameFromKey(key, defaultTypeName string) string {
-	if key == defaultTypeName {
-		return ""
-	}
-	_, serviceName, _ := strings.Cut(key, "#")
-	return serviceName
-}
 
 // collectMatchingInstances 收集匹配类型的实例
 // 遍历所有提供者，找出类型兼容的实例
-func (c *container) collectMatchingInstances(t reflect.Type, typeName string) (map[string]any, error) {
+func (c *container) collectMatchingInstances(t reflect.Type) (map[string]any, error) {
 	results := make(map[string]any)
 
 	for key, entry := range c.providers {
@@ -28,7 +17,7 @@ func (c *container) collectMatchingInstances(t reflect.Type, typeName string) (m
 			continue
 		}
 
-		if err := c.collectSingleInstance(results, key, entry, typeName); err != nil {
+		if err := c.collectSingleInstance(results, key, entry); err != nil {
 			return nil, err
 		}
 	}
@@ -38,18 +27,16 @@ func (c *container) collectMatchingInstances(t reflect.Type, typeName string) (m
 
 // collectSingleInstance 收集单个匹配的实例
 // 处理条件失败等特殊情况
-func (c *container) collectSingleInstance(results map[string]any, key string, entry providerEntry, typeName string) error {
-	serviceName := getServiceNameFromKey(key, typeName)
-
-	instance, err := c.GetNamed(entry.reflectType, serviceName)
+func (c *container) collectSingleInstance(results map[string]any, key cacheKey, entry providerEntry) error {
+	instance, err := c.GetNamed(entry.reflectType, key.name)
 	if err != nil {
 		if errors.Is(err, ErrorConditionFail) {
 			return nil
 		}
-		return fmt.Errorf("failed to collect instance %s: %w", key, err)
+		return fmt.Errorf("failed to collect instance %s: %w", key.String(), err)
 	}
 
-	results[key] = instance
+	results[key.String()] = instance
 	return nil
 }
 
@@ -81,7 +68,7 @@ func (c *container) GetNamedAll(serviceType any) (map[string]any, error) {
 		return nil, err
 	}
 
-	results, err := c.collectMatchingInstances(t, t.String())
+	results, err := c.collectMatchingInstances(t)
 	if err != nil {
 		return nil, err
 	}
@@ -103,84 +90,80 @@ func (c *container) checkBlacklistForGetAll(t reflect.Type) error {
 }
 
 // GetAllInstances 获取所有已缓存的实例
-// 返回实例的副本，线程安全
 func (c *container) GetAllInstances() map[string]any {
-	return withRLockResult(c, func() map[string]any {
-		results := make(map[string]any, len(c.instances))
-		for k, v := range c.instances {
-			results[k] = v
-		}
-		return results
-	})
+	c.mu.RLock()
+	results := make(map[string]any, len(c.instances))
+	for k, v := range c.instances {
+		results[k.String()] = v
+	}
+	c.mu.RUnlock()
+	return results
 }
 
 // GetProviders 获取所有注册的提供者信息
-// 返回类型名称映射，线程安全
 func (c *container) GetProviders() map[string]string {
-	return withRLockResult(c, func() map[string]string {
-		results := make(map[string]string, len(c.providers))
-		for k, entry := range c.providers {
-			results[k] = entry.reflectType.String()
-		}
-		return results
-	})
+	c.mu.RLock()
+	results := make(map[string]string, len(c.providers))
+	for k, entry := range c.providers {
+		results[k.String()] = entry.reflectType.String()
+	}
+	c.mu.RUnlock()
+	return results
 }
 
 // ReplaceInstance 运行时替换已注册的服务实例
-// 用于测试或热更新场景
 func (c *container) ReplaceInstance(serviceType any, name string, newInstance any) error {
 	t := parseReflectType(serviceType)
-	key := typeKey(t, name)
+	key := cacheKey{t, name}
 
-	return withWLockResult(c, func() error {
-		entry, exists := c.providers[key]
-		if !exists {
-			return fmt.Errorf("cannot replace instance: no provider registered for type %s with name '%s'", t, name)
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	entry, exists := c.providers[key]
+	if !exists {
+		return fmt.Errorf("cannot replace instance: no provider registered for type %s with name '%s'", t, name)
+	}
+
+	if newInstance != nil {
+		newInstanceType := reflect.TypeOf(newInstance)
+		if !newInstanceType.AssignableTo(entry.reflectType) {
+			return fmt.Errorf("cannot replace instance: new instance type %s is not assignable to %s",
+				newInstanceType, entry.reflectType)
 		}
+	}
 
-		if newInstance != nil {
-			newInstanceType := reflect.TypeOf(newInstance)
-			if !newInstanceType.AssignableTo(entry.reflectType) {
-				return fmt.Errorf("cannot replace instance: new instance type %s is not assignable to %s",
-					newInstanceType, entry.reflectType)
-			}
-		}
-
-		c.instances[key] = newInstance
-		return nil
-	})
+	c.instances[key] = newInstance
+	return nil
 }
 
 // RemoveInstance 移除已缓存的实例
-// 不会移除提供者注册
 func (c *container) RemoveInstance(serviceType any, name string) error {
 	t := parseReflectType(serviceType)
-	key := typeKey(t, name)
+	key := cacheKey{t, name}
 
-	c.withWLock(func() {
-		delete(c.instances, key)
-	})
+	c.mu.Lock()
+	delete(c.instances, key)
+	c.mu.Unlock()
 	return nil
 }
 
 // ClearInstances 清空所有缓存的实例
-// 不会清空提供者注册
 func (c *container) ClearInstances() {
-	c.withWLock(func() {
-		c.instances = make(map[string]any)
-	})
+	c.mu.Lock()
+	c.instances = make(map[cacheKey]any)
+	c.mu.Unlock()
 }
 
 // GetInstanceCount 获取当前缓存的实例数量
 func (c *container) GetInstanceCount() int {
-	return withRLockResult(c, func() int {
-		return len(c.instances)
-	})
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return len(c.instances)
 }
 
 // GetProviderCount 获取注册的提供者数量
 func (c *container) GetProviderCount() int {
-	return withRLockResult(c, func() int {
-		return len(c.providers)
-	})
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return len(c.providers)
 }

@@ -131,9 +131,11 @@ func (c *container) executeShutdownHooks(ctx context.Context) error {
 
 // cleanupResources 清理容器资源
 // 重置所有内部状态
+// cleanupResources 清理容器资源
+// 调用者必须已持有 c.mu.Lock
 func (c *container) cleanupResources() {
-	c.providers = make(map[string]providerEntry)
-	c.instances = make(map[string]any)
+	c.providers = make(map[cacheKey]providerEntry)
+	c.instances = make(map[cacheKey]any)
 	c.shutdown = nil
 	c.started = false
 
@@ -186,9 +188,9 @@ func (c *container) CreateChildScope() Container {
 	c.configMu.RUnlock()
 
 	c2 := &container{
-		providers:    make(map[string]providerEntry),
-		instances:    make(map[string]any),
-		loading:      make(map[string]bool),
+		providers:    make(map[cacheKey]providerEntry),
+		instances:    make(map[cacheKey]any),
+		loading:      make(map[cacheKey]bool),
 		parent:       c,
 		done:         make(chan struct{}),
 		configSource: inheritedConfigSource,

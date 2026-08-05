@@ -6,8 +6,21 @@ import (
 	"sync"
 )
 
+// cacheKey 实例缓存键,值类型避免字符串拼接
+type cacheKey struct {
+	t    reflect.Type
+	name string
+}
+
+// String 返回缓存键的字符串表示,供管理接口使用
+func (k cacheKey) String() string {
+	if k.name != "" {
+		return k.t.String() + "#" + k.name
+	}
+	return k.t.String()
+}
+
 // container 实现 Container 接口
-// 提供依赖注入的核心功能，包括服务注册、实例管理和生命周期控制
 type container struct {
 	// beforeCreate 容器级别的创建前钩子
 	beforeCreate []func(Container, EntryInfo) (any, error)
@@ -18,9 +31,9 @@ type container struct {
 	// afterDestroy 容器级别的销毁后钩子
 	afterDestroy []func(Container, EntryInfo)
 	// providers 服务提供者映射
-	providers map[string]providerEntry
+	providers map[cacheKey]providerEntry
 	// instances 已创建的实例缓存
-	instances map[string]any
+	instances map[cacheKey]any
 	// mu 读写锁，保护 providers 和 instances
 	mu sync.RWMutex
 	// parent 父容器引用，用于作用域继承
@@ -28,7 +41,7 @@ type container struct {
 	// shutdown 关闭钩子列表
 	shutdown []ShutdownHook
 	// loading 正在创建的实例标记，用于检测循环依赖
-	loading map[string]bool
+	loading map[cacheKey]bool
 	// configSource 配置源
 	configSource ConfigSource
 	// configMu 配置源读写锁
@@ -65,8 +78,6 @@ type containerStats struct {
 // providerEntry 服务提供者条目
 // 存储服务的类型、构造函数和配置信息
 type providerEntry struct {
-	// key 缓存的类型键，避免热路径重复计算
-	key string
 	// reflectType 服务的反射类型
 	reflectType reflect.Type
 	// provider 服务构造函数
@@ -80,9 +91,9 @@ type providerEntry struct {
 // 返回配置好的容器实例
 func New(opts ...ContainerOption) Container {
     c := &container{
-        providers:    make(map[string]providerEntry),
-        instances:    make(map[string]any),
-        loading:      make(map[string]bool),
+        providers:    make(map[cacheKey]providerEntry),
+        instances:    make(map[cacheKey]any),
+        loading:      make(map[cacheKey]bool),
         configSource: NewMapConfigSource(),
         done:         make(chan struct{}),
         onStartup:    make([]func(Container) error, 0),

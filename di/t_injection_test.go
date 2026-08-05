@@ -17,7 +17,7 @@ func Test_CheckAndGetCachedInstanceHit(t *testing.T) {
 	_, _ = GetNamed[int](c, "test")
 
 	// 第二次获取（应该命中缓存）
-	val, cached := c.checkAndGetCachedInstance("int#test")
+	val, cached := c.checkAndGetCachedInstance(cacheKey{reflect.TypeOf(0), "test"})
 	if !cached {
 		t.Error("Expected to get cached instance")
 	}
@@ -34,27 +34,12 @@ func Test_PrepareLazyDependenciesMoreCases(t *testing.T) {
 		_ = ProvideValueNamed(c, "service", 42)
 
 		// 非 lazy 模式，应该直接返回 nil
-		key := "int#service"
+		key := cacheKey{reflect.TypeOf(0), "service"}
 		entry := c.providers[key]
 
 		err := c.prepareLazyDependencies(entry, key)
 		if err != nil {
 			t.Errorf("Expected nil for non-lazy mode, got %v", err)
-		}
-	})
-}
-
-// 测试 validateInstance 更多场景
-func Test_ValidateInstanceMoreCases(t *testing.T) {
-	c := New().(*container)
-
-	t.Run("ValidInstance", func(t *testing.T) {
-		// 有效实例
-		instance := 42
-		instanceValue := reflect.ValueOf(instance)
-		valid := c.validateInstance(instance, instanceValue)
-		if !valid {
-			t.Error("Expected instance to be valid")
 		}
 	})
 }

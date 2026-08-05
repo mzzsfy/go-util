@@ -203,28 +203,6 @@ func Test_ContainerHooksAfterStart(t *testing.T) {
 	_ = c.Shutdown(context.Background())
 }
 
-// 测试 getServiceNameFromKey 更多场景
-func Test_GetServiceNameFromKeyAdvanced(t *testing.T) {
-	tests := []struct {
-		key          string
-		defaultName  string
-		expectedName string
-	}{
-		{"int#service1", "int", "service1"},
-		{"int", "int", ""},
-		{"*di.TestService#named", "*di.TestService", "named"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.key, func(t *testing.T) {
-			name := getServiceNameFromKey(tt.key, tt.defaultName)
-			if name != tt.expectedName {
-				t.Errorf("Expected '%s', got '%s'", tt.expectedName, name)
-			}
-		})
-	}
-}
-
 // 测试 validateProviderFunction 更多错误场景
 func Test_ValidateProviderFunctionAdvanced(t *testing.T) {
 	t.Run("InvalidNoErrorReturn", func(t *testing.T) {

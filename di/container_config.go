@@ -100,17 +100,16 @@ func parseConfigInjection(tag string) (key string, defaultValue string) {
 }
 
 // getConfigValue 获取配置值
-// 线程安全，带缓存统计
 func (c *container) getConfigValue(key string) config.Value {
 	c.configMu.RLock()
-	defer c.configMu.RUnlock()
+	source := c.configSource
+	c.configMu.RUnlock()
 
-	if c.configSource == nil || key == "" {
+	if source == nil || key == "" {
 		c.updateConfigStats(false)
 		return config.ValueFrom(nil)
 	}
-
-	return c.getConfigFromSource(key)
+	return c.getConfigFromSource(source, key)
 }
 
 // updateConfigStats 更新配置访问统计
@@ -123,9 +122,8 @@ func (c *container) updateConfigStats(hit bool) {
 }
 
 // getConfigFromSource 从配置源获取值
-// 同时更新统计信息
-func (c *container) getConfigFromSource(key string) config.Value {
-	value := c.configSource.Get(key)
+func (c *container) getConfigFromSource(source ConfigSource, key string) config.Value {
+	value := source.Get(key)
 	if value != nil {
 		c.updateConfigStats(true)
 		return value

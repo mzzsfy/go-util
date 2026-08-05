@@ -266,7 +266,7 @@ func Test_PrepareLazyDependenciesEdgeCases(t *testing.T) {
 		}
 
 		// 非Lazy模式应该直接返回nil
-		key := typeKey(reflect.TypeOf((*Service)(nil)), "")
+		key := cacheKey{reflect.TypeOf((*Service)(nil)), ""}
 		entry := ctr.providers[key]
 		err = ctr.prepareLazyDependencies(entry, key)
 		if err != nil {
@@ -289,7 +289,7 @@ func Test_PrepareLazyDependenciesEdgeCases(t *testing.T) {
 			t.Fatalf("ProvideNamedWith() error = %v", err)
 		}
 
-		key := typeKey(reflect.TypeOf((*Service)(nil)), "")
+		key := cacheKey{reflect.TypeOf((*Service)(nil)), ""}
 		entry := ctr.providers[key]
 		err = ctr.prepareLazyDependencies(entry, key)
 		if err == nil {
@@ -322,7 +322,7 @@ func Test_PrepareLazyDependenciesEdgeCases(t *testing.T) {
 			t.Fatalf("ProvideNamedWith(Service) error = %v", err)
 		}
 
-		key := typeKey(reflect.TypeOf((*Service)(nil)), "")
+		key := cacheKey{reflect.TypeOf((*Service)(nil)), ""}
 		entry := ctr.providers[key]
 		err = ctr.prepareLazyDependencies(entry, key)
 		if err == nil {
@@ -354,7 +354,7 @@ func Test_PrepareLazyDependenciesEdgeCases(t *testing.T) {
 			t.Fatalf("ProvideNamedWith(Service) error = %v", err)
 		}
 
-		key := typeKey(reflect.TypeOf((*Service)(nil)), "")
+		key := cacheKey{reflect.TypeOf((*Service)(nil)), ""}
 		entry := ctr.providers[key]
 		err = ctr.prepareLazyDependencies(entry, key)
 		if err != nil {
@@ -402,7 +402,7 @@ func Test_PrepareLazyDependenciesEdgeCases(t *testing.T) {
 			t.Fatalf("ProvideNamedWith(Service) error = %v", err)
 		}
 
-		key := typeKey(reflect.TypeOf((*Service)(nil)), "")
+		key := cacheKey{reflect.TypeOf((*Service)(nil)), ""}
 		entry := ctr.providers[key]
 		err = ctr.prepareLazyDependencies(entry, key)
 		if err != nil {
@@ -424,48 +424,6 @@ func Test_PrepareLazyDependenciesEdgeCases(t *testing.T) {
 		}
 		if d2.(*Dep2).Name != "test" {
 			t.Errorf("GetNamed(Dep2) = %v, want Name=test", d2)
-		}
-	})
-}
-
-// TestValidateInstanceEdgeCases 测试validateInstance的边界情况
-func Test_ValidateInstanceEdgeCases(t *testing.T) {
-	// 测试：nil实例
-	t.Run("nil instance", func(t *testing.T) {
-		ctr := New().(*container)
-		result := ctr.validateInstance(nil, reflect.Value{})
-		if result {
-			t.Error("validateInstance(nil) = true, want false")
-		}
-	})
-
-	// 测试：无效的reflect.Value
-	t.Run("invalid reflect value", func(t *testing.T) {
-		ctr := New().(*container)
-		instance := "test"
-		result := ctr.validateInstance(instance, reflect.Value{})
-		if result {
-			t.Error("validateInstance(invalid value) = true, want false")
-		}
-	})
-
-	// 测试：有效实例
-	t.Run("valid instance", func(t *testing.T) {
-		ctr := New().(*container)
-		instance := "test"
-		result := ctr.validateInstance(instance, reflect.ValueOf(instance))
-		if !result {
-			t.Error("validateInstance(valid) = false, want true")
-		}
-	})
-
-	// 测试：零值但有效的实例
-	t.Run("zero value but valid", func(t *testing.T) {
-		ctr := New().(*container)
-		var instance int
-		result := ctr.validateInstance(instance, reflect.ValueOf(instance))
-		if !result {
-			t.Error("validateInstance(zero value) = false, want true")
 		}
 	})
 }

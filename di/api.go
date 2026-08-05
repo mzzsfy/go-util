@@ -58,7 +58,15 @@ func Provide[T any](c Container, provider func(Container) (T, error), opts ...Pr
 // 返回:
 //   - 可能的错误
 func ProvideNamed[T any](c Container, name string, provider func(Container) (T, error), opts ...ProviderOption) error {
-	return c.ProvideNamedWith(name, provider, opts...)
+	// 泛型路径创建类型安全 wrapper,跳过运行时反射调用
+	returnType := reflect.TypeOf((*T)(nil)).Elem()
+	wrapper := func(cont Container) (any, error) {
+		return provider(cont)
+	}
+	if cc, ok := c.(*container); ok {
+		return cc.provideWithFunc(name, returnType, wrapper, opts)
+	}
+	return c.ProvideNamedWith(name, wrapper, opts...)
 }
 
 // ProvideValue 注册实例值
@@ -133,7 +141,16 @@ func Get[T any](c Container) (T, error) {
 //   - 服务实例
 //   - 可能的错误
 func GetNamed[T any](c Container, name string) (T, error) {
-	result, err := c.GetNamed(reflect.TypeOf((*T)(nil)).Elem(), name)
+	t := reflect.TypeOf((*T)(nil)).Elem()
+	if cc, ok := c.(*container); ok {
+		result, err := cc.getNamedByType(t, name)
+		if err != nil {
+			var zero T
+			return zero, err
+		}
+		return result.(T), nil
+	}
+	result, err := c.GetNamed(t, name)
 	if err != nil {
 		var zero T
 		return zero, err

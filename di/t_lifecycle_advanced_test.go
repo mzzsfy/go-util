@@ -75,12 +75,10 @@ func Test_CreateDestroyHookAllPaths(t *testing.T) {
 func Test_CheckAndGetCachedInstanceAllPaths(t *testing.T) {
 	t.Run("first check finds instance", func(t *testing.T) {
 		c := New().(*container)
-		key := "test-key"
+		key := cacheKey{reflect.TypeOf(""), "test-key"}
 		instance := "test-instance"
 
-		c.mu.Lock()
-		c.instances[key] = instance
-		c.mu.Unlock()
+		c.storeInstance(key, instance)
 
 		result, found := c.checkAndGetCachedInstance(key)
 		if !found {
@@ -93,7 +91,7 @@ func Test_CheckAndGetCachedInstanceAllPaths(t *testing.T) {
 
 	t.Run("loading flag prevents false positive", func(t *testing.T) {
 		c := New().(*container)
-		key := "test-key"
+		key := cacheKey{reflect.TypeOf(""), "test-key"}
 
 		c.mu.Lock()
 		c.loading[key] = true

@@ -63,10 +63,15 @@ func (c *container) injectConfig(fieldValue reflect.Value, fieldType reflect.Str
 }
 
 // processFieldInjection 处理单个字段的注入
-// 根据标签决定注入类型
 func (c *container) processFieldInjection(fieldType reflect.StructField, fieldValue reflect.Value) error {
-	_, hasDiTag := fieldType.Tag.Lookup("di")
-	_, hasConfigTag := fieldType.Tag.Lookup("di.config")
+	// 快速跳过: 无 di 相关标签的字段
+	tag := fieldType.Tag
+	if !strings.Contains(string(tag), "di") {
+		return nil
+	}
+
+	_, hasDiTag := tag.Lookup("di")
+	_, hasConfigTag := tag.Lookup("di.config")
 
 	switch {
 	case hasDiTag:
@@ -81,7 +86,7 @@ func (c *container) processFieldInjection(fieldType reflect.StructField, fieldVa
 // injectStruct 注入配置和服务到结构体字段
 // 解引用指针后遍历所有字段进行注入
 func (c *container) injectStruct(target reflect.Value) error {
-	target = c.dereferencePointer(target)
+	target = dereferencePointer(target)
 	if !target.IsValid() {
 		return nil
 	}
@@ -94,16 +99,11 @@ func (c *container) injectStruct(target reflect.Value) error {
 }
 
 // dereferencePointer 解引用指针
-// 如果是空指针返回无效的 Value
-// 参数:
-//   - target: 目标反射值
-// 返回:
-//   - 解引用后的值，如果是空指针则返回无效 Value
-func (c *container) dereferencePointer(target reflect.Value) reflect.Value {
-	if target.Kind() == reflect.Ptr && target.IsNil() {
-		return reflect.Value{}
-	}
+func dereferencePointer(target reflect.Value) reflect.Value {
 	if target.Kind() == reflect.Ptr {
+		if target.IsNil() {
+			return reflect.Value{}
+		}
 		return target.Elem()
 	}
 	return target
@@ -128,7 +128,7 @@ func (c *container) injectAllFields(target reflect.Value) error {
 // 返回:
 //   - 依赖键列表
 //   - 如果类型不是结构体或指针返回错误
-func (c *container) findDepend(t reflect.Type) ([]string, error) {
+func (c *container) findDepend(t reflect.Type) ([]cacheKey, error) {
 	switch t.Kind() {
 	case reflect.Pointer:
 		return c.findDepend(t.Elem())
@@ -141,15 +141,15 @@ func (c *container) findDepend(t reflect.Type) ([]string, error) {
 
 // findStructDependencies 查找结构体的所有依赖
 // 返回依赖的键列表
-func (c *container) findStructDependencies(t reflect.Type) ([]string, error) {
-	var fields []string
+func (c *container) findStructDependencies(t reflect.Type) ([]cacheKey, error) {
+	var fields []cacheKey
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
 		depKey, err := c.getFieldDependency(field)
 		if err != nil {
 			return nil, fmt.Errorf("failed to analyze dependency for field %s in struct %v: %w", field.Name, t, err)
 		}
-		if depKey != "" {
+		if depKey.t != nil {
 			fields = append(fields, depKey)
 		}
 	}
@@ -158,26 +158,43 @@ func (c *container) findStructDependencies(t reflect.Type) ([]string, error) {
 
 // getFieldDependency 获取单个字段的依赖键
 // 根据标签解析依赖
-func (c *container) getFieldDependency(field reflect.StructField) (string, error) {
+func (c *container) getFieldDependency(field reflect.StructField) (cacheKey, error) {
 	tag, hasTag := field.Tag.Lookup("di")
 	if !hasTag {
-		return "", nil
+		return cacheKey{}, nil
 	}
 
 	name := tag
 	serviceType := field.Type
-	typeName := typeKey(serviceType, name)
+	depKey := cacheKey{serviceType, name}
 
-	if _, ok := c.providers[typeName]; ok {
-		return typeName, nil
+	if _, ok := c.providers[depKey]; ok {
+		return depKey, nil
 	}
-	return "", fmt.Errorf("no provider found for type %s with name '%s'", serviceType, name)
+	return cacheKey{}, fmt.Errorf("no provider found for type %s with name '%s'", serviceType, name)
 }
 
-// injectToInstance 根据实例类型进行依赖注入
-// 处理结构体和指针类型
-func (c *container) injectToInstance(instance any) (any, error) {
+// injectUnaddressableStruct 注入到不可寻址的结构体
+func (c *container) injectUnaddressableStruct(instanceValue reflect.Value) (any, error) {
+	addr := reflect.New(instanceValue.Type())
+	addr.Elem().Set(instanceValue)
+	if err := c.injectStruct(addr); err != nil {
+		return nil, fmt.Errorf("failed to inject dependencies to unaddressable struct of type %v: %w", instanceValue.Type(), err)
+	}
+	return addr.Elem().Interface(), nil
+}
+
+// validateAndInject 验证实例并执行依赖注入
+// 内联 injectToInstance 逻辑以避免重复 reflect.ValueOf 调用
+func (c *container) validateAndInject(instance any) (any, error) {
+	if instance == nil {
+		return nil, nil
+	}
 	instanceValue := reflect.ValueOf(instance)
+	if !instanceValue.IsValid() {
+		return nil, nil
+	}
+
 	kind := instanceValue.Kind()
 
 	// 不可寻址的结构体需要特殊处理
@@ -194,26 +211,4 @@ func (c *container) injectToInstance(instance any) (any, error) {
 		return nil, fmt.Errorf("failed to inject dependencies to instance of type %T: %w", instance, err)
 	}
 	return instance, nil
-}
-
-// injectUnaddressableStruct 注入到不可寻址的结构体
-func (c *container) injectUnaddressableStruct(instanceValue reflect.Value) (any, error) {
-	addr := reflect.New(instanceValue.Type())
-	addr.Elem().Set(instanceValue)
-	if err := c.injectStruct(addr); err != nil {
-		return nil, fmt.Errorf("failed to inject dependencies to unaddressable struct of type %v: %w", instanceValue.Type(), err)
-	}
-	return addr.Elem().Interface(), nil
-}
-
-// validateAndInject 验证实例并执行依赖注入
-func (c *container) validateAndInject(instance any) (any, error) {
-	if instance == nil {
-		return nil, nil
-	}
-	instanceValue := reflect.ValueOf(instance)
-	if !c.validateInstance(instance, instanceValue) {
-		return nil, nil
-	}
-	return c.injectToInstance(instance)
 }

@@ -11,7 +11,7 @@ import (
 // 测试 checkAndGetCachedInstance 的并发场景
 func TestCheckAndGetCachedInstanceConcurrent(t *testing.T) {
 	c := New().(*container)
-	key := "concurrent-key"
+	key := cacheKey{reflect.TypeOf(""), "concurrent-key"}
 
 	// 并发添加和获取
 	done := make(chan bool)

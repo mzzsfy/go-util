@@ -12,20 +12,18 @@ import (
 	"github.com/mzzsfy/go-util/helper"
 )
 
-// blackTypeMap 黑名单类型映射
+// blackTypes 黑名单类型集合
 // 这些类型不能在没有名称的情况下注册到容器中
 // 防止意外覆盖常用基础类型
-var blackTypeMap = map[string]bool{
-	"context.Context": true,
-	"string":          true,
-	"int":             true,
+var blackTypes = map[reflect.Type]bool{
+	reflect.TypeOf((*context.Context)(nil)).Elem(): true,
+	reflect.TypeOf(""):                             true,
+	reflect.TypeOf(0):                              true,
 }
 
 // isBlacklistType 检查类型是否在黑名单中
-// 参数 t: 要检查的反射类型
-// 返回值: 如果类型在黑名单中返回 true
 func isBlacklistType(t reflect.Type) bool {
-	return blackTypeMap[t.String()]
+	return blackTypes[t]
 }
 
 // Container 是依赖注入容器的核心接口
@@ -110,23 +108,19 @@ type DestroyCallback interface {
 type ShutdownHook func(context.Context) error
 
 // LoadMode 定义服务加载模式
-type LoadMode int
+type LoadMode uint8
 
 const (
 	// LoadModeDefault 默认加载模式
-	// 第一次 Get 时创建实例，之后缓存复用
 	LoadModeDefault LoadMode = iota
 
 	// LoadModeImmediate 立即加载模式
-	// 注册时立即创建实例
 	LoadModeImmediate
 
 	// LoadModeLazy 懒加载模式
-	// 延迟到第一次获取时创建实例，并检测循环依赖
 	LoadModeLazy
 
 	// LoadModeTransient 瞬态模式
-	// 每次获取都创建新实例，类似工厂模式
 	LoadModeTransient
 )
 

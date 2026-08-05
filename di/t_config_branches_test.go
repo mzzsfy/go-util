@@ -152,13 +152,11 @@ func TestShutdownOnSignalsAdvanced(t *testing.T) {
 func TestCheckAndGetCachedInstanceAllBranches(t *testing.T) {
 	t.Run("实例存在-第一次检查命中", func(t *testing.T) {
 		c := New().(*container)
-		key := "test-key"
+		key := cacheKey{reflect.TypeOf(""), "test-key"}
 		instance := "test-instance"
 
 		// 预先添加实例
-		c.mu.Lock()
-		c.instances[key] = instance
-		c.mu.Unlock()
+		c.storeInstance(key, instance)
 
 		// 应该在第一次检查就命中
 		result, found := c.checkAndGetCachedInstance(key)
@@ -178,15 +176,13 @@ func TestCheckAndGetCachedInstanceAllBranches(t *testing.T) {
 
 	t.Run("实例存在-第二次检查命中", func(t *testing.T) {
 		c := New().(*container)
-		key := "test-key"
+		key := cacheKey{reflect.TypeOf(""), "test-key"}
 		instance := "test-instance"
 
 		// 不预先添加，在第二次检查前添加
 		go func() {
 			time.Sleep(10 * time.Millisecond)
-			c.mu.Lock()
-			c.instances[key] = instance
-			c.mu.Unlock()
+			c.storeInstance(key, instance)
 		}()
 
 		// 这个测试主要是为了覆盖代码路径
@@ -200,7 +196,7 @@ func TestCheckAndGetCachedInstanceAllBranches(t *testing.T) {
 
 	t.Run("实例不存在", func(t *testing.T) {
 		c := New().(*container)
-		key := "nonexistent-key"
+		key := cacheKey{reflect.TypeOf(""), "nonexistent-key"}
 
 		// 应该找不到
 		result, found := c.checkAndGetCachedInstance(key)
@@ -214,7 +210,7 @@ func TestCheckAndGetCachedInstanceAllBranches(t *testing.T) {
 
 	t.Run("循环依赖检测", func(t *testing.T) {
 		c := New().(*container)
-		key := "loading-key"
+		key := cacheKey{reflect.TypeOf(""), "loading-key"}
 
 		// 标记为正在加载
 		c.mu.Lock()
@@ -564,12 +560,10 @@ func Test_InjectServiceErrorCases(t *testing.T) {
 func Test_CheckExistingInstanceDuringCreationAllBranches(t *testing.T) {
 	t.Run("实例存在且非Transient模式", func(t *testing.T) {
 		c := New().(*container)
-		key := "test-key"
+		key := cacheKey{reflect.TypeOf(""), "test-key"}
 		instance := "test-instance"
 
-		c.mu.Lock()
-		c.instances[key] = instance
-		c.mu.Unlock()
+		c.storeInstance(key, instance)
 
 		result, found := c.checkExistingInstanceDuringCreation(key, LoadModeDefault)
 		if !found {
@@ -582,12 +576,10 @@ func Test_CheckExistingInstanceDuringCreationAllBranches(t *testing.T) {
 
 	t.Run("实例存在但Transient模式", func(t *testing.T) {
 		c := New().(*container)
-		key := "test-key"
+		key := cacheKey{reflect.TypeOf(""), "test-key"}
 		instance := "test-instance"
 
-		c.mu.Lock()
-		c.instances[key] = instance
-		c.mu.Unlock()
+		c.storeInstance(key, instance)
 
 		// Transient模式应该不返回缓存实例
 		result, found := c.checkExistingInstanceDuringCreation(key, LoadModeTransient)
@@ -601,7 +593,7 @@ func Test_CheckExistingInstanceDuringCreationAllBranches(t *testing.T) {
 
 	t.Run("实例不存在", func(t *testing.T) {
 		c := New().(*container)
-		key := "nonexistent-key"
+		key := cacheKey{reflect.TypeOf(""), "nonexistent-key"}
 
 		result, found := c.checkExistingInstanceDuringCreation(key, LoadModeDefault)
 		if found {

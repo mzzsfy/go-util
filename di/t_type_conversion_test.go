@@ -29,7 +29,7 @@ func Test_CollectMatchingInstancesWithConditionFail(t *testing.T) {
 	}
 
 	// 收集所有string类型的实例
-	results, err := c.collectMatchingInstances(reflect.TypeOf(""), "string")
+	results, err := c.collectMatchingInstances(reflect.TypeOf(""))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

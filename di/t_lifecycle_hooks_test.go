@@ -134,39 +134,4 @@ func Test_GetFromParentOrErrorAllPaths(t *testing.T) {
 }
 
 // TestCheckCacheWithWriteLockAllPaths 测试写锁检查缓存的所有路径
-func Test_CheckCacheWithWriteLockAllPaths(t *testing.T) {
-	t.Run("Cache hit", func(t *testing.T) {
-		c := New().(*container)
-		_ = ProvideValueNamed(c, "test", 42)
-		_, _ = GetNamed[int](c, "test") // 触发创建
-
-		key := typeKey(reflect.TypeOf(0), "test")
-		inst, found := c.checkCacheWithWriteLock(key)
-		if !found {
-			t.Error("Expected to find cached instance")
-		}
-		if inst == nil {
-			t.Error("Expected non-nil instance")
-		}
-	})
-
-	t.Run("Cache miss", func(t *testing.T) {
-		c := New().(*container)
-		key := typeKey(reflect.TypeOf(0), "nonexistent")
-		_, found := c.checkCacheWithWriteLock(key)
-		if found {
-			t.Error("Expected cache miss")
-		}
-	})
-
-	t.Run("Loading flag set", func(t *testing.T) {
-		c := New().(*container)
-		key := "test-key"
-		c.loading[key] = true
-
-		_, found := c.checkCacheWithWriteLock(key)
-		if found {
-			t.Error("Expected not found when loading flag is set")
-		}
-	})
-}
+// checkCacheWithWriteLock 已被内联到 checkAndGetCachedInstance, 见 Test_CheckAndGetCachedInstanceAllPaths

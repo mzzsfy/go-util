@@ -4,7 +4,6 @@ package di
 import (
 	"fmt"
 	"reflect"
-	"strings"
 	"time"
 )
 
@@ -12,52 +11,42 @@ import (
 // 协调各个创建阶段：钩子执行、缓存检查、实例创建
 func (c *container) create(entry providerEntry, name string) (any, error) {
 	startTime := time.Now()
-	// 优先使用缓存的 key，避免重复计算
-	key := entry.key
-	if key == "" {
-		key = typeKey(entry.reflectType, name)
-	}
+	key := cacheKey{entry.reflectType, name}
 
-	// 执行 beforeCreate 钩子
-	instance, err := c.executeBeforeCreateHooks(entry, name)
-	if err != nil {
-		return nil, err
-	}
-
-	// 如果钩子返回了实例，直接使用
-	if instance != nil {
-		return c.finalizeInstanceCreation(entry, name, instance, startTime)
-	}
-
-	// 检查缓存
-	if instance, found := c.checkAndGetCachedInstance(key); found {
-		return instance, nil
+	// 有 beforeCreate 钩子时执行,并重新检查缓存(钩子可能创建实例)
+	if len(entry.config.beforeCreate) > 0 || len(c.beforeCreate) > 0 {
+		instance, err := c.executeBeforeCreateHooks(entry, name)
+		if err != nil {
+			return nil, err
+		}
+		if instance != nil {
+			return c.finalizeInstanceCreation(entry, name, instance, startTime)
+		}
+		if instance, found := c.checkAndGetCachedInstance(key); found {
+			return instance, nil
+		}
 	}
 
 	// 创建新实例
 	return c.createNewInstance(entry, name, key, startTime)
 }
 
-// tryGetCachedInstance 尝试获取缓存的实例
-// 封装缓存检查逻辑
-func (c *container) tryGetCachedInstance(key string) (any, bool) {
-	return c.checkAndGetCachedInstance(key)
-}
-
 // createNewInstance 创建新实例
 // 处理循环依赖检查、依赖准备和实例创建
-func (c *container) createNewInstance(entry providerEntry, name string, key string, startTime time.Time) (any, error) {
-	// 检查循环依赖
-	if err := c.checkCircularDependency(key, entry.reflectType, name); err != nil {
+func (c *container) createNewInstance(entry providerEntry, name string, key cacheKey, startTime time.Time) (any, error) {
+	// 检查循环依赖并标记加载(合并为单次 Lock)
+	if err := c.tryMarkLoading(key, entry.reflectType, name); err != nil {
+		return nil, err
+	}
+	defer c.clearLoadingFlag(key)
+
+	// 懒加载模式先创建依赖
+	if err := c.prepareLazyDependencies(entry, key); err != nil {
 		return nil, err
 	}
 
-	// 标记正在创建
-	cleanup := c.markLoading(key)
-	defer cleanup()
-
-	// 创建实例及其依赖
-	instance, err := c.createInstanceWithDependencies(entry, key)
+	// 调用 provider 构造实例
+	instance, err := entry.provider(c)
 	if err != nil {
 		return nil, err
 	}
@@ -70,16 +59,6 @@ func (c *container) createNewInstance(entry providerEntry, name string, key stri
 
 	// 完成创建流程
 	return c.finalizeInstanceCreation(entry, name, instance, startTime)
-}
-
-// createInstanceWithDependencies 创建实例及其依赖
-// 对于懒加载模式，先创建依赖
-func (c *container) createInstanceWithDependencies(entry providerEntry, key string) (any, error) {
-	if err := c.prepareLazyDependencies(entry, key); err != nil {
-		return nil, err
-	}
-
-	return c.createProviderInstance(entry)
 }
 
 // finalizeInstanceCreation 完成实例创建的最后步骤
@@ -99,39 +78,27 @@ func (c *container) finalizeInstanceCreation(entry providerEntry, name string, i
 	return c.executeAfterCreateHooks(entry, name, instance)
 }
 
-// hookChain 钩子链定义
-// 包含钩子列表和错误消息
-type hookChain struct {
-	hooks    []func(Container, EntryInfo) (any, error)
-	errorMsg string
-}
-
-// executeHookChains 执行多个钩子链
-// 通用的钩子执行函数，支持实例传递
-func (c *container) executeHookChains(chains []hookChain, info EntryInfo, reflectType reflect.Type, name string) (any, error) {
-	instance := info.Instance
-	for _, chain := range chains {
-		inst, err := c.executeHookList(chain.hooks, info, reflectType, name, chain.errorMsg)
-		if err != nil {
-			return nil, err
-		}
-		if inst != nil {
-			instance = inst
-			info.Instance = inst
-		}
-	}
-	return instance, nil
-}
-
 // executeBeforeCreateHooks 执行 beforeCreate 钩子
 // 按顺序执行提供者级别和容器级别的钩子
 func (c *container) executeBeforeCreateHooks(entry providerEntry, name string) (any, error) {
-	chains := []hookChain{
-		{entry.config.beforeCreate, "未创建"},
-		{c.beforeCreate, "容器 beforeCreate 失败"},
+	info := EntryInfo{Name: name}
+
+	inst, err := c.executeHookList(entry.config.beforeCreate, info, entry.reflectType, name, "未创建")
+	if err != nil {
+		return nil, err
 	}
-	info := EntryInfo{Instance: nil, Name: name}
-	return c.executeHookChains(chains, info, entry.reflectType, name)
+	if inst != nil {
+		info.Instance = inst
+	}
+
+	inst, err = c.executeHookList(c.beforeCreate, info, entry.reflectType, name, "容器 beforeCreate 失败")
+	if err != nil {
+		return nil, err
+	}
+	if inst != nil {
+		info.Instance = inst
+	}
+	return info.Instance, nil
 }
 
 // executeHookList 执行钩子列表
@@ -153,55 +120,51 @@ func (c *container) executeHookList(hooks []func(Container, EntryInfo) (any, err
 // executeAfterCreateHooks 执行 afterCreate 钩子
 // 按顺序执行提供者级别和容器级别的钩子
 func (c *container) executeAfterCreateHooks(entry providerEntry, name string, instance any) (any, error) {
-	chains := []hookChain{
-		{entry.config.afterCreate, "afterCreate"},
-		{c.afterCreate, "容器 afterCreate"},
-	}
 	info := EntryInfo{Name: name, Instance: instance}
-	return c.executeHookChains(chains, info, entry.reflectType, name)
+
+	inst, err := c.executeHookList(entry.config.afterCreate, info, entry.reflectType, name, "afterCreate")
+	if err != nil {
+		return nil, err
+	}
+	if inst != nil {
+		info.Instance = inst
+	}
+
+	inst, err = c.executeHookList(c.afterCreate, info, entry.reflectType, name, "容器 afterCreate")
+	if err != nil {
+		return nil, err
+	}
+	if inst != nil {
+		info.Instance = inst
+	}
+	return info.Instance, nil
 }
 
-// checkCircularDependency 检查循环依赖
-// 通过 loading map 检测正在创建的实例
-func (c *container) checkCircularDependency(key string, reflectType reflect.Type, name string) error {
-	c.mu.RLock()
-	loading := c.loading[key]
-	c.mu.RUnlock()
-	if loading {
+// tryMarkLoading 检查循环依赖并标记加载
+// 如果正在加载说明存在循环依赖,否则标记并返回 nil
+func (c *container) tryMarkLoading(key cacheKey, reflectType reflect.Type, name string) error {
+	c.mu.Lock()
+	if c.loading[key] {
+		c.mu.Unlock()
 		return circularDependencyError(reflectType, name)
 	}
-	return nil
-}
-
-// markLoading 标记正在创建的实例
-// 返回清理函数，用于 defer 调用
-func (c *container) markLoading(key string) (cleanup func()) {
-	c.mu.Lock()
 	c.loading[key] = true
 	c.mu.Unlock()
-
-	return func() {
-		c.mu.Lock()
-		delete(c.loading, key)
-		c.mu.Unlock()
-	}
+	return nil
 }
 
 // checkExistingInstanceDuringCreation 检查创建过程中是否有其他 goroutine 已创建实例
 // 用于并发场景下的双重检查
-func (c *container) checkExistingInstanceDuringCreation(key string, loadMode LoadMode) (any, bool) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	if existingInstance, exists := c.instances[key]; exists && loadMode != LoadModeTransient {
-		return existingInstance, true
+func (c *container) checkExistingInstanceDuringCreation(key cacheKey, loadMode LoadMode) (any, bool) {
+	if loadMode == LoadModeTransient {
+		return nil, false
 	}
-	return nil, false
+	return c.getCachedInstance(key)
 }
 
 // prepareLazyDependencies 准备懒加载依赖
 // 对于懒加载模式，先创建所有依赖
-func (c *container) prepareLazyDependencies(entry providerEntry, key string) error {
+func (c *container) prepareLazyDependencies(entry providerEntry, key cacheKey) error {
 	if entry.config.loadMode != LoadModeLazy {
 		return nil
 	}
@@ -216,8 +179,7 @@ func (c *container) prepareLazyDependencies(entry providerEntry, key string) err
 }
 
 // clearLoadingFlag 清除加载标记
-// 在错误发生时清理状态
-func (c *container) clearLoadingFlag(key string) {
+func (c *container) clearLoadingFlag(key cacheKey) {
 	c.mu.Lock()
 	delete(c.loading, key)
 	c.mu.Unlock()
@@ -225,38 +187,16 @@ func (c *container) clearLoadingFlag(key string) {
 
 // createDependencies 创建依赖实例
 // 按顺序创建所有依赖
-func (c *container) createDependencies(depend []string) error {
+func (c *container) createDependencies(depend []cacheKey) error {
 	for i, k := range depend {
-		name := extractNameFromKey(k)
 		entry, exists := c.providers[k]
 		if !exists {
-			return fmt.Errorf("dependency[%d] not found: provider %s does not exist", i, k)
+			return fmt.Errorf("dependency[%d] not found: provider %s does not exist", i, k.String())
 		}
-		if _, err := c.create(entry, name); err != nil {
-			return fmt.Errorf("failed to create dependency[%d] %s: %w", i, k, err)
+		if _, err := c.create(entry, k.name); err != nil {
+			return fmt.Errorf("failed to create dependency[%d] %s: %w", i, k.String(), err)
 		}
 	}
 	return nil
 }
 
-// extractNameFromKey 从键中提取名称
-// 键格式为 "类型#名称"
-func extractNameFromKey(key string) string {
-	ss := strings.SplitN(key, "#", 2)
-	if len(ss) > 1 {
-		return ss[1]
-	}
-	return ""
-}
-
-// createProviderInstance 通过 provider 函数创建实例
-// 调用注册时提供的构造函数
-func (c *container) createProviderInstance(entry providerEntry) (any, error) {
-	return entry.provider(c)
-}
-
-// validateInstance 验证实例是否有效
-// 检查实例非空且反射值有效
-func (c *container) validateInstance(instance any, instanceValue reflect.Value) bool {
-	return instance != nil && instanceValue.IsValid()
-}

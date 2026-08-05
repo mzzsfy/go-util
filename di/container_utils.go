@@ -8,24 +8,24 @@ import (
 )
 
 // GetNamed 获取命名服务实例
-// 这是服务获取的主要入口，支持缓存和父容器查找
-// 参数:
-//   - serviceType: 服务类型，可以是 reflect.Type 或具体类型
-//   - name: 服务名称，为空时使用默认名称
-// 返回:
-//   - 服务实例
-//   - 可能的错误
 func (c *container) GetNamed(serviceType any, name string) (any, error) {
-	t := parseReflectType(serviceType)
-	key := typeKey(t, name)
+	return c.getNamedByType(parseReflectType(serviceType), name)
+}
 
-	// 首先检查缓存
+// getNamedByType 以 reflect.Type 直接查找,跳过 parseReflectType
+func (c *container) getNamedByType(t reflect.Type, name string) (any, error) {
+	key := cacheKey{t, name}
+
+	// 无锁读取缓存实例
 	if instance, found := c.getCachedInstance(key); found {
 		return instance, nil
 	}
 
-	// 检查提供者
-	entry, exists := c.getProvider(key)
+	// 缓存未命中,RLock 查找 provider
+	c.mu.RLock()
+	entry, exists := c.providers[key]
+	c.mu.RUnlock()
+
 	if !exists {
 		return c.getFromParentOrError(t, name)
 	}
@@ -60,18 +60,18 @@ func (c *container) getFromParentOrError(t reflect.Type, name string) (any, erro
 //   - 如果服务已注册返回 true
 func (c *container) HasNamed(serviceType any, name string) bool {
 	t := parseReflectType(serviceType)
-	key := typeKey(t, name)
+	key := cacheKey{t, name}
 
 	c.mu.RLock()
-	defer c.mu.RUnlock()
+	_, exists := c.providers[key]
+	parent := c.parent
+	c.mu.RUnlock()
 
-	// 检查当前容器
-	if _, exists := c.providers[key]; exists {
+	if exists {
 		return true
 	}
-	// 检查父容器
-	if c.parent != nil {
-		return c.parent.HasNamed(serviceType, name)
+	if parent != nil {
+		return parent.HasNamed(serviceType, name)
 	}
 	return false
 }
