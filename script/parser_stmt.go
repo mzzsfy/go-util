@@ -904,8 +904,8 @@ func isValidBaseTypes(name string) bool {
 // 如果匹配则返回去除前缀的字符串和true
 func stripAnyPrefix(s string, prefixes []string) (string, bool) {
 	for _, prefix := range prefixes {
-		if stripped, ok := strings.CutPrefix(s, prefix); ok {
-			return stripped, true
+		if strings.HasPrefix(s, prefix) {
+			return s[len(prefix):], true
 		}
 	}
 	return s, false
