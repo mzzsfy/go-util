@@ -1,859 +1,1200 @@
 package logger
 
 import (
-    "bytes"
-    "fmt"
-    "io"
-    "regexp"
-    "strconv"
-    "strings"
-    "sync"
-    "sync/atomic"
-    "testing"
-    "time"
-    "unicode/utf8"
-
-    "github.com/mzzsfy/go-util/pool"
+	"bytes"
+	"context"
+	"io"
+	"os"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"testing"
+	"time"
 )
 
-func Test_Logger_1(t *testing.T) {
-    info := atomic.LoadInt32(&printYearInfo)
-    defer func() {
-        atomic.StoreInt32(&printYearInfo, info)
-    }()
-    Logger("test.test").I("test")
-    atomic.StoreInt32(&printYearInfo, 1)
-    Logger("test.test").I("test")
-    atomic.StoreInt32(&printYearInfo, 2)
-    Logger("test.test").I("test")
-    atomic.StoreInt32(&printYearInfo, 3)
-    Logger("test.test").I("test")
-    atomic.StoreInt32(&printYearInfo, 1)
-    log1 := Logger("test.test")
-    log1.I("test")
-    length := int(atomic.LoadInt32(&showNameMaxLength))
-    defer SetLogNameMaxLength(length)
-    SetLogNameMaxLength(6)
-    log1.I("short test")
+// 辅助: 创建写到 buf 的 Logger
+func newTestLogger(buf *bytes.Buffer, lv Level) *Logger {
+	return New("test", WithLevel(lv), WithWriter(buf))
 }
 
-func Test_Logger_2(t *testing.T) {
-    Logger("test.test.test.test.test.test.test.test.test.test.test").I("test")
-    Logger("test").I("test")
-    Logger("test.test").I("test")
-    Logger("test.test.test").I("test")
-    Logger("test.test.test.test").I("test")
-    Logger("test.test.test.test.test").I("test")
-    Logger("test.test.test.test.test.test").I("test")
-    Logger("test.test.test.test.test.test.test").I("test")
-    Logger("test.test.test.test.test.test.test.test").I("test")
-    Logger("test.test.test.test.test.test.test.test.test").I("test")
-    Logger("test.test.test.test.test.test.test.test.test.test").I("test")
-    Logger("test.test.test.test.test.test.test.test.test.test.test").I("test")
-    Logger("你好.你好").I("test")
-    Logger("你好.你好.你好.你好").I("test")
-    Logger("你好.你好.你好.你好.你好.你好.你好").I("test")
-    Logger("你好.你好.你好.你好.你好.你好.你好.你好.你好").I("test")
+// --- BDD: 基本日志输出 ---
+
+// Given Info 级别 Logger
+// When 调用 Info().Msg("hello")
+// Then 输出包含 "hello" 和级别标识 "I"
+func Test_Event_BasicOutput(t *testing.T) {
+	var buf bytes.Buffer
+	l := newTestLogger(&buf, InfoLevel)
+	l.Info().Msg("hello")
+
+	out := buf.String()
+	if !strings.Contains(out, "hello") {
+		t.Fatalf("missing message: %q", out)
+	}
+	if !strings.Contains(out, "]I:") {
+		t.Fatalf("missing level tag: %q", out)
+	}
+	if !strings.HasSuffix(out, "\n") {
+		t.Fatalf("missing newline: %q", out)
+	}
 }
 
-func Test_InitName_MultiByteRunes(t *testing.T) {
-    oldMax := int(atomic.LoadInt32(&showNameMaxLength))
-    defer SetLogNameMaxLength(oldMax)
-    SetLogNameMaxLength(18)
+// --- BDD: 级别过滤 ---
 
-    tests := []struct {
-        name     string
-        fullName string
-    }{
-        {"chinese short", "你好.世界"},
-        {"chinese long", "你好.你好.你好.你好.你好.你好.你好.你好.你好"},
-        {"mixed", "test.测试.module.模块.包名.名称"},
-        {"ascii long", "a.b.c.d.e.f.g.h.i.j.k"},
-        {"single chinese segment", "中文模块名测试"},
-    }
+// Given Warn 级别 Logger
+// When 调用 Debug().Str("k","v").Msg("filtered")
+// Then 无输出
+func Test_Event_LevelFiltered(t *testing.T) {
+	var buf bytes.Buffer
+	l := newTestLogger(&buf, WarnLevel)
+	l.Debug().Str("k", "v").Msg("filtered")
 
-    for _, tt := range tests {
-        t.Run(tt.name, func(t *testing.T) {
-            names := strings.Split(tt.fullName, ".")
-            result := initName(len(names)-1, names, tt.fullName)
-            if !utf8.ValidString(result) {
-                t.Errorf("invalid UTF-8 in showName for %q: %q", tt.fullName, result)
-            }
-            runeCount := utf8.RuneCountInString(result)
-            maxLen := int(atomic.LoadInt32(&showNameMaxLength))
-            if runeCount > maxLen {
-                t.Errorf("showName too long for %q: got %d runes, max %d: %q", tt.fullName, runeCount, maxLen, result)
-            }
-        })
-    }
+	if buf.Len() != 0 {
+		t.Fatalf("expected no output, got %q", buf.String())
+	}
 }
 
-func Test_InitName_SmallMaxLength_NoPanic(t *testing.T) {
-    t.Parallel()
-    oldMax := int(atomic.LoadInt32(&showNameMaxLength))
-    oldCompressed := atomic.LoadInt32(&compressedLogName)
-    defer func() {
-        atomic.StoreInt32(&compressedLogName, oldCompressed)
-        SetLogNameMaxLength(oldMax)
-    }()
+// --- BDD: 类型安全链式字段 ---
 
-    atomic.StoreInt32(&compressedLogName, 1)
-    names := strings.Split("alpha.beta.gamma", ".")
-    for _, maxLen := range []int{0, 1, 2, 3, 4, 5} {
-        t.Run(fmt.Sprintf("max_%d", maxLen), func(t *testing.T) {
-            SetLogNameMaxLength(maxLen)
-            result := initName(len(names)-1, names, "alpha.beta.gamma")
-            if !utf8.ValidString(result) {
-                t.Fatalf("invalid UTF-8 for maxLen=%d: %q", maxLen, result)
-            }
-        })
-    }
+// Given Info 级别 Logger
+// When 调用 Info().Str("user","moke").Int("id",42).Bool("ok",true).Msg("login")
+// Then 输出包含所有字段
+func Test_Event_ChainedFields(t *testing.T) {
+	var buf bytes.Buffer
+	l := newTestLogger(&buf, InfoLevel)
+	l.Info().Str("user", "moke").Int("id", 42).Bool("ok", true).Msg("login")
+
+	out := buf.String()
+	checks := []string{"user=moke", "id=42", "ok=true", "login"}
+	for _, s := range checks {
+		if !strings.Contains(out, s) {
+			t.Fatalf("missing %q in %q", s, out)
+		}
+	}
 }
 
-func Test_AllLogger_VisitsAllNames(t *testing.T) {
-    names := []string{"allLogger.test.a", "allLogger.test.b", "allLogger.test.c"}
-    for _, n := range names {
-        Logger(n)
-    }
-    var collected []string
-    AllLogger()(func(name string) {
-        if strings.HasPrefix(name, "allLogger.test.") {
-            collected = append(collected, name)
-        }
-    })
-    if len(collected) < len(names) {
-        t.Fatalf("AllLogger visited only %d, expected %d", len(collected), len(names))
-    }
-    set := make(map[string]bool, len(collected))
-    for _, n := range collected {
-        set[n] = true
-    }
-    for _, n := range names {
-        if !set[n] {
-            t.Errorf("AllLogger did not visit %q", n)
-        }
-    }
+// --- BDD: 所有类型方法 ---
+
+func Test_Event_AllFieldTypes(t *testing.T) {
+	var buf bytes.Buffer
+	l := newTestLogger(&buf, TraceLevel)
+
+	l.Trace().
+		Str("s", "val").
+		Int("i", -7).
+		Int64("i64", -100).
+		Uint64("u", 999).
+		Float64("f", 3.14).
+		Bool("b", false).
+		Time("t", time.Date(2026, 8, 4, 12, 0, 0, 0, time.UTC)).
+		Dur("d", 5*time.Second).
+		Err(io.EOF).
+		Any("any", 42).
+		Msg("done")
+
+	out := buf.String()
+	checks := []string{
+		`s=val`, `i=-7`, `i64=-100`, `u=999`, `f=3.14`,
+		`b=false`, `err=EOF`, `any=42`, `done`,
+	}
+	for _, s := range checks {
+		if !strings.Contains(out, s) {
+			t.Fatalf("missing %q in %q", s, out)
+		}
+	}
 }
 
-func Test_DoLogFormat1(t *testing.T) {
-    t.Parallel()
-    t.Run("一一对应", func(t *testing.T) {
-        buf := bfPool.Get()
-        defer bfPool.Put(buf)
-        doLogFormat1(buf, "a={} b={}", []any{1, "x"})
-        if got := buf.String(); got != "a=1 b=x" {
-            t.Fatalf("got %q", got)
-        }
-    })
-    t.Run("参数不足", func(t *testing.T) {
-        buf := bfPool.Get()
-        defer bfPool.Put(buf)
-        doLogFormat1(buf, "a={} b={}", []any{1})
-        if got := buf.String(); got != "a=1 b={}" {
-            t.Fatalf("got %q", got)
-        }
-    })
-    t.Run("参数多余", func(t *testing.T) {
-        buf := bfPool.Get()
-        defer bfPool.Put(buf)
-        doLogFormat1(buf, "a={}", []any{1, "x", 2})
-        if got := buf.String(); got != "a=1 x 2" {
-            t.Fatalf("got %q", got)
-        }
-    })
-    t.Run("error详细格式", func(t *testing.T) {
-        buf := bfPool.Get()
-        defer bfPool.Put(buf)
-        doLogFormat1(buf, "a={}", []any{1, fmt.Errorf("boom")})
-        if got := buf.String(); got != "a=1 boom" {
-            t.Fatalf("got %q", got)
-        }
-    })
-    t.Run("无占位符追加", func(t *testing.T) {
-        buf := bfPool.Get()
-        defer bfPool.Put(buf)
-        doLogFormat1(buf, "plain", []any{1, "x"})
-        if got := buf.String(); got != "plain 1 x" {
-            t.Fatalf("got %q", got)
-        }
-    })
-    t.Run("显式位置{0}{1}", func(t *testing.T) {
-        buf := bfPool.Get()
-        defer bfPool.Put(buf)
-        doLogFormat1(buf, "b={1} a={0}", []any{1, "x"})
-        if got := buf.String(); got != "b=x a=1 1 x" {
-            t.Fatalf("got %q", got)
-        }
-    })
-    t.Run("显式位置超出范围", func(t *testing.T) {
-        buf := bfPool.Get()
-        defer bfPool.Put(buf)
-        doLogFormat1(buf, "a={0} b={2}", []any{1, "x"})
-        if got := buf.String(); got != "a=1 b={2} 1 x" {
-            t.Fatalf("got %q", got)
-        }
-    })
-    t.Run("混合自动和显式", func(t *testing.T) {
-        buf := bfPool.Get()
-        defer bfPool.Put(buf)
-        doLogFormat1(buf, "a={} b={0} c={}", []any{1, "x"})
-        if got := buf.String(); got != "a=1 b=1 c=x" {
-            t.Fatalf("got %q", got)
-        }
-    })
-    t.Run("显式位置不消耗自动索引", func(t *testing.T) {
-        buf := bfPool.Get()
-        defer bfPool.Put(buf)
-        doLogFormat1(buf, "{0} {} {1}", []any{"a", "b", "c"})
-        if got := buf.String(); got != "a a b b c" {
-            t.Fatalf("got %q", got)
-        }
-    })
+// --- BDD: 级别控制 ---
+
+func Test_Logger_SetLevel(t *testing.T) {
+	var buf bytes.Buffer
+	l := newTestLogger(&buf, ErrorLevel)
+
+	l.Info().Msg("filtered")
+	if buf.Len() != 0 {
+		t.Fatalf("info should be filtered: %q", buf.String())
+	}
+
+	l.SetLevel(DebugLevel)
+	l.Info().Msg("visible")
+	if !strings.Contains(buf.String(), "visible") {
+		t.Fatalf("info should be visible after SetLevel: %q", buf.String())
+	}
 }
 
-func Test_Logger_LazyMethods(t *testing.T) {
-    t.Parallel()
-    oldWriter := DefaultWriterTarget()
-    SetDefaultWriterTarget(io.Discard)
-    defer SetDefaultWriterTarget(oldWriter)
-
-    l := Logger("lazy.methods.test")
-    l.SetLevel(WarnLevel)
-    defer l.SetLevel(LevelUnset)
-
-    l.DF("test", func() []any { t.Fatal("DF should not evaluate"); return nil })
-    l.IF("test", func() []any { t.Fatal("IF should not evaluate"); return nil })
-
-    var wfCalled, efCalled bool
-    l.LF(WarnLevel, "test", func() []any { wfCalled = true; return []any{"w"} })
-    l.LF(ErrorLevel, "test", func() []any { efCalled = true; return []any{"e"} })
-    if !wfCalled || !efCalled {
-        t.Fatal("LF(Warn/Error) should be evaluated")
-    }
+func Test_Logger_Enabled(t *testing.T) {
+	l := New("t", WithLevel(WarnLevel))
+	if l.Enabled(DebugLevel) {
+		t.Fatal("debug should not be enabled at warn level")
+	}
+	if !l.Enabled(ErrorLevel) {
+		t.Fatal("error should be enabled at warn level")
+	}
 }
 
-func Test_Logger_LF_DirectLevel(t *testing.T) {
-    var buf bytes.Buffer
-    oldWriter := DefaultWriterTarget()
-    SetDefaultWriterTarget(&buf)
-    defer SetDefaultWriterTarget(oldWriter)
+// --- BDD: Msgf 格式化消息 ---
 
-    l := Logger("lf.direct.level")
-    l.L(InfoLevel, "test {}", "arg")
-    l.LF(WarnLevel, "lazy {}", func() []any { return []any{"val"} })
-
-    output := buf.String()
-    if !strings.Contains(output, "test arg") || !strings.Contains(output, "lazy val") {
-        t.Fatalf("output: %q", output)
-    }
+func Test_Event_Msgf(t *testing.T) {
+	var buf bytes.Buffer
+	l := newTestLogger(&buf, InfoLevel)
+	l.Info().Msgf("count=%d name=%s", 5, "test")
+	if !strings.Contains(buf.String(), "count=5 name=test") {
+		t.Fatalf("msgf output wrong: %q", buf.String())
+	}
 }
 
-func Test_Level_MarshalUnmarshal(t *testing.T) {
-    t.Parallel()
-    t.Run("String", func(t *testing.T) {
-        for _, tt := range []struct {
-            level Level
-            short string
-            full  string
-        }{
-            {TraceLevel, "T", "Trace"}, {DebugLevel, "D", "Debug"},
-            {InfoLevel, "I", "Info"}, {WarnLevel, "W", "Warn"},
-            {ErrorLevel, "E", "Error"}, {FatalLevel, "F", "Fatal"},
-        } {
-            if got := tt.level.String(); got != tt.short {
-                t.Errorf("got %q, want %q", got, tt.short)
-            }
-            if got := tt.level.FullName(); got != tt.full {
-                t.Errorf("got %q, want %q", got, tt.full)
-            }
-        }
-    })
-    t.Run("FromString边界", func(t *testing.T) {
-        if FromString("") != InfoLevel || FromString("xyz") != InfoLevel {
-            t.Error("boundary cases failed")
-        }
-    })
+// --- BDD: Send 无消息 ---
+
+func Test_Event_Send(t *testing.T) {
+	var buf bytes.Buffer
+	l := newTestLogger(&buf, InfoLevel)
+	l.Info().Str("event", "startup").Send()
+	out := buf.String()
+	if !strings.Contains(out, "event=startup") {
+		t.Fatalf("send output wrong: %q", out)
+	}
+	if !strings.HasSuffix(out, "\n") {
+		t.Fatalf("missing newline: %q", out)
+	}
 }
 
-func BenchmarkLogger_Logging(b *testing.B) {
-    oldWriter := DefaultWriterTarget()
-    SetDefaultWriterTarget(io.Discard)
-    defer SetDefaultWriterTarget(oldWriter)
-    log := Logger("bench.logging")
+// --- BDD: 全局配置 ---
 
-    b.Run("NoArgs", func(b *testing.B) {
-        for i := 0; i < b.N; i++ {
-            log.I("simple message")
-        }
-    })
-    b.Run("BracePlaceholder_1Arg", func(b *testing.B) {
-        for i := 0; i < b.N; i++ {
-            log.I("value={}", i)
-        }
-    })
-    b.Run("LevelCheck_FiltersOut", func(b *testing.B) {
-        log.SetLevel(WarnLevel)
-        defer log.SetLevel(LevelUnset)
-        for i := 0; i < b.N; i++ {
-            log.D("filtered {}", i)
-        }
-    })
-    b.Run("Parallel_NoArgs", func(b *testing.B) {
-        b.RunParallel(func(pb *testing.PB) {
-            for i := 0; pb.Next(); i++ {
-                log.I("simple message")
-            }
-        })
-    })
-    b.Run("Parallel_BracePlaceholder", func(b *testing.B) {
-        b.RunParallel(func(pb *testing.PB) {
-            for i := 0; pb.Next(); i++ {
-                log.I("value={}", i)
-            }
-        })
-    })
+func Test_Global_DefaultLevel(t *testing.T) {
+	old := DefaultLevel()
+	defer SetDefaultLevel(old)
+
+	SetDefaultLevel(DebugLevel)
+	l := New("global-test")
+	if l.Level() != DebugLevel {
+		t.Fatalf("new logger should snapshot default level: got %v", l.Level())
+	}
 }
 
-func Test_Logger_NoPlaceholderAppendArgs_NoExtraFormatNoise(t *testing.T) {
-    var buf bytes.Buffer
-    oldWriter := DefaultWriterTarget()
-    SetDefaultWriterTarget(&buf)
-    defer SetDefaultWriterTarget(oldWriter)
+func Test_Global_DefaultWriter(t *testing.T) {
+	old := DefaultWriter()
+	defer SetDefaultWriter(old)
 
-    Logger("regression.append.args").I("value:", 42)
-    output := buf.String()
-    if strings.Contains(output, "%!(EXTRA") {
-        t.Fatalf("should not contain fmt extra, got %q", output)
-    }
-    if !strings.Contains(output, "value: 42") {
-        t.Fatalf("should contain appended args, got %q", output)
-    }
+	var buf bytes.Buffer
+	SetDefaultWriter(&buf)
+	l := New("global-writer-test")
+	l.Info().Msg("from global")
+	if !strings.Contains(buf.String(), "from global") {
+		t.Fatalf("global writer not used: %q", buf.String())
+	}
 }
 
-func Test_PrintYearInfo_OutputAssertion(t *testing.T) {
-    var buf bytes.Buffer
-    oldWriter := DefaultWriterTarget()
-    oldYearInfo := atomic.LoadInt32(&printYearInfo)
-    SetDefaultWriterTarget(&buf)
-    defer func() {
-        atomic.StoreInt32(&printYearInfo, oldYearInfo)
-        SetDefaultWriterTarget(oldWriter)
-    }()
+func Test_Global_DefaultWriter_NilFallback(t *testing.T) {
+	old := DefaultWriter()
+	defer SetDefaultWriter(old)
 
-    for _, tt := range []struct {
-        name    string
-        value   int32
-        pattern string
-    }{
-        {"four digit", 0, `^\d{4}-\d{2}-\d{2} `},
-        {"two digit", 1, `^\d{2}-\d{2}-\d{2} `},
-        {"no year", 2, `^\d{2}-\d{2} `},
-    } {
-        t.Run(tt.name, func(t *testing.T) {
-            buf.Reset()
-            atomic.StoreInt32(&printYearInfo, tt.value)
-            cachedTime.Store(&timeCache{})
-            Logger("year.info").I("test")
-            matched, _ := regexp.MatchString(tt.pattern, buf.String())
-            if !matched {
-                t.Fatalf("output %q doesn't match %q", buf.String(), tt.pattern)
-            }
-        })
-    }
+	SetDefaultWriter(nil)
+	if DefaultWriter() == nil {
+		t.Fatal("nil should fallback to stdout")
+	}
 }
 
-func Test_CompressedLogName_OutputAssertion(t *testing.T) {
-    var buf bytes.Buffer
-    oldWriter := DefaultWriterTarget()
-    oldCompressed := atomic.LoadInt32(&compressedLogName)
-    oldMax := int(atomic.LoadInt32(&showNameMaxLength))
-    SetDefaultWriterTarget(&buf)
-    defer func() {
-        atomic.StoreInt32(&compressedLogName, oldCompressed)
-        SetLogNameMaxLength(oldMax)
-        SetDefaultWriterTarget(oldWriter)
-    }()
-
-    const name = "alpha.beta.gamma.delta.epsilon.zeta"
-    SetLogNameMaxLength(12)
-
-    atomic.StoreInt32(&compressedLogName, 0)
-    Logger(name).I("plain")
-    if !strings.Contains(buf.String(), "..") {
-        t.Fatalf("should be truncated, got %q", buf.String())
-    }
-
-    buf.Reset()
-    atomic.StoreInt32(&compressedLogName, 1)
-    SetLogNameMaxLength(12)
-    Logger(name).I("compressed")
-    if !strings.Contains(buf.String(), "a...d.e.zeta") {
-        t.Fatalf("should be compressed, got %q", buf.String())
-    }
+func Test_Global_DefaultLogger(t *testing.T) {
+	l1 := Default()
+	l2 := Default()
+	if l1 != l2 {
+		t.Fatal("Default should return same instance")
+	}
 }
 
-func Test_InitName_EmptySegment_NoPanic(t *testing.T) {
-    oldCompressed := atomic.LoadInt32(&compressedLogName)
-    oldMax := int(atomic.LoadInt32(&showNameMaxLength))
-    atomic.StoreInt32(&compressedLogName, 1)
-    SetLogNameMaxLength(6)
-    defer func() {
-        atomic.StoreInt32(&compressedLogName, oldCompressed)
-        SetLogNameMaxLength(oldMax)
-    }()
+// --- BDD: Level 工具函数 ---
 
-    for _, tt := range []struct {
-        step     int
-        names    []string
-        fullname string
-    }{
-        {2, strings.Split("alpha..beta", "."), "alpha..beta"},
-        {3, strings.Split("alpha...beta", "."), "alpha...beta"},
-    } {
-        t.Run(tt.fullname, func(t *testing.T) {
-            defer func() {
-                if r := recover(); r != nil {
-                    t.Fatalf("panicked: %v", r)
-                }
-            }()
-            result := initName(tt.step, tt.names, tt.fullname)
-            if !utf8.ValidString(result) {
-                t.Fatalf("invalid UTF-8: %q", result)
-            }
-        })
-    }
+func Test_Level_StringAndFromString(t *testing.T) {
+	cases := []struct {
+		lv   Level
+		name string
+	}{
+		{TraceLevel, "Trace"}, {DebugLevel, "Debug"},
+		{InfoLevel, "Info"}, {WarnLevel, "Warn"},
+		{ErrorLevel, "Error"}, {FatalLevel, "Fatal"},
+	}
+	for _, c := range cases {
+		if c.lv.String() != c.name {
+			t.Errorf("%v.String() = %q, want %q", c.lv, c.lv.String(), c.name)
+		}
+		if FromString(c.name) != c.lv {
+			t.Errorf("FromString(%q) = %v, want %v", c.name, FromString(c.name), c.lv)
+		}
+		// 大小写不敏感
+		if FromString(strings.ToUpper(c.name)) != c.lv {
+			t.Errorf("FromString(%q) failed case-insensitive", strings.ToUpper(c.name))
+		}
+	}
+	if FromString("") != InfoLevel {
+		t.Error("empty string should return InfoLevel")
+	}
+	if FromString("unknown") != InfoLevel {
+		t.Error("unknown should return InfoLevel")
+	}
 }
 
-func TestLogger_SetLogNameMaxLength_ConcurrentSafety(t *testing.T) {
-    var buf bytes.Buffer
-    oldWriter := DefaultWriterTarget()
-    SetDefaultWriterTarget(&buf)
-    defer SetDefaultWriterTarget(oldWriter)
-
-    l := Logger("concurrent.test.name")
-    done := make(chan struct{})
-    go func() {
-        defer close(done)
-        for i := 0; i < 100; i++ {
-            SetLogNameMaxLength(4 + i%20)
-        }
-    }()
-    for i := 0; i < 100; i++ {
-        l.I("msg" + strconv.Itoa(i))
-    }
-    <-done
-    if buf.Len() == 0 {
-        t.Fatal("expected output")
-    }
+func Test_Level_Tag(t *testing.T) {
+	tags := map[Level]byte{
+		TraceLevel: 'T', DebugLevel: 'D', InfoLevel: 'I',
+		WarnLevel: 'W', ErrorLevel: 'E', FatalLevel: 'F',
+	}
+	for lv, want := range tags {
+		if lv.tag() != want {
+			t.Errorf("%v.tag() = %c, want %c", lv, lv.tag(), want)
+		}
+	}
 }
 
-func Test_DefaultLogLevel_BasicBehavior(t *testing.T) {
-    var buf bytes.Buffer
-    oldWriter := DefaultWriterTarget()
-    oldLevel := DefaultLogLevel()
-    SetDefaultWriterTarget(&buf)
-    defer func() {
-        SetDefaultLogLevel(oldLevel)
-        SetDefaultWriterTarget(oldWriter)
-    }()
+// --- 并发安全 ---
 
-    SetDefaultLogLevel(WarnLevel)
-    log := Logger("default.level.test")
-    log.I("filtered")
-    if buf.String() != "" {
-        t.Fatalf("info should be filtered, got %q", buf.String())
-    }
-    log.L(WarnLevel, "visible")
-    if !strings.Contains(buf.String(), "visible") {
-        t.Fatalf("warn should be emitted, got %q", buf.String())
-    }
+func Test_Logger_ConcurrentSafety(t *testing.T) {
+	l := New("concurrent", WithLevel(TraceLevel), WithWriter(io.Discard))
+	done := make(chan struct{}, 4)
+	for i := 0; i < 4; i++ {
+		go func() {
+			defer func() { done <- struct{}{} }()
+			for j := 0; j < 100; j++ {
+				l.Info().Int("i", j).Msg("concurrent")
+			}
+		}()
+	}
+	for i := 0; i < 4; i++ {
+		<-done
+	}
 }
 
-func Test_DefaultWriterTarget_NilFallback(t *testing.T) {
-    oldWriter := DefaultWriterTarget()
-    defer SetDefaultWriterTarget(oldWriter)
-    SetDefaultWriterTarget(nil)
-    if DefaultWriterTarget() == nil {
-        t.Fatal("should fallback to stdout")
-    }
-    Logger("writer.nil").I("test")
+// --- 并行级别切换 ---
+
+func Test_Logger_ConcurrentSetLevel(t *testing.T) {
+	var buf bytes.Buffer
+	l := newTestLogger(&buf, InfoLevel)
+	done := make(chan struct{}, 2)
+	go func() {
+		defer func() { done <- struct{}{} }()
+		for i := 0; i < 100; i++ {
+			l.SetLevel(Level(i % 6))
+		}
+	}()
+	go func() {
+		defer func() { done <- struct{}{} }()
+		for i := 0; i < 100; i++ {
+			l.Info().Msg("msg")
+		}
+	}()
+	<-done
+	<-done
 }
 
-func Test_FormatTimeCache_YearLessThan100(t *testing.T) {
-    oldYearInfo := atomic.LoadInt32(&printYearInfo)
-    atomic.StoreInt32(&printYearInfo, 1)
-    defer atomic.StoreInt32(&printYearInfo, oldYearInfo)
+// --- 时间格式验证 ---
 
-    cache := formatTimeCache(time.Date(5, 1, 15, 10, 30, 45, 0, time.UTC), 0)
-    if !bytes.HasPrefix(cache.prefix, []byte("05-01-15 10:30:45.")) {
-        t.Fatalf("year=5 prefix wrong: %q", cache.prefix)
-    }
+func Test_Format_TimeLayout(t *testing.T) {
+	var buf bytes.Buffer
+	l := newTestLogger(&buf, InfoLevel)
+	l.Info().Msg("time-check")
+	out := buf.String()
+	// 格式: MM-DD HH:MM:SS.mmm I name msg
+	if len(out) < 19 { // "MM-DD HH:MM:SS.mmm" = 18 字符 + 空格
+		t.Fatalf("output too short, time prefix missing: %q", out)
+	}
 }
 
-func Test_Logger_DerivedLevelInheritance(t *testing.T) {
-    log := Logger("level.derive.parent")
-    log.SetLevel(ErrorLevel)
+// --- benchmark ---
 
-    if log.Level() != ErrorLevel {
-        t.Fatalf("base level wrong: %v", log.Level())
-    }
-    if d := log.With("k", "v"); d.Level() != ErrorLevel {
-        t.Fatalf("With derived wrong: %v", d.Level())
-    }
-    if d := log.With("k", "v").With("k2", "v2"); d.Level() != ErrorLevel {
-        t.Fatalf("multi derived wrong: %v", d.Level())
-    }
+func Benchmark_Logger_NoArgs(b *testing.B) {
+	l := New("bench", WithLevel(InfoLevel), WithWriter(io.Discard))
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		l.Info().Msg("simple message")
+	}
 }
 
-func Test_Logger_WithKvsOutput(t *testing.T) {
-    var buf bytes.Buffer
-    oldWriter := DefaultWriterTarget()
-    SetDefaultWriterTarget(&buf)
-    defer SetDefaultWriterTarget(oldWriter)
-
-    Logger("with.kvs").With("userId", 42, "name", "test").I("action")
-    output := buf.String()
-    if !strings.Contains(output, "userId=42") || !strings.Contains(output, "name=test") {
-        t.Fatalf("output: %q", output)
-    }
+func Benchmark_Logger_WithFields(b *testing.B) {
+	l := New("bench", WithLevel(InfoLevel), WithWriter(io.Discard))
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		l.Info().Int("id", i).Str("method", "GET").Int("status", 200).Msg("request")
+	}
 }
 
-func TestHooks_ConcurrentAddAndLog(t *testing.T) {
-    CleanHooks()
-    defer CleanHooks()
-
-    oldWriter := DefaultWriterTarget()
-    SetDefaultWriterTarget(io.Discard)
-    defer SetDefaultWriterTarget(oldWriter)
-
-    var count int64
-    const writers, loggers, perLogger = 5, 10, 50
-    var wg sync.WaitGroup
-    wg.Add(writers + loggers)
-
-    for i := 0; i < writers; i++ {
-        go func() {
-            defer wg.Done()
-            for j := 0; j < 10; j++ {
-                AddHook(func(lv Level, buf *pool.Bytes, log *logger) {
-                    atomic.AddInt64(&count, 1)
-                })
-            }
-        }()
-    }
-    for i := 0; i < loggers; i++ {
-        go func() {
-            defer wg.Done()
-            for j := 0; j < perLogger; j++ {
-                Logger("hook.concurrent").I("msg", j)
-            }
-        }()
-    }
-    wg.Wait()
-    t.Logf("hook count=%d", atomic.LoadInt64(&count))
+func Benchmark_Logger_FilteredOut(b *testing.B) {
+	l := New("bench", WithLevel(WarnLevel), WithWriter(io.Discard))
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		l.Debug().Int("id", i).Str("k", "v").Msg("filtered")
+	}
 }
+
+func Benchmark_Logger_Parallel(b *testing.B) {
+	l := New("bench", WithLevel(InfoLevel), WithWriter(io.Discard))
+	b.ReportAllocs()
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		for i := 0; pb.Next(); i++ {
+			l.Info().Int("id", i).Msg("parallel")
+		}
+	})
+}
+
+func Benchmark_Logger_ParallelFiltered(b *testing.B) {
+	l := New("bench", WithLevel(WarnLevel), WithWriter(io.Discard))
+	b.ReportAllocs()
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		for i := 0; pb.Next(); i++ {
+			l.Debug().Int("id", i).Msg("filtered")
+		}
+	})
+}
+
+// 编译期保证 atomic 使用符合规范
+var _ = atomic.LoadInt32
+
+// --- BDD: With 预设字段 ---
+
+// Given 带 With 预设字段的 Logger
+// When 调用 Info().Msg("request")
+// Then 输出包含预设字段和消息
+func Test_With_PresetFields(t *testing.T) {
+	var buf bytes.Buffer
+	l := newTestLogger(&buf, InfoLevel)
+	l2 := l.With().Str("svc", "api").Int("ver", 2).Logger()
+
+	l2.Info().Msg("request")
+	out := buf.String()
+	for _, s := range []string{"svc=api", "ver=2", "request"} {
+		if !strings.Contains(out, s) {
+			t.Fatalf("missing %q in %q", s, out)
+		}
+	}
+}
+
+// Given 带 With 预设字段的 Logger
+// When 追加事件级字段
+// Then 预设字段和事件字段都出现
+func Test_With_EventFieldsAppend(t *testing.T) {
+	var buf bytes.Buffer
+	l := newTestLogger(&buf, TraceLevel)
+	l2 := l.With().Str("preset", "yes").Logger()
+
+	l2.Info().Str("event", "login").Int("uid", 1).Msg("done")
+	out := buf.String()
+	// 预设字段在事件字段之前
+	presetIdx := strings.Index(out, "preset=yes")
+	eventIdx := strings.Index(out, "event=login")
+	if presetIdx < 0 || eventIdx < 0 {
+		t.Fatalf("missing fields: %q", out)
+	}
+	if presetIdx > eventIdx {
+		t.Fatalf("preset should come before event: %q", out)
+	}
+}
+
+// Given 多层 With
+// When 链式派生
+// Then 所有层级的字段都出现
+func Test_With_MultipleLevels(t *testing.T) {
+	var buf bytes.Buffer
+	l := newTestLogger(&buf, InfoLevel)
+	l2 := l.With().Str("a", "1").Logger()
+	l3 := l2.With().Str("b", "2").Logger()
+
+	l3.Info().Msg("multi")
+	out := buf.String()
+	for _, s := range []string{"a=1", "b=2", "multi"} {
+		if !strings.Contains(out, s) {
+			t.Fatalf("missing %q in %q", s, out)
+		}
+	}
+}
+
+// With 不修改原 Logger
+func Test_With_Immutable(t *testing.T) {
+	var buf bytes.Buffer
+	l := newTestLogger(&buf, InfoLevel)
+	l2 := l.With().Str("k", "v").Logger()
+
+	// 原 Logger 不带预设字段
+	l.Info().Msg("original")
+	out1 := buf.String()
+	if strings.Contains(out1, "k=v") {
+		t.Fatalf("original logger should not have preset: %q", out1)
+	}
+
+	// 派生 Logger 带预设字段
+	buf.Reset()
+	l2.Info().Msg("derived")
+	out2 := buf.String()
+	if !strings.Contains(out2, "k=v") {
+		t.Fatalf("derived logger should have preset: %q", out2)
+	}
+}
+
+// With 派生 Logger 级别独立
+func Test_With_LevelIndependent(t *testing.T) {
+	l := newTestLogger(&bytes.Buffer{}, InfoLevel)
+	l2 := l.With().Str("k", "v").Logger()
+	l2.SetLevel(DebugLevel)
+
+	if l.Level() != InfoLevel {
+		t.Fatalf("original level changed: %v", l.Level())
+	}
+	if l2.Level() != DebugLevel {
+		t.Fatalf("derived level wrong: %v", l2.Level())
+	}
+}
+
+// --- With benchmark ---
+
+func Benchmark_Logger_With(b *testing.B) {
+	l := New("bench", WithLevel(InfoLevel), WithWriter(io.Discard))
+	b.Run("CreateDerived", func(b *testing.B) {
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			l.With().Str("svc", "api").Int("ver", 2).Logger()
+		}
+	})
+	b.Run("LogWithPreset", func(b *testing.B) {
+		l2 := l.With().Str("svc", "api").Int("ver", 2).Logger()
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			l2.Info().Int("id", i).Msg("request")
+		}
+	})
+}
+
+// --- BDD: 命名 Logger 管理 ---
+
+// Given Get("app.user")
+// When 再次 Get("app.user")
+// Then 返回同一实例
+func Test_Named_GetSameInstance(t *testing.T) {
+	RemoveLogger("ns.same")
+	defer RemoveLogger("ns.same")
+
+	l1 := Get("ns.same")
+	l2 := Get("ns.same")
+	if l1 != l2 {
+		t.Fatal("same name should return same instance")
+	}
+}
+
+// Given Get("ns.inherit.parent") 设为 ErrorLevel
+// When Get("ns.inherit.parent.child")
+// Then child 继承 parent 的 ErrorLevel
+func Test_Named_LevelInheritance(t *testing.T) {
+	RemoveLogger("ns.inherit")
+	defer RemoveLogger("ns.inherit")
+
+	parent := Get("ns.inherit.parent")
+	parent.SetLevel(ErrorLevel)
+
+	child := Get("ns.inherit.parent.child")
+	if child.Level() != ErrorLevel {
+		t.Fatalf("child should inherit parent level: got %v", child.Level())
+	}
+}
+
+// Given 子 Logger 已创建
+// When 修改父 Logger 级别
+// Then 子 Logger 自动感知父级变化
+func Test_Named_LevelChangePropagates(t *testing.T) {
+	RemoveLogger("ns.prop")
+	defer RemoveLogger("ns.prop")
+
+	parent := Get("ns.prop.parent")
+	child := Get("ns.prop.parent.child")
+
+	// 初始都是 Info (默认)
+	if child.Level() != InfoLevel {
+		t.Fatalf("initial child level: %v", child.Level())
+	}
+
+	// 父级改为 Debug
+	parent.SetLevel(DebugLevel)
+
+	// 子级应感知
+	if child.Level() != DebugLevel {
+		t.Fatalf("child should inherit new level: got %v", child.Level())
+	}
+}
+
+// Given 全局默认级别变更
+// When 继承默认的命名 Logger 解析级别
+// Then 感知新默认级别
+func Test_Named_DefaultLevelChange(t *testing.T) {
+	oldDefault := DefaultLevel()
+	defer SetDefaultLevel(oldDefault)
+
+	RemoveLogger("ns.default")
+	defer RemoveLogger("ns.default")
+
+	l := Get("ns.default.test")
+	if l.Level() != oldDefault {
+		t.Fatalf("initial: %v", l.Level())
+	}
+
+	SetDefaultLevel(DebugLevel)
+	if l.Level() != DebugLevel {
+		t.Fatalf("should sense default change: got %v", l.Level())
+	}
+}
+
+// SetLevelRecursive
+func Test_Named_SetLevelRecursive(t *testing.T) {
+	RemoveLogger("ns.rec")
+	defer RemoveLogger("ns.rec")
+
+	Get("ns.rec.parent")
+	Get("ns.rec.parent.child")
+	Get("ns.rec.parent.child.grandchild")
+	Get("ns.rec.other")
+
+	SetLevelRecursive("ns.rec.parent", ErrorLevel)
+
+	if Get("ns.rec.parent").Level() != ErrorLevel {
+		t.Error("parent level wrong")
+	}
+	if Get("ns.rec.parent.child").Level() != ErrorLevel {
+		t.Error("child level wrong")
+	}
+	if Get("ns.rec.parent.child.grandchild").Level() != ErrorLevel {
+		t.Error("grandchild level wrong")
+	}
+	// 不相关的不受影响
+	if Get("ns.rec.other").Level() == ErrorLevel {
+		t.Error("unrelated should not be affected")
+	}
+}
+
+// RemoveLogger
+func Test_Named_RemoveLogger(t *testing.T) {
+	RemoveLogger("ns.remove")
+	Get("ns.remove.a")
+	Get("ns.remove.a.b")
+
+	if RegistryCount() == 0 {
+		t.Fatal("should have registered loggers")
+	}
+
+	RemoveLogger("ns.remove")
+
+	// 重新 Get 应该是新实例
+	l1 := Get("ns.remove.a")
+	RemoveLogger("ns.remove")
+	l2 := Get("ns.remove.a")
+	if l1 == l2 {
+		t.Fatal("after remove, Get should create new instance")
+	}
+	RemoveLogger("ns.remove")
+}
+
+// AllLogger 遍历
+func Test_Named_AllLogger(t *testing.T) {
+	RemoveLogger("ns.all")
+	defer RemoveLogger("ns.all")
+
+	Get("ns.all.x")
+	Get("ns.all.y")
+
+	seen := make(map[string]bool)
+	AllLogger(func(name string) {
+		if strings.HasPrefix(name, "ns.all.") {
+			seen[name] = true
+		}
+	})
+	if !seen["ns.all.x"] || !seen["ns.all.y"] {
+		t.Fatalf("AllLogger missed entries: %v", seen)
+	}
+}
+
+// 命名 Logger + With 派生
+func Test_Named_WithDerived(t *testing.T) {
+	var buf bytes.Buffer
+	RemoveLogger("ns.withd")
+	defer RemoveLogger("ns.withd")
+
+	parent := Get("ns.withd", WithWriter(&buf))
+	derived := parent.With().Str("trace", "abc").Logger()
+
+	derived.Info().Msg("tracked")
+	out := buf.String()
+	if !strings.Contains(out, "trace=abc") || !strings.Contains(out, "tracked") {
+		t.Fatalf("derived output: %q", out)
+	}
+
+	// 派生 Logger 级别独立
+	derived.SetLevel(ErrorLevel)
+	if parent.Level() == ErrorLevel {
+		t.Fatal("parent level should not change")
+	}
+}
+
+// --- 命名 Logger benchmark ---
+
+func Benchmark_Named_Get(b *testing.B) {
+	RemoveLogger("bench.named")
+	Get("bench.named")
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		Get("bench.named")
+	}
+	RemoveLogger("bench.named")
+}
+
+func Benchmark_Named_GetCreate(b *testing.B) {
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		RemoveLogger("bench.create")
+		Get("bench.create")
+	}
+}
+
+// --- BDD: Hook 系统 ---
 
 func Test_Hook_Output(t *testing.T) {
-    CleanHooks()
-    defer CleanHooks()
+	CleanHooks()
+	defer CleanHooks()
 
-    var buf bytes.Buffer
-    oldWriter := DefaultWriterTarget()
-    SetDefaultWriterTarget(&buf)
-    defer SetDefaultWriterTarget(oldWriter)
+	var buf bytes.Buffer
+	oldW := DefaultWriter()
+	SetDefaultWriter(&buf)
+	defer SetDefaultWriter(oldW)
 
-    AddHook(func(lv Level, buf *pool.Bytes, log *logger) {
-        buf.WriteString(" [svc]")
-    })
+	AddHook(func(e *Event) {
+		e.AppendString(" [hooked]")
+	})
 
-    Logger("hook.test").I("hello")
-    if !strings.Contains(buf.String(), "[svc]") {
-        t.Fatalf("output: %q", buf.String())
-    }
+	New("hook.test").Info().Msg("hello")
+	out := buf.String()
+	if !strings.Contains(out, "[hooked]") {
+		t.Fatalf("hook output missing: %q", out)
+	}
+	if !strings.Contains(out, "hello") {
+		t.Fatalf("message missing: %q", out)
+	}
 }
 
-func Test_SetLevelRecursive(t *testing.T) {
-    var buf bytes.Buffer
-    oldWriter := DefaultWriterTarget()
-    SetDefaultWriterTarget(&buf)
-    defer SetDefaultWriterTarget(oldWriter)
+func Test_Hook_WithContext(t *testing.T) {
+	CleanHooks()
+	defer CleanHooks()
 
-    // 创建父子层级
-    Logger("rec.parent")
-    Logger("rec.parent.child")
-    Logger("rec.parent.child.grandchild")
-    Logger("rec.other")
+	type ctxKey struct{}
+	var captured context.Context
 
-    // 递归设置为 ErrorLevel
-    SetLevelRecursive("rec.parent", ErrorLevel)
+	AddHook(func(e *Event) {
+		captured = e.Context()
+		if ctx := e.Context(); ctx != nil {
+			if v, ok := ctx.Value(ctxKey{}).(string); ok {
+				e.Str("user", v)
+			}
+		}
+	})
 
-    // rec.parent 及其子 logger 的 I 应该被过滤
-    Logger("rec.parent").I("filtered")
-    Logger("rec.parent.child").I("filtered")
-    Logger("rec.parent.child.grandchild").I("filtered")
+	l := New("ctx.test", WithLevel(InfoLevel), WithWriter(io.Discard))
+	ctx := context.WithValue(context.Background(), ctxKey{}, "user123")
 
-    // rec.other 不受影响
-    Logger("rec.other").I("visible")
+	// WithContext 注入 ctx, hook 能读取
+	l.WithContext(ctx).Info().Msg("login")
+	if captured == nil {
+		t.Fatal("hook should receive non-nil ctx")
+	}
+	if v := captured.Value(ctxKey{}); v != "user123" {
+		t.Fatalf("ctx value mismatch: got %v", v)
+	}
 
-    if strings.Contains(buf.String(), "filtered") {
-        t.Fatalf("recursive set should filter children: %q", buf.String())
-    }
-    if !strings.Contains(buf.String(), "visible") {
-        t.Fatalf("unrelated logger should not be affected: %q", buf.String())
-    }
+	// 不传 ctx, hook 收到 nil
+	captured = nil
+	l.Info().Msg("plain")
+	if captured != nil {
+		t.Fatal("hook should receive nil ctx when not set")
+	}
+
+	// WithKvs 派生 Logger 继承 ctx
+	captured = nil
+	l.WithContext(ctx).WithKvs("svc", "api").Info().Msg("derived")
+	if captured == nil {
+		t.Fatal("derived Logger should inherit ctx")
+	}
 }
 
-func Test_KvsCopy_DefenseMutation(t *testing.T) {
-    var buf bytes.Buffer
-    oldWriter := DefaultWriterTarget()
-    SetDefaultWriterTarget(&buf)
-    defer SetDefaultWriterTarget(oldWriter)
+func Test_Hook_RemoveAndClean(t *testing.T) {
+	CleanHooks()
 
-    kvs := []any{"key", "val1"}
-    log := Logger("kvs.copy").With(kvs...)
-    kvs[1] = "val2" // 修改原始切片
+	marker := func(e *Event) { e.AppendString(" [m]") }
+	AddHook(marker)
+	if atomic.LoadInt32(&hasHooks) != 1 {
+		t.Fatal("hasHooks should be 1")
+	}
 
-    log.I("test")
-    if !strings.Contains(buf.String(), "key=val1") {
-        t.Fatalf("kvs should not be affected by mutation: %q", buf.String())
-    }
+	RemoveHook(marker)
+	if atomic.LoadInt32(&hasHooks) != 0 {
+		t.Fatal("hasHooks should be 0 after remove")
+	}
+
+	AddHook(func(e *Event) {})
+	AddHook(func(e *Event) {})
+	CleanHooks()
+	if atomic.LoadInt32(&hasHooks) != 0 {
+		t.Fatal("hasHooks should be 0 after clean")
+	}
 }
 
-func Test_LevelGeneration_ParentChangePropagates(t *testing.T) {
-    var buf bytes.Buffer
-    oldWriter := DefaultWriterTarget()
-    SetDefaultWriterTarget(&buf)
-    defer SetDefaultWriterTarget(oldWriter)
+func Test_Hook_MaxLimit(t *testing.T) {
+	CleanHooks()
+	defer CleanHooks()
 
-    // 创建父子层级
-    Logger("gen.parent")
-    child := Logger("gen.parent.child")
-
-    // 子 logger 应该继承默认 Info 级别
-    child.D("should be filtered")
-    if buf.String() != "" {
-        t.Fatalf("debug should be filtered: %q", buf.String())
-    }
-
-    // 修改父 logger 为 Debug 级别
-    Logger("gen.parent").SetLevel(DebugLevel)
-
-    // 子 logger 应该自动感知父级变化
-    child.D("should be visible now")
-    if !strings.Contains(buf.String(), "should be visible now") {
-        t.Fatalf("child should inherit parent's new level: %q", buf.String())
-    }
-
-    // 恢复
-    Logger("gen.parent").SetLevel(LevelUnset)
+	for i := 0; i < maxHooks; i++ {
+		if !AddHook(func(e *Event) {}) {
+			t.Fatalf("add %d should succeed", i)
+		}
+	}
+	if AddHook(func(e *Event) {}) {
+		t.Fatal("exceeding maxHooks should fail")
+	}
 }
 
-func Test_LevelGeneration_DefaultLevelChange(t *testing.T) {
-    var buf bytes.Buffer
-    oldWriter := DefaultWriterTarget()
-    oldLevel := DefaultLogLevel()
-    SetDefaultWriterTarget(&buf)
-    defer func() {
-        SetDefaultLogLevel(oldLevel)
-        SetDefaultWriterTarget(oldWriter)
-    }()
+func Test_Hook_ConcurrentAddAndLog(t *testing.T) {
+	CleanHooks()
+	defer CleanHooks()
 
-    SetDefaultLogLevel(DebugLevel)
-    log := Logger("gen.default")
-    log.D("visible after default change")
-    if !strings.Contains(buf.String(), "visible") {
-        t.Fatalf("should see debug after default level change: %q", buf.String())
-    }
-    SetDefaultLogLevel(oldLevel)
+	SetDefaultWriter(io.Discard)
+	defer SetDefaultWriter(os.Stdout)
+
+	var count int64
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 50; i++ {
+			AddHook(func(e *Event) {
+				atomic.AddInt64(&count, 1)
+			})
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 100; i++ {
+			New("hook.concurrent").Info().Msg("msg")
+		}
+	}()
+	wg.Wait()
 }
 
-func Test_WithWriter_PerLoggerOutput(t *testing.T) {
-    var globalBuf, localBuf bytes.Buffer
-    oldWriter := DefaultWriterTarget()
-    SetDefaultWriterTarget(&globalBuf)
-    defer SetDefaultWriterTarget(oldWriter)
+// --- BDD: Caller ---
 
-    // 全局 logger 写到 globalBuf
-    globalLog := Logger("writer.global")
-    // 独立 writer 的 logger 写到 localBuf
-    localLog := Logger("writer.local", WithWriter(&localBuf))
+func Test_Caller_BasicOutput(t *testing.T) {
+	oldCfg := atomic.LoadInt32(&callerConfig)
+	defer atomic.StoreInt32(&callerConfig, oldCfg)
 
-    globalLog.I("global msg")
-    localLog.I("local msg")
+	var buf bytes.Buffer
+	l := New("caller.test", WithLevel(InfoLevel), WithWriter(&buf))
 
-    if !strings.Contains(globalBuf.String(), "global msg") {
-        t.Fatalf("global writer: %q", globalBuf.String())
-    }
-    if strings.Contains(globalBuf.String(), "local msg") {
-        t.Fatalf("local should NOT write to global: %q", globalBuf.String())
-    }
-    if !strings.Contains(localBuf.String(), "local msg") {
-        t.Fatalf("local writer: %q", localBuf.String())
-    }
+	SetCaller(true)
+	buf.Reset()
+	l.Info().Msg("with caller")
+	if !strings.Contains(buf.String(), ".go:") {
+		t.Fatalf("caller info missing: %q", buf.String())
+	}
+
+	SetCaller(false)
+	buf.Reset()
+	l.Info().Msg("no caller")
+	if strings.Contains(buf.String(), ".go:") {
+		t.Fatalf("caller should be absent: %q", buf.String())
+	}
 }
 
-func Test_WithWriter_DerivedInheritsWriter(t *testing.T) {
-    var localBuf bytes.Buffer
-    oldWriter := DefaultWriterTarget()
-    SetDefaultWriterTarget(io.Discard)
-    defer SetDefaultWriterTarget(oldWriter)
+func Test_Caller_FuncName(t *testing.T) {
+	oldCfg := atomic.LoadInt32(&callerConfig)
+	defer atomic.StoreInt32(&callerConfig, oldCfg)
 
-    log := Logger("writer.derive", WithWriter(&localBuf))
-    log.With("k", "v").I("derived msg")
+	var buf bytes.Buffer
+	l := New("caller.func", WithLevel(InfoLevel), WithWriter(&buf))
 
-    if !strings.Contains(localBuf.String(), "derived msg") {
-        t.Fatalf("derived should inherit writer: %q", localBuf.String())
-    }
+	SetCaller(true)
+	SetCallerFunc(true)
+	l.Info().Msg("with func")
+	out := buf.String()
+	if !strings.Contains(out, ".go:") {
+		t.Fatalf("caller missing: %q", out)
+	}
+	// 函数名格式: "Test_Caller_FuncName caller_test.go:line"
+	if !strings.Contains(out, "Test_Caller_FuncName ") {
+		t.Fatalf("func name missing: %q", out)
+	}
 }
 
-func Test_RemoveHook(t *testing.T) {
-    CleanHooks()
-    defer CleanHooks()
+// --- Hook + Caller benchmark ---
 
-    var buf bytes.Buffer
-    oldWriter := DefaultWriterTarget()
-    SetDefaultWriterTarget(&buf)
-    defer SetDefaultWriterTarget(oldWriter)
+func Benchmark_Logger_WithHook(b *testing.B) {
+	CleanHooks()
+	defer CleanHooks()
+	AddHook(func(e *Event) {})
 
-    marker := func(lv Level, b *pool.Bytes, log *logger) {
-        b.WriteString(" [mark]")
-    }
-    AddHook(marker)
-    Logger("remove.hook").I("with hook")
-    if !strings.Contains(buf.String(), "[mark]") {
-        t.Fatalf("hook should be active: %q", buf.String())
-    }
-
-    RemoveHook(marker)
-    buf.Reset()
-    Logger("remove.hook").I("without hook")
-    if strings.Contains(buf.String(), "[mark]") {
-        t.Fatalf("hook should be removed: %q", buf.String())
-    }
+	l := New("bench", WithLevel(InfoLevel), WithWriter(io.Discard))
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		l.Info().Msg("hooked")
+	}
 }
 
-func Test_CallerConfig_SetCallerInfo(t *testing.T) {
-    // 保存并恢复 callerConfig
-    oldCfg := atomic.LoadInt32(&callerConfig)
-    defer atomic.StoreInt32(&callerConfig, oldCfg)
+func Benchmark_Logger_WithCaller(b *testing.B) {
+	oldCfg := atomic.LoadInt32(&callerConfig)
+	defer atomic.StoreInt32(&callerConfig, oldCfg)
+	SetCaller(true)
 
-    var buf bytes.Buffer
-    oldWriter := DefaultWriterTarget()
-    SetDefaultWriterTarget(&buf)
-    defer SetDefaultWriterTarget(oldWriter)
-
-    // 启用 caller
-    SetCallerInfo(true)
-    buf.Reset()
-    Logger("caller.on").I("with caller")
-    // 应包含 .go: 文件行号信息
-    if !strings.Contains(buf.String(), ".go:") {
-        t.Fatalf("caller should be present: %q", buf.String())
-    }
-
-    // 禁用 caller
-    SetCallerInfo(false)
-    buf.Reset()
-    Logger("caller.off").I("no caller")
-    if strings.Contains(buf.String(), ".go:") {
-        t.Fatalf("caller should be absent: %q", buf.String())
-    }
+	l := New("bench", WithLevel(InfoLevel), WithWriter(io.Discard))
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		l.Info().Msg("caller")
+	}
 }
 
-func Test_CallerConfig_SetCallerFunc(t *testing.T) {
-    oldCfg := atomic.LoadInt32(&callerConfig)
-    defer atomic.StoreInt32(&callerConfig, oldCfg)
+// --- BDD: 异步写入 ---
 
-    var buf bytes.Buffer
-    oldWriter := DefaultWriterTarget()
-    SetDefaultWriterTarget(&buf)
-    defer SetDefaultWriterTarget(oldWriter)
-
-    // 启用 caller + 函数名
-    SetCallerInfo(true)
-    SetCallerFunc(true)
-    buf.Reset()
-    Logger("caller.func").I("with func")
-    // 函数名格式: "FuncName file.go:line"
-    output := buf.String()
-    if !strings.Contains(output, ".go:") {
-        t.Fatalf("caller should be present: %q", output)
-    }
-
-    // 关闭函数名
-    SetCallerFunc(false)
-    SetCallerInfo(false)
+// mockAsyncWriter 模拟异步 writer, 用于测试异步路径
+type mockAsyncWriter struct {
+	mu    sync.Mutex
+	bufs  [][]byte
+	calls int
 }
 
-func Test_RemoveLogger(t *testing.T) {
-    // 创建一个唯一的logger层级
-    prefix := "remove.test"
-    l := Logger(prefix + ".a")
-    if l == nil {
-        t.Fatal("Logger should not be nil")
-    }
-    // 验证存在
-    globalLock.RLock()
-    _, ok1 := globalLog.Get(prefix + ".a")
-    _, ok2 := globalLog.Get(prefix)
-    globalLock.RUnlock()
-    if !ok1 || !ok2 {
-        t.Fatal("logger should exist in globalLog")
-    }
-
-    // 移除
-    RemoveLogger(prefix)
-
-    // 验证已删除
-    globalLock.RLock()
-    _, ok1 = globalLog.Get(prefix + ".a")
-    _, ok2 = globalLog.Get(prefix)
-    globalLock.RUnlock()
-    if ok1 || ok2 {
-        t.Fatal("logger should be removed from globalLog")
-    }
+func (m *mockAsyncWriter) Write(p []byte) (int, error) {
+	return len(p), nil
 }
 
-func Test_MaxLoggerCount(t *testing.T) {
-    old := atomic.LoadInt32(&maxLoggerCount)
-    defer func() {
-        atomic.StoreInt32(&maxLoggerCount, old)
-        RemoveLogger("maxlimit")
-    }()
+func (m *mockAsyncWriter) WriterAsync(p []byte, callback func()) error {
+	cp := make([]byte, len(p))
+	copy(cp, p)
+	m.mu.Lock()
+	m.bufs = append(m.bufs, cp)
+	m.calls++
+	m.mu.Unlock()
+	if callback != nil {
+		callback()
+	}
+	return nil
+}
 
-    RemoveLogger("maxlimit")
+func Test_AsyncWriter_Path(t *testing.T) {
+	aw := &mockAsyncWriter{}
+	l := New("async", WithLevel(InfoLevel), WithWriter(aw))
 
-    // 记录当前已有logger数量
-    globalLock.RLock()
-    baseCount := globalLog.Count()
-    globalLock.RUnlock()
+	l.Info().Str("k", "v").Msg("async msg")
 
-    // 设置限制为 baseCount + 1: 只允许再创建1个
-    // 创建 a.b 需要2个条目 (a, a.b), 第二个应超限
-    SetMaxLoggerCount(baseCount + 1)
+	aw.mu.Lock()
+	defer aw.mu.Unlock()
+	if aw.calls != 1 {
+		t.Fatalf("expected 1 async call, got %d", aw.calls)
+	}
+	out := string(aw.bufs[0])
+	if !strings.Contains(out, "async msg") || !strings.Contains(out, "k=v") {
+		t.Fatalf("async output wrong: %q", out)
+	}
+}
 
-    // Logger("maxlimit") 占用唯一剩余槽位
-    Logger("maxlimit")
-    globalLock.RLock()
-    _, okRoot := globalLog.Get("maxlimit")
-    globalLock.RUnlock()
-    if !okRoot {
-        t.Fatal("maxlimit should be cached")
-    }
+func Test_AsyncWriter_ConcurrentSafe(t *testing.T) {
+	aw := &mockAsyncWriter{}
+	l := New("async.concurrent", WithLevel(TraceLevel), WithWriter(aw))
 
-    // maxlimit.child 超出限制, 应返回临时logger
-    l := Logger("maxlimit.child")
-    if l == nil {
-        t.Fatal("should return temporary logger")
-    }
-    if !l.derived {
-        t.Fatal("overflow logger should be derived (recyclable)")
-    }
-    globalLock.RLock()
-    _, okChild := globalLog.Get("maxlimit.child")
-    globalLock.RUnlock()
-    if okChild {
-        t.Fatal("overflow logger should not be cached")
-    }
-    l.Unuse()
+	var wg sync.WaitGroup
+	for i := 0; i < 4; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for j := 0; j < 100; j++ {
+				l.Info().Int("i", j).Msg("msg")
+			}
+		}()
+	}
+	wg.Wait()
+
+	aw.mu.Lock()
+	defer aw.mu.Unlock()
+	if aw.calls != 400 {
+		t.Fatalf("expected 400 calls, got %d", aw.calls)
+	}
+}
+
+// --- BDD: 时间格式 ---
+
+func Test_Format_YearMode(t *testing.T) {
+	oldMode := atomic.LoadInt32(&yearMode)
+	defer SetYearMode(oldMode)
+
+	var buf bytes.Buffer
+	l := New("yearmode", WithLevel(InfoLevel), WithWriter(&buf))
+
+	// YearFull: YYYY-
+	SetYearMode(YearFull)
+	buf.Reset()
+	l.Info().Msg("full")
+	if len(buf.String()) < 4 || buf.String()[4] != '-' {
+		t.Fatalf("YearFull should start with YYYY-: %q", buf.String())
+	}
+
+	// YearShort: YY-
+	SetYearMode(YearShort)
+	buf.Reset()
+	l.Info().Msg("short")
+	if len(buf.String()) < 2 || buf.String()[2] != '-' {
+		t.Fatalf("YearShort should start with YY-: %q", buf.String())
+	}
+
+	// YearNone: MM-DD
+	SetYearMode(YearNone)
+	buf.Reset()
+	l.Info().Msg("none")
+	if len(buf.String()) < 5 || buf.String()[2] != '-' {
+		t.Fatalf("YearNone should start with MM-DD: %q", buf.String())
+	}
+}
+
+// --- 异步写入 benchmark ---
+
+// benchAsyncWriter 不 copy 数据, 模拟真实 helper.AsyncWrite 行为
+// (真实 AsyncWrite 在后台 goroutine 中 copy, WriterAsync 本身不 copy)
+type benchAsyncWriter struct{}
+
+func (benchAsyncWriter) Write(p []byte) (int, error) { return len(p), nil }
+func (benchAsyncWriter) WriterAsync(p []byte, callback func()) error {
+	if callback != nil {
+		callback()
+	}
+	return nil
+}
+
+func Benchmark_Logger_AsyncWriter(b *testing.B) {
+	l := New("bench", WithLevel(InfoLevel), WithWriter(benchAsyncWriter{}))
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		l.Info().Int("id", i).Msg("async")
+	}
+}
+
+func Benchmark_Logger_WithKvs_Create(b *testing.B) {
+	l := New("bench", WithLevel(InfoLevel), WithWriter(io.Discard))
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = l.WithKvs("svc", "api", "ver", 2)
+	}
+}
+
+func Benchmark_Logger_WithKvs_OddArgs(b *testing.B) {
+	l := New("bench", WithLevel(InfoLevel), WithWriter(io.Discard))
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = l.WithKvs("svc", "api", "ver")
+	}
+}
+
+func Benchmark_Logger_WithKvs_Log(b *testing.B) {
+	l := New("bench", WithLevel(InfoLevel), WithWriter(io.Discard)).WithKvs("svc", "api", "ver", 2)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		l.Info().Int("id", i).Msg("request")
+	}
+}
+
+// --- 旧版命令式 API 测试 ---
+
+// D/I/L 便捷方法, {}占位符格式化和级别过滤
+func Test_Legacy_ConvenienceMethods(t *testing.T) {
+	t.Parallel()
+	var buf bytes.Buffer
+	l := newTestLogger(&buf, InfoLevel)
+
+	// D 在 InfoLevel 下不输出
+	l.D("debug-msg", "arg")
+	if buf.Len() != 0 {
+		t.Fatalf("D should be filtered at InfoLevel: %q", buf.String())
+	}
+
+	// I 占位符替换
+	l.I("hello {}", "world")
+	out := buf.String()
+	if !strings.Contains(out, "hello world") {
+		t.Fatalf("placeholder {} not replaced: %q", out)
+	}
+
+	// 显式位置占位符
+	buf.Reset()
+	l.L(InfoLevel, "{0} -> {1}", "a", "b")
+	out = buf.String()
+	if !strings.Contains(out, "a -> b") {
+		t.Fatalf("explicit placeholder not replaced: %q", out)
+	}
+
+	// 无占位符时追加未消费参数
+	buf.Reset()
+	l.I("no slots", "extra1", "extra2")
+	out = buf.String()
+	if !strings.Contains(out, "no slots extra1 extra2") {
+		t.Fatalf("unconsumed args not appended: %q", out)
+	}
+
+	// %x 格式化动词
+	buf.Reset()
+	l.I("count={%d} name={%s}", 42, "moke")
+	out = buf.String()
+	if !strings.Contains(out, "count=42 name=moke") {
+		t.Fatalf("%%x format not applied: %q", out)
+	}
+
+	// 显式位置 + 格式化
+	buf.Reset()
+	l.I("{0%s} and {1%d}", "hello", 99)
+	out = buf.String()
+	if !strings.Contains(out, "hello and 99") {
+		t.Fatalf("idx+%%x format not applied: %q", out)
+	}
+}
+
+// DF/IF/LF 延迟参数方法, 级别不够时 f 不执行
+func Test_Legacy_DeferredMethods(t *testing.T) {
+	t.Parallel()
+
+	// DebugLevel: DF 占位符输出
+	var buf bytes.Buffer
+	l := newTestLogger(&buf, DebugLevel)
+	l.DF("user {} login", func() []any { return []any{"moke"} })
+	out := buf.String()
+	if !strings.Contains(out, "user moke login") {
+		t.Fatalf("DF placeholder output wrong: %q", out)
+	}
+
+	// InfoLevel: DF 延迟函数不调用
+	l2 := newTestLogger(&bytes.Buffer{}, InfoLevel)
+	l2.DF("msg", func() []any {
+		t.Fatal("DF deferred function should not be called when filtered")
+		return nil
+	})
+}
+
+// WithKvs 派生 Logger, 预设字段出现在输出中
+func Test_Legacy_WithKvs(t *testing.T) {
+	t.Parallel()
+	var buf bytes.Buffer
+	l := newTestLogger(&buf, InfoLevel)
+	l2 := l.WithKvs("svc", "api", "ver", 2)
+
+	l2.I("request")
+	out := buf.String()
+	for _, s := range []string{"svc=api", "ver=2", "request"} {
+		if !strings.Contains(out, s) {
+			t.Fatalf("missing %q in %q", s, out)
+		}
+	}
+}
+
+// LevelUnset 常量, FullName 和 String 方法
+func Test_LevelUnset_And_FullName(t *testing.T) {
+	t.Parallel()
+
+	if LevelUnset != Level(-1) {
+		t.Fatalf("LevelUnset should be Level(-1), got %v", LevelUnset)
+	}
+	if LevelUnset.FullName() != "Unset" {
+		t.Fatalf("LevelUnset.FullName() = %q, want %q", LevelUnset.FullName(), "Unset")
+	}
+	if InfoLevel.FullName() != "Info" {
+		t.Fatalf("InfoLevel.FullName() = %q, want %q", InfoLevel.FullName(), "Info")
+	}
+	if InfoLevel.String() != "Info" {
+		t.Fatalf("InfoLevel.String() = %q, want %q", InfoLevel.String(), "Info")
+	}
+}
+
+// JSONFormatter 链式 API, 输出 JSON 行
+func Test_JSONFormatter(t *testing.T) {
+	t.Parallel()
+	var buf bytes.Buffer
+	l := New("test", WithLevel(InfoLevel), WithWriter(&buf), WithFormatter(JSONFormatter{}))
+
+	l.Info().Str("user", "moke").Int("id", 42).Msg("login")
+	out := buf.String()
+
+	if !strings.HasPrefix(out, "{") {
+		t.Fatalf("should start with '{': %q", out)
+	}
+	if !strings.HasSuffix(out, "}\n") {
+		t.Fatalf("should end with '}\\n': %q", out)
+	}
+	checks := []string{
+		`"lv":"Info"`,
+		`"user":"moke"`,
+		`"id":42`,
+		`"msg":"login"`,
+		`"logger"`,
+	}
+	for _, s := range checks {
+		if !strings.Contains(out, s) {
+			t.Fatalf("missing %q in %q", s, out)
+		}
+	}
+}
+
+// JSONFormatter + 命令式便捷方法
+func Test_JSONFormatter_Convenience(t *testing.T) {
+	t.Parallel()
+	var buf bytes.Buffer
+	l := New("test", WithLevel(InfoLevel), WithWriter(&buf), WithFormatter(JSONFormatter{}))
+
+	l.I("hello {%s}", "world")
+	out := buf.String()
+
+	if !strings.HasPrefix(out, "{") || !strings.HasSuffix(out, "}\n") {
+		t.Fatalf("expected JSON line: %q", out)
+	}
+	if !strings.Contains(out, `"msg":"hello world"`) {
+		t.Fatalf("missing msg field: %q", out)
+	}
+}
+
+// 旧版兼容函数: SetDefaultLogLevel/DefaultLogLevel/SetDefaultWriterTarget 等
+func Test_Legacy_CompatFunctions(t *testing.T) {
+	// 修改全局状态, 不并行
+
+	// SetDefaultLogLevel / DefaultLogLevel
+	oldLevel := DefaultLogLevel()
+	defer SetDefaultLogLevel(oldLevel)
+	if !SetDefaultLogLevel(InfoLevel) {
+		t.Fatal("SetDefaultLogLevel should return true")
+	}
+	if DefaultLogLevel() != InfoLevel {
+		t.Fatalf("DefaultLogLevel = %v, want InfoLevel", DefaultLogLevel())
+	}
+
+	// SetDefaultWriterTarget / DefaultWriterTarget
+	oldWriter := DefaultWriterTarget()
+	defer SetDefaultWriterTarget(oldWriter)
+	var buf bytes.Buffer
+	SetDefaultWriterTarget(&buf)
+	if DefaultWriterTarget() == nil {
+		t.Fatal("DefaultWriterTarget should not be nil")
+	}
+
+	// SetCallerInfo 不 panic
+	oldCaller := atomic.LoadInt32(&callerConfig)
+	defer atomic.StoreInt32(&callerConfig, oldCaller)
+	SetCallerInfo(true)
+
+	// SetPrintYearInfo 不 panic
+	oldYear := atomic.LoadInt32(&yearMode)
+	defer SetYearMode(oldYear)
+	SetPrintYearInfo(0)
 }

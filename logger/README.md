@@ -1,9 +1,16 @@
-# 日志
+# logger
 
-一个简单的日志框架,简单支持一些插件功能,方便扩展
-**当前状态不够完善,需要后续继续添加一些api**
+高性能日志库, 零依赖(仅标准库), 要求 Go 1.18+。双版本 API + 可插拔格式化。
 
-## 基础示例
+核心特性:
+- **双版本 API**: 性能版链式 (零分配) + 便捷版命令式 (D/I/L/DF/IF/LF)
+- **类型安全**: Str/Int/Bool 等链式方法避免 interface 装箱
+- **Formatter 接口**: ConsoleFormatter (默认, 控制台易读) / JSONFormatter (JSON 行), 支持自定义
+- **级别过滤零开销**: 不达级别返回 disabled Event, 所有方法 noop
+- **命名继承**: 按点分隔自动建立父子级别继承
+- **Hook/Caller**: 可扩展的行钩子和调用者追踪
+
+## 快速开始
 
 ```go
 package main
@@ -11,246 +18,278 @@ package main
 import "github.com/mzzsfy/go-util/logger"
 
 func main() {
-    // name 规则: xx.xx.xxx, 自动建立父子继承关系
-    logger.Logger("app.user").I("用户登录")
-    logger.Logger("app.order").I("订单创建")
+    log := logger.New("app")
 
-    // 支持 {} 占位符, 自动按顺序填充
-    logger.Logger("app").I("用户{}下单,金额{}", "moke", 100)
+    // 性能版: 链式 API, 零分配, 类型安全
+    log.Info().Str("user", "moke").Int("id", 42).Msg("login")
 
-    // Trace/Warn/Error/Fatal 使用 L 方法指定级别
-    logger.Logger("app").L(logger.WarnLevel, "库存不足")
+    // 便捷版: 命令式, 有装箱开销, 适合非热路径
+    log.I("login", "user", "moke", "id", 42)
 
-    // 延迟求参: 仅当日志级别通过时才执行构造函数
-    logger.Logger("app").DF("调试信息", func() []any {
-        return []any{expensiveCall()}
-    })
+    // 延迟参数: 级别不够时 f 不会被调用
+    log.DF("debug detail", func() []any { return expensiveArgs() })
+
+    // 格式化消息
+    log.Info().Msgf("count=%d name=%s", 5, "test")
+
+    // 被过滤的级别零开销 (Debug < Info)
+    log.Debug().Str("detail", "...").Msg("filtered") // 不产生任何输出
 }
-
-func expensiveCall() string { return "detail" }
 ```
 
-## 全局配置
-
-日志级别与输出目标的全局默认值,通常在程序启动时设置。
-
-```go
-// 设置默认日志级别, 不接受 LevelUnset 等负值
-// 返回 bool 表示是否成功
-logger.SetDefaultLogLevel(logger.InfoLevel)
-
-// 读取当前默认级别
-lv := logger.DefaultLogLevel()
-
-// 设置默认输出目标, 传 nil 时回退到 os.Stdout
-logger.SetDefaultWriterTarget(os.Stdout)
-
-// 读取当前默认输出目标
-w := logger.DefaultWriterTarget()
+控制台输出 (默认):
+```
+26-08-05 14:30:00.123[  app]I: user=moke id=42 login
 ```
 
-### 时间格式
+## Formatter
 
-```go
-// 年份打印格式: 0=4位年份, 1=2位年份(默认), 2=不打印年份
-logger.SetPrintYearInfo(0)
+通过 Formatter 接口切换输出格式。两种内置实现, 均零分配。
+
+### ConsoleFormatter (默认)
+
+控制台易读模式, 名称左对齐填充到固定宽度:
+
+```
+26-08-05 14:30:00.123[  app]I: user=moke id=42 login handler.go:42
 ```
 
-### 调用者信息
-
+NameWidth 控制名称显示宽度 (默认 18, 0=自适应):
 ```go
-// 启用调用者信息 (输出到日志行末尾, 格式: file:line)
-logger.SetCallerInfo(true)
-
-// 同时显示函数名 (需先开启 SetCallerInfo)
-logger.SetCallerFunc(true)
-
-// 调用者跳过层数 (默认 2, 范围 0-65535)
-logger.SetCallerSkip(3)
+logger.SetFormatter(logger.ConsoleFormatter{NameWidth: 12})
 ```
 
-### 日志名与数量
+### JSONFormatter
+
+JSON 行模式, 适合采集与聚合:
 
 ```go
-// 日志名显示最大长度, 默认 18
-logger.SetLogNameMaxLength(20)
+logger.SetFormatter(logger.JSONFormatter{})
+log.Info().Str("user", "moke").Msg("login")
+// {"t":"2026-08-05T14:30:00.123","lv":"Info","logger":"app","user":"moke","msg":"login"}
+```
 
-// 压缩过长的日志名: 0=关闭压缩, 非0=开启(默认)
-logger.SetCompressedLogName(1)
+字段顺序: t, lv, logger, [With 预设字段], [链式字段], msg, [caller]
 
-// 最大 logger 数量, 0=无限制(默认 10000)
-// 超出限制后新 logger 不再全局缓存, 每次返回临时实例
-logger.SetMaxLoggerCount(5000)
+### 作用域
+
+- 全局: `logger.SetFormatter(...)` 影响后续 New/Get 创建的 Logger
+- 单 Logger: `logger.New("app", logger.WithFormatter(logger.JSONFormatter{}))`
+
+### 自定义 Formatter
+
+实现 Formatter 接口即可。可嵌入 ConsoleFormatter 只覆盖需要的方法:
+
+```go
+type MyFmt struct{ logger.ConsoleFormatter }
+
+func (m MyFmt) Msg(buf *[]byte, msg string) {
+    // 自定义消息编码
+}
 ```
 
 ## 日志级别
 
 ```go
 const (
-    TraceLevel Level = iota  // 记录细节, 参数等信息
-    DebugLevel               // 记录重要的参数等信息
-    InfoLevel                // 记录用户易读信息
-    WarnLevel                // 记录需要关注的信息
-    ErrorLevel               // 记录需要处理的信息
-    FatalLevel               // 致命错误, 影响系统正常运行
-
-    // LevelUnset 哨兵值: 清除本地设置, 继承父级或默认级别
-    LevelUnset Level = -1
+    TraceLevel Level = iota
+    DebugLevel
+    InfoLevel  // 默认
+    WarnLevel
+    ErrorLevel
+    FatalLevel // 输出后 os.Exit(1)
 )
 ```
 
-级别支持序列化 (JSON/YAML/Binary/Text),短名和全名互转:
+```go
+log.Trace().Msg("细节")
+log.Debug().Msg("调试")
+log.Info().Msg("信息")
+log.Warn().Msg("警告")
+log.Error().Msg("错误")
+log.Fatal().Msg("致命") // 写入后调用 os.Exit(1)
+```
+
+## 创建 Logger
+
+### 独立 Logger
 
 ```go
-// String 返回单字符短名: T/D/I/W/E/F
-logger.InfoLevel.String()    // "I"
-// FullName 返回完整名称
-logger.WarnLevel.FullName()  // "Warn"
+// 从全局默认快照级别、输出目标和 Formatter
+log := logger.New("app")
 
-// 从字符串解析级别, 大小写不敏感, 空串返回 InfoLevel
-// "-" 或 "Unset" 返回 LevelUnset
-lv := logger.FromString("debug") // DebugLevel
+// 指定级别、输出目标、Formatter
+log := logger.New("app",
+    logger.WithLevel(logger.DebugLevel),
+    logger.WithWriter(os.Stderr),
+    logger.WithFormatter(logger.JSONFormatter{}),
+)
 ```
+
+### 命名 Logger (Get)
+
+`Get` 按点分隔自动建立父子继承, 同名返回同一实例:
+
+```go
+parent := logger.Get("app")
+child := logger.Get("app.user") // 继承 parent 的级别
+
+parent.SetLevel(logger.ErrorLevel)
+// child 自动感知: EffectiveLevel 变为 ErrorLevel
+```
+
+### 全局默认
+
+```go
+logger.SetDefaultLevel(logger.DebugLevel)   // 影响 New 创建的 Logger
+logger.SetDefaultWriter(os.Stderr)          // 传 nil 回退到 os.Stdout
+logger.SetFormatter(logger.JSONFormatter{}) // 影响后续 New/Get
+```
+
+## 结构化字段
+
+链式方法, 类型安全, 无装箱开销:
+
+```go
+log.Info().
+    Str("method", "GET").
+    Int("status", 200).
+    Float64("latency", 0.123).
+    Bool("cached", true).
+    Time("ts", time.Now()).
+    Dur("elapsed", time.Since(start)).
+    Err(err).
+    Msg("request")
+
+// 通用方法 (有装箱开销, 热路径慎用)
+log.Info().Any("data", someStruct).Msg("debug")
+```
+
+## With 预设字段
+
+创建带预设字段的 Logger, 每次日志自动携带:
+
+```go
+reqLog := log.With().
+    Str("traceId", traceID).
+    Str("method", "GET").
+    Logger()
+
+reqLog.Info().Int("status", 200).Msg("request") // 自动带 traceId, method
+```
+
+With 不修改原 Logger, 返回新实例。级别独立, 不参与命名继承。
+便捷版等价: `log.WithKvs("traceId", traceID, "method", "GET")`。
 
 ## Logger 管理
 
-### 创建与继承
-
-`Logger(name string, options ...Option) *Log` 按点分隔的 name 自动建立父子关系, 子 logger 默认继承父级的级别。同名重复调用返回同一实例。
-
 ```go
-// 创建 app、app.user、app.order 三个 logger, 后两者继承 app 的级别
-user := logger.Logger("app.user")
-order := logger.Logger("app.order")
-
-// 通过 Option 传入额外配置
-log := logger.Logger("app", logger.WithWriter(file))
-```
-
-### 级别控制
-
-```go
-// 设置单个 logger 的级别, 传递 LevelUnset 清除本地设置并继承父级
-logger.SetLevel("app.user", logger.DebugLevel)
-
-// 递归设置 logger 及其所有子 logger
+// 递归设置级别
 logger.SetLevelRecursive("app", logger.WarnLevel)
 
-// 也可以直接在实例上设置
-log := logger.Logger("app")
-log.SetLevel(logger.ErrorLevel)
-currentLevel := log.Level()
-```
+// 按名称设置级别
+logger.SetLevelByName("app.user", logger.DebugLevel)
 
-### 查询与清理
-
-```go
-// 遍历所有已创建的 logger 名称
-logger.AllLogger()(func(name string) {
+// 遍历所有命名 Logger
+logger.AllLogger(func(name string) {
     fmt.Println(name)
 })
 
-// 移除指定 logger 及其子 logger
-// 注意: 移除后已持有的引用仍可用, 但不再被全局管理, 最终被 GC 回收
+// 移除 Logger 及其子级
 logger.RemoveLogger("app.user")
-```
 
-## 结构化字段 (kvs)
-
-通过 `With` 派生带结构化字段的 logger,kv 以 `key=value` 形式输出在消息前。奇数个参数时最后一个单独输出。
-
-```go
-log := logger.Logger("app")
-log.With("userId", 123, "ip", "1.2.3.4").I("登录成功")
-// 输出: ...[app]I:  userId=123 ip=1.2.3.4 登录成功
-
-// 多次 With 会叠加父级 kvs
-log.With("userId", 123).With("action", "login").I("done")
-```
-
-派生的 logger 使用完毕后可调用 `Unuse` 归还对象池。仅对 `With`/`WithWriter` 派生的实例有效,命名 logger 调用无效。
-
-```go
-derived := log.With("traceId", "abc")
-defer derived.Unuse()
-```
-
-## KvPrefix 前缀
-
-`SetKvPrefix` 注册指定 key 的格式化器。该 key 的 value 不再出现在 kvs 区域, 而是通过格式化器输出为日志行的固定前缀 (位于 level 之后、kvs 之前)。适合请求 id、用户 id 等需要突出的字段。
-
-```go
-// 注册 "traceId" 的前缀格式化器
-logger.SetKvPrefix("traceId", func(value any) string {
-    return "[" + fmt.Sprint(value) + "]"
-})
-
-log := logger.Logger("app").With("traceId", "req-001")
-log.I("处理请求")
-// 输出: ...[app]I: [req-001] 处理请求
-//                          ^^^^^^^^ 来自 KvPrefix
-// traceId 不会重复出现在 kvs 区域
-
-// 当 kvs 中的值状态变化时, 调用 UpdatePrefix 刷新缓存的前缀
-log.UpdatePrefix().I("再次处理")
+// 已注册数量
+count := logger.RegistryCount()
 ```
 
 ## Hook 系统
 
-Hook 在日志行写入输出前调用, 可直接操作缓冲区。每个 logger 实例共享全局 Hook 链。最多 64 个 Hook, 防止无限添加导致每次调用的开销线性增长。
+Hook 在写入前调用, 可追加内容到缓冲区:
 
 ```go
-// Hook 签名: func(lv Level, buf *pool.Bytes, log *Log)
-// 注意: pool.Bytes 来自 github.com/mzzsfy/go-util/pool
-
-// 添加 Hook, 返回是否成功
-logger.AddHook(func(lv logger.Level, buf *pool.Bytes, log *logger.Log) {
-    // 在行末追加自定义标记, 注意此时末尾还没有 '\n'
-    buf.WriteString(" [hook]")
+logger.AddHook(func(e *logger.Event) {
+    e.AppendString(" [svc=api]")
 })
 
-// 移除指定 Hook (基于函数指针比较)
 logger.RemoveHook(myHook)
-
-// 清理所有全局 Hook
 logger.CleanHooks()
 ```
 
-## 独立 Writer
-
-### WithWriter
-
-通过 `WithWriter(w io.Writer) Option` 派生使用独立输出目标的 logger, 不影响全局 writer。
+## 调用者信息
 
 ```go
-file, _ := os.Create("app.log")
-defer file.Close()
-
-// 方式一: 创建 logger 时通过 Option 传入
-log := logger.Logger("app", logger.WithWriter(file))
-
-// 方式二: 对已有 logger 应用 Option 派生新实例
-base := logger.Logger("app")
-log2 := logger.WithWriter(file)(base)
-defer log2.Unuse()
+logger.SetCaller(true)      // 输出 file:line
+logger.SetCallerFunc(true)  // 同时输出函数名
+logger.SetCallerSkip(4)     // 跳过层数 (默认 4, 范围 0-255)
 ```
 
-### 异步写入
+输出: `26-08-05 14:30:00.123[  app]I: login main.go:42`
 
-配合 `helper.AsyncWriter` 可以实现异步写入, `logger.write` 热路径会自动检测 writer 是否实现了 `helper.AsyncWriter` 接口, 走异步路径避免阻塞调用方。
+## 时间格式
+
+```go
+logger.SetYearMode(logger.YearFull)  // YYYY-MM-DD (4 位年份)
+logger.SetYearMode(logger.YearShort) // YY-MM-DD (2 位年份, 默认)
+logger.SetYearMode(logger.YearNone)  // MM-DD (无年份)
+```
+
+## 异步写入
+
+配合 `helper.AsyncWriter` 实现异步写入, flush 自动检测:
 
 ```go
 import "github.com/mzzsfy/go-util/helper"
 
-// 使用默认异步控制台写入器
-logger.SetDefaultWriterTarget(helper.AsyncConsole())
-
-// 或基于任意 io.Writer 创建异步写入器
-aw := helper.NewAsyncWriter(file)
-aw.SetFlushSize(4 * 1024)   // 刷写阈值(字节)
-aw.SetCacheSize(256)        // 缓存通道大小
-logger.SetDefaultWriterTarget(aw)
+aw := helper.NewAsyncWriter(os.Stdout)
+aw.SetFlushSize(4 * 1024)
+logger.SetDefaultWriter(aw)
 ```
 
-tip: 在某些特殊场景(无法传递context)你可以使用 [storage.gls](../storage/README.md#gls)
-来存储一些特殊信息,比如请求id,用户id等,然后在日志插件中获取这些信息,然后打印到日志中
+## 性能
+
+i5-8500, io.Discard, Go 1.25:
+
+```
+NoArgs              81 ns/op    0 B/op    0 allocs/op
+WithFields(3)      123 ns/op    0 B/op    0 allocs/op
+FilteredOut          4 ns/op    0 B/op    0 allocs/op  <- 级别过滤零开销
+ParallelFiltered     1 ns/op    0 B/op    0 allocs/op
+NamedGet            24 ns/op    0 B/op    0 allocs/op
+WithCaller         362 ns/op    0 B/op    0 allocs/op
+```
+
+级别过滤零分配: `log.Debug().Str("k","v").Msg("filtered")` 在 Info 级别下不产生任何分配。
+
+## API 概览
+
+### Logger 方法
+
+| 分类 | 方法 | 说明 |
+| --- | --- | --- |
+| 级别 (链式) | Trace/Debug/Info/Warn/Error/Fatal | 返回 Event, 零分配链式 |
+| 命令式 | D/I/L(lv, ...) | 直接输出, 有装箱开销 |
+| 命令式 (延迟) | DF/IF/LF(lv, ...) | 级别不够时 f 不调用 |
+| 派生 | With / WithKvs | 返回带预设字段的新 Logger |
+| 状态 | SetLevel / Level / Name / Enabled | 级别与查询 |
+
+### Event 方法
+
+| 分类 | 方法 | 说明 |
+| --- | --- | --- |
+| 类型安全字段 | Str/Int/Int64/Uint64/Float64/Bool/Time/Dur/Err | 无装箱 |
+| 通用字段 | Any | 有装箱, 热路径慎用 |
+| 触发输出 | Msg/Msgf/Send | 必须调用其一, 否则事件泄露 |
+| 派生 | Logger | 从 With 事件构建新 Logger |
+| Hook 用 | AppendString/AppendBytes/Level | 写入缓冲区 |
+
+### 配置函数 (包级)
+
+| 分类 | 函数 |
+| --- | --- |
+| 全局默认 | SetDefaultLevel / DefaultLevel / SetDefaultWriter / DefaultWriter |
+| Formatter | SetFormatter / DefaultFormatter |
+| Caller | SetCaller / SetCallerFunc / SetCallerSkip |
+| 时间 | SetYearMode |
+| Hook | AddHook / RemoveHook / CleanHooks |
+| 命名管理 | Get / SetLevelByName / SetLevelRecursive / RemoveLogger / AllLogger / RegistryCount |
+| 默认 Logger | Default |

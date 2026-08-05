@@ -1,214 +1,408 @@
 package logger
 
 import (
-    "encoding"
-    "fmt"
-    "strconv"
-    "sync/atomic"
-    "time"
-
-    "github.com/mzzsfy/go-util/pool"
+	"fmt"
+	"strconv"
+	"strings"
+	"sync/atomic"
+	"time"
+	"unsafe"
 )
 
-// timeCache 缓存已格式化的日期时间字符串，避免重复计算
-type timeCache struct {
-    unix   int64  // 秒级时间戳，用于判断缓存是否过期
-    prefix []byte // "YYYY-MM-DD HH:MM:SS" 合并为单个切片, 减少 writeCachedTime 中的 Write 调用次数
+// --- 时间格式化 ---
+
+const (
+	YearFull  int32 = 0
+	YearShort int32 = 1
+	YearNone  int32 = 2
+)
+
+var yearMode int32 = YearShort
+
+func SetYearMode(mode int32) {
+	atomic.StoreInt32(&yearMode, mode)
+	atomic.StorePointer(&timeCachePtr, unsafe.Pointer(&emptyTimeCache))
 }
 
-var cachedTime atomic.Value // 存储 *timeCache
+// SetPrintYearInfo 旧版兼容, 等价于 SetYearMode
+func SetPrintYearInfo(v int32) { SetYearMode(v) }
+
+// timeCache 秒级缓存已格式化的时间前缀
+type timeCache struct {
+	unix   int64
+	prefix []byte
+}
+
+var emptyTimeCache = timeCache{}
+
+// timeCachePtr 用 unsafe.Pointer 替代 atomic.Value, 省类型检查开销
+var timeCachePtr unsafe.Pointer // *timeCache
+
+// millisTable 预计算毫秒字节, 避免运行时除法
+var millisTable [1000][3]byte
+
+// digits2Table 预计算两位十进制字节
+var digits2Table [100][2]byte
 
 func init() {
-    cachedTime.Store(&timeCache{})
+	for i := 0; i < 1000; i++ {
+		millisTable[i][0] = byte('0' + i/100)
+		millisTable[i][1] = byte('0' + i/10%10)
+		millisTable[i][2] = byte('0' + i%10)
+	}
+	for i := 0; i < 100; i++ {
+		digits2Table[i][0] = byte('0' + i/10)
+		digits2Table[i][1] = byte('0' + i%10)
+	}
+	atomic.StorePointer(&timeCachePtr, unsafe.Pointer(&emptyTimeCache))
 }
 
-var digitBase = byte('0')
+// appendTime 追加当前时间到 buf, 格式由 yearMode 决定
+func appendTime(buf []byte) []byte {
+	now := time.Now()
+	unix := now.Unix()
 
-// AppendNowTime yyyy-MM-dd HH:mm:ss.SSS格式添加现在的时间
-func AppendNowTime(s *pool.Bytes) {
-    now := time.Now()
-    unix := now.Unix()
+	c := (*timeCache)(atomic.LoadPointer(&timeCachePtr))
+	if c.unix == unix {
+		buf = append(buf, c.prefix...)
+		return append(buf, millisTable[now.Nanosecond()/1e6][:]...)
+	}
 
-    // 快速路径: 检查秒级缓存是否命中
-    cached := cachedTime.Load().(*timeCache)
-    if cached.unix == unix {
-        writeCachedTime(s, cached, now)
-        return
-    }
-
-    // 慢路径: CAS 确保只有一个 goroutine 更新缓存
-    newCache := formatTimeCache(now, unix)
-    if !cachedTime.CompareAndSwap(cached, newCache) {
-        newCache = cachedTime.Load().(*timeCache)
-    }
-    writeCachedTime(s, newCache, now)
+	newCache := formatTimeCache(now, unix)
+	if !atomic.CompareAndSwapPointer(&timeCachePtr, unsafe.Pointer(c), unsafe.Pointer(newCache)) {
+		newCache = (*timeCache)(atomic.LoadPointer(&timeCachePtr))
+	}
+	buf = append(buf, newCache.prefix...)
+	return append(buf, millisTable[now.Nanosecond()/1e6][:]...)
 }
 
-// formatTimeCache 格式化日期时间并缓存
-// 将 "date HH:MM:SS" 合并为单个 prefix []byte, 热路径仅需一次 Write
+// formatTimeCache 格式化时间前缀, 年份部分由 yearMode 决定
 func formatTimeCache(now time.Time, unix int64) *timeCache {
-    year, month, day := now.Date()
-    hour, min, sec := now.Clock()
+	year, month, day := now.Date()
+	hour, min, sec := now.Clock()
+	mode := atomic.LoadInt32(&yearMode)
 
-    // 计算前缀总长度并一次性构建 (含末尾 '.')
-    // 无年份: "MM-DD HH:MM:SS." = 15 字节
-    // 2位年份: "YY-MM-DD HH:MM:SS." = 18 字节
-    // 4位年份: "YYYY-MM-DD HH:MM:SS." = 20 字节
-    yearInfo := atomic.LoadInt32(&printYearInfo)
-    var cap_ int
-    if yearInfo < 2 {
-        if yearInfo == 1 {
-            cap_ = 18
-        } else {
-            cap_ = 20
-        }
-    } else {
-        cap_ = 15
-    }
-
-    buf := make([]byte, 0, cap_)
-    // 年份部分
-    if yearInfo == 0 {
-        // 4位年份, 手动转换避免 strconv.Itoa 分配
-        buf = append(buf, '0'+byte(year/1000))
-        year %= 1000
-        buf = append(buf, '0'+byte(year/100))
-        year %= 100
-        buf = append(buf, '0'+byte(year/10))
-        buf = append(buf, '0'+byte(year%10))
-        buf = append(buf, '-')
-    } else if yearInfo == 1 {
-        // 2位年份, year%100 保证 year<100 时也不会越界
-        yy := year % 100
-        buf = append(buf, digitBase+byte(yy/10), digitBase+byte(yy%10))
-        buf = append(buf, '-')
-    }
-    // 月-日
-    buf = append(buf, digitBase+byte(month/10), digitBase+byte(month%10))
-    buf = append(buf, '-')
-    buf = append(buf, digitBase+byte(day/10), digitBase+byte(day%10))
-    buf = append(buf, ' ')
-    // 时:分:秒
-    buf = append(buf, digitBase+byte(hour/10), digitBase+byte(hour%10))
-    buf = append(buf, ':')
-    buf = append(buf, digitBase+byte(min/10), digitBase+byte(min%10))
-    buf = append(buf, ':')
-    buf = append(buf, digitBase+byte(sec/10), digitBase+byte(sec%10))
-    buf = append(buf, '.')
-
-    return &timeCache{unix: unix, prefix: buf}
+	var buf []byte
+	switch mode {
+	case YearFull:
+		buf = make([]byte, 0, 20)
+		buf = append4digits(buf, year)
+		buf = append(buf, '-')
+	case YearShort:
+		buf = make([]byte, 0, 18)
+		buf = append(buf, digits2Table[year%100][:]...)
+		buf = append(buf, '-')
+	default:
+		buf = make([]byte, 0, 15)
+	}
+	buf = append(buf, digits2Table[month][:]...)
+	buf = append(buf, '-')
+	buf = append(buf, digits2Table[day][:]...)
+	buf = append(buf, ' ')
+	buf = append(buf, digits2Table[hour][:]...)
+	buf = append(buf, ':')
+	buf = append(buf, digits2Table[min][:]...)
+	buf = append(buf, ':')
+	buf = append(buf, digits2Table[sec][:]...)
+	buf = append(buf, '.')
+	return &timeCache{unix: unix, prefix: buf}
 }
 
-// writeCachedTime 将缓存的日期时间和实时毫秒写入 buffer
-// prefix 已包含 "date HH:MM:SS.", 仅需追加毫秒
-func writeCachedTime(s *pool.Bytes, c *timeCache, now time.Time) {
-    s.Write(c.prefix)
-    append999(s, now.Nanosecond()/1e6)
+func append4digits(buf []byte, v int) []byte {
+	return append(buf,
+		byte('0'+v/1000),
+		byte('0'+v/100%10),
+		byte('0'+v/10%10),
+		byte('0'+v%10),
+	)
 }
 
-func append999(sb *pool.Bytes, v int) {
-    sb.WriteByte(digitBase + byte(v/100))
-    sb.WriteByte(digitBase + byte(v/10%10))
-    sb.WriteByte(digitBase + byte(v%10))
+// --- 整数格式化 ---
+// 手写实现 (非 strconv) 使 Int/Int64/Uint64 方法可被编译器内联
+
+// appendInt64 负数取反后 uint64 位回绕正确处理 MinInt64
+func appendInt64(buf []byte, n int64) []byte {
+	if n < 0 {
+		buf = append(buf, '-')
+		n = -n
+	}
+	return appendUint64(buf, uint64(n))
 }
 
-func appendAny(sb *pool.Bytes, arg any) {
-    if arg == nil {
-        sb.WriteString("<nil>")
-        return
-    }
-    switch v := arg.(type) {
-    case []byte:
-        sb.Write(v)
-    case string:
-        sb.WriteString(v)
-    case bool:
-        if v {
-            sb.WriteString("true")
-            return
-        }
-        sb.WriteString("false")
-    case int:
-        appendInteger(sb, int64(v))
-    case int8:
-        appendInteger(sb, int64(v))
-    case int16:
-        appendInteger(sb, int64(v))
-    case int32:
-        appendInteger(sb, int64(v))
-    case int64:
-        appendInteger(sb, v)
-    case uint:
-        appendUInteger(sb, uint64(v))
-    case uint8:
-        appendUInteger(sb, uint64(v))
-    case uint16:
-        appendUInteger(sb, uint64(v))
-    case uint32:
-        appendUInteger(sb, uint64(v))
-    case uint64:
-        appendUInteger(sb, v)
-    case uintptr:
-        appendUInteger(sb, uint64(v))
-    case float64:
-        var buf [32]byte
-        sb.Write(strconv.AppendFloat(buf[:0], v, 'f', -1, 64))
-    case float32:
-        var buf [32]byte
-        sb.Write(strconv.AppendFloat(buf[:0], float64(v), 'f', -1, 32))
-    case time.Time:
-        var buf [64]byte
-        sb.Write(v.AppendFormat(buf[:0], time.RFC3339Nano))
-    case error:
-        sb.WriteString(v.Error())
-    case fmt.Stringer:
-        sb.WriteString(v.String())
-    case encoding.TextMarshaler:
-        if b, err := v.MarshalText(); err == nil {
-            sb.Write(b)
-        }
-    default:
-        // 直接写入 buffer, 避免 fmt.Sprint 产生临时字符串分配
-        fmt.Fprint(sb, v)
-    }
+// appendUint64 整数转十进制追加
+// noinline 控制 appendInt64 内联成本, 避免 appendUint64 体被递归展开
+//
+//go:noinline
+func appendUint64(buf []byte, n uint64) []byte {
+	if n < 10 {
+		return append(buf, byte('0'+n))
+	}
+	var tmp [20]byte
+	pos := len(tmp)
+	for n >= 10 {
+		pos--
+		tmp[pos] = byte('0' + n%10)
+		n /= 10
+	}
+	pos--
+	tmp[pos] = byte('0' + n)
+	return append(buf, tmp[pos:]...)
 }
 
-// 有符号整数转字符串, 写入 buffer
-// 逐位 WriteByte 避免栈上数组通过接口逃逸到堆
-func appendInteger(sb *pool.Bytes, n int64) {
-    if n < 0 {
-        sb.WriteByte('-')
-        n = -n
-        // 溢出特殊处理 (math.MinInt64)
-        if n < 0 {
-            sb.WriteString("9223372036854775808")
-            return
-        }
-    }
-    writeUint64(sb, uint64(n))
+// --- 其他类型格式化 ---
+
+func appendBool(buf []byte, b bool) []byte {
+	if b {
+		return append(buf, "true"...)
+	}
+	return append(buf, "false"...)
 }
 
-// 无符号整数转字符串, 写入 buffer
-func appendUInteger(sb *pool.Bytes, n uint64) {
-    writeUint64(sb, n)
+func appendFloat64(buf []byte, f float64) []byte {
+	return strconv.AppendFloat(buf, f, 'f', -1, 64)
 }
 
-// writeUint64 将无符号整数转换为字符串写入 buffer
-// pool.Bytes 是具体类型而非接口, 栈数组切片不会逃逸
-func writeUint64(sb *pool.Bytes, n uint64) {
-    // 快速路径: 单个数字直接写入
-    if n < 10 {
-        sb.WriteByte(byte('0' + n))
-        return
-    }
-    var buf [20]byte
-    pos := len(buf)
-    for n >= 10 {
-        pos--
-        buf[pos] = byte('0' + n%10)
-        n /= 10
-    }
-    pos--
-    buf[pos] = byte('0' + n)
-    sb.Write(buf[pos:])
+// appendAny 追加任意类型值, 热路径应优先用类型安全方法
+func appendAny(buf []byte, v any) []byte {
+	if v == nil {
+		return append(buf, "<nil>"...)
+	}
+	switch val := v.(type) {
+	case []byte:
+		return append(buf, val...)
+	case string:
+		return append(buf, val...)
+	case bool:
+		return appendBool(buf, val)
+	case int:
+		return appendInt64(buf, int64(val))
+	case int8:
+		return appendInt64(buf, int64(val))
+	case int16:
+		return appendInt64(buf, int64(val))
+	case int32:
+		return appendInt64(buf, int64(val))
+	case int64:
+		return appendInt64(buf, val)
+	case uint:
+		return appendUint64(buf, uint64(val))
+	case uint8:
+		return appendUint64(buf, uint64(val))
+	case uint16:
+		return appendUint64(buf, uint64(val))
+	case uint32:
+		return appendUint64(buf, uint64(val))
+	case uint64:
+		return appendUint64(buf, val)
+	case uintptr:
+		return appendUint64(buf, uint64(val))
+	case float32:
+		return strconv.AppendFloat(buf, float64(val), 'f', -1, 32)
+	case float64:
+		return appendFloat64(buf, val)
+	case error:
+		return append(buf, val.Error()...)
+	case fmt.Stringer:
+		return append(buf, val.String()...)
+	default:
+		return append(buf, fmt.Sprint(v)...)
+	}
+}
+
+// b2s 零分配 []byte → string, 共享底层数组
+// 调用方需确保返回的 string 在原始 []byte 被修改前使用完毕
+func b2s(b []byte) string {
+	return *(*string)(unsafe.Pointer(&b))
+}
+
+// --- 占位符消息格式化 ---
+
+// doFormatPlaceholders {}占位符风格
+// 支持: {} 自动递增, {0} 显式位置, {%s} 格式化, {0%d} 显式+格式化
+func doFormatPlaceholders(buf []byte, format string, args []any) []byte {
+	argIdx := 0
+	argLen := len(args)
+	lastWrite := 0
+	for i := 0; i < len(format); {
+		if format[i] != '{' {
+			i++
+			continue
+		}
+		// 快速路径: {}
+		if i+1 < len(format) && format[i+1] == '}' {
+			if i > lastWrite {
+				buf = append(buf, format[lastWrite:i]...)
+			}
+			if argIdx < argLen {
+				buf = appendAny(buf, args[argIdx])
+			} else {
+				buf = append(buf, '{', '}')
+			}
+			argIdx++
+			lastWrite = i + 2
+			i += 2
+			continue
+		}
+		// 慢路径: {0} {%s} {0%d} 等
+		j := i + 1
+		for j < len(format) && format[j] != '}' {
+			j++
+		}
+		if j >= len(format) {
+			break
+		}
+		idx, verb, ok := parsePlaceholder(format[i+1 : j])
+		if !ok {
+			i++
+			continue
+		}
+		if i > lastWrite {
+			buf = append(buf, format[lastWrite:i]...)
+		}
+		if idx >= 0 {
+			// 显式位置
+			if idx < argLen {
+				buf = appendArg(buf, verb, args[idx])
+			} else {
+				buf = append(buf, format[i:j+1]...)
+			}
+		} else {
+			// 自动递增
+			if argIdx < argLen {
+				buf = appendArg(buf, verb, args[argIdx])
+			} else {
+				buf = append(buf, format[i:j+1]...)
+			}
+			argIdx++
+		}
+		lastWrite = j + 1
+		i = j + 1
+	}
+	if lastWrite < len(format) {
+		buf = append(buf, format[lastWrite:]...)
+	}
+	// 追加剩余未消费参数 (仅自动递增的)
+	if argIdx < argLen {
+		for k := argIdx; k < argLen; k++ {
+			buf = append(buf, ' ')
+			buf = appendAny(buf, args[k])
+		}
+	}
+	return buf
+}
+
+// parsePlaceholder 解析占位符内容
+// 返回 idx(>=0=显式位置, -1=自动递增), verb(格式化动词, 空=appendAny), ok
+func parsePlaceholder(s string) (idx int, verb string, ok bool) {
+	if len(s) == 0 {
+		return 0, "", false
+	}
+	pct := strings.IndexByte(s, '%')
+	if pct < 0 {
+		n := parseDigitIndex(s)
+		if n >= 0 {
+			return n, "", true
+		}
+		return 0, "", false
+	}
+	verb = s[pct:]
+	if pct == 0 {
+		return -1, verb, true
+	}
+	n := parseDigitIndex(s[:pct])
+	if n >= 0 {
+		return n, verb, true
+	}
+	return 0, "", false
+}
+
+// appendArg 追加单个参数, verb非空时用格式化
+// 常见verb优化, 避免fmt.Sprintf分配
+func appendArg(buf []byte, verb string, val any) []byte {
+	if verb == "" {
+		return appendAny(buf, val)
+	}
+	switch verb {
+	case "%d":
+		return appendVerbD(buf, val)
+	case "%s":
+		return appendVerbS(buf, val)
+	case "%v":
+		return appendAny(buf, val)
+	case "%t":
+		return appendBool(buf, val.(bool))
+	case "%x":
+		return strconv.AppendUint(buf, toUint64(val), 16)
+	}
+	return append(buf, fmt.Sprintf(verb, val)...)
+}
+
+func toUint64(val any) uint64 {
+	switch v := val.(type) {
+	case int:
+		return uint64(v)
+	case int64:
+		return uint64(v)
+	case uint:
+		return uint64(v)
+	case uint64:
+		return v
+	}
+	return 0
+}
+
+func appendVerbD(buf []byte, val any) []byte {
+	switch v := val.(type) {
+	case int:
+		return appendInt64(buf, int64(v))
+	case int8:
+		return appendInt64(buf, int64(v))
+	case int16:
+		return appendInt64(buf, int64(v))
+	case int32:
+		return appendInt64(buf, int64(v))
+	case int64:
+		return appendInt64(buf, v)
+	case uint:
+		return appendUint64(buf, uint64(v))
+	case uint8:
+		return appendUint64(buf, uint64(v))
+	case uint16:
+		return appendUint64(buf, uint64(v))
+	case uint32:
+		return appendUint64(buf, uint64(v))
+	case uint64:
+		return appendUint64(buf, v)
+	}
+	return append(buf, fmt.Sprintf("%d", val)...)
+}
+
+func appendVerbS(buf []byte, val any) []byte {
+	switch v := val.(type) {
+	case string:
+		return append(buf, v...)
+	case []byte:
+		return append(buf, v...)
+	case error:
+		return append(buf, v.Error()...)
+	}
+	return append(buf, fmt.Sprintf("%s", val)...)
+}
+
+func parseDigitIndex(s string) int {
+	if len(s) == 0 {
+		return -1
+	}
+	n := 0
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if c < '0' || c > '9' {
+			return -1
+		}
+		n = n*10 + int(c-'0')
+		if n > 100 {
+			return -1
+		}
+	}
+	return n
 }
