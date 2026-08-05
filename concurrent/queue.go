@@ -33,6 +33,8 @@ type BlockQueue[T any] interface {
     Queue[T]
     // DequeueBlock 阻塞出队,支持超时参数
     DequeueBlock(timeout ...time.Duration) (T, bool)
+    // WaiterCount 返回当前在 DequeueBlock 中阻塞等待的消费者数量
+    WaiterCount() int32
 }
 
 // TryDequeuer 可选接口:非阻塞尝试出队,空队列立即返回false

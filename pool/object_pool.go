@@ -20,6 +20,9 @@ type reset[T any]func(*T)
 // new: 对象创建函数,用于池为空时创建新对象
 // reset: 对象重置函数,对象归还池时调用以重置状态,可为nil
 func NewObjectPool[T any](new defaultValue[T], reset reset[T]) *ObjectPool[T] {
+	if reset == nil {
+		reset = func(*T) {}
+	}
 	return &ObjectPool[T]{
 		p: sync.Pool{
 			New: func() any {
@@ -35,11 +38,8 @@ func (p *ObjectPool[T]) Get() *T {
 	return p.p.Get().(*T)
 }
 
-// Put 将对象归还到池中
-// 如果设置了reset函数,会先调用reset重置对象状态
+// Put 将对象归还到池中, reset在构造时已保证非nil
 func (p *ObjectPool[T]) Put(t *T) {
-	if p.reset != nil {
-		p.reset(t)
-	}
+	p.reset(t)
 	p.p.Put(t)
 }

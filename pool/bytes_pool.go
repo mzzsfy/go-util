@@ -43,10 +43,10 @@ func (p *BufferPool) Get() *bytes.Buffer {
 	return p.pool.Get().(*bytes.Buffer)
 }
 func (p *BufferPool) Put(b *bytes.Buffer) {
-	b.Reset()
 	if b.Cap() > int(atomic.LoadInt32(&p.maxCap)) {
 		return
 	}
+	b.Reset()
 	p.pool.Put(b)
 }
 
@@ -127,13 +127,7 @@ func (p *BytePool) SetInitCap(initCap int) {
 }
 
 func (p *BytePool) Get() *Bytes {
-	b := p.pool.Get().(*Bytes)
-	// 保证返回的 buffer 至少有 initCap 容量
-	initCap := atomic.LoadInt32(&p.initCap)
-	if cap(b.buf) < int(initCap) {
-		b.buf = make([]byte, 0, int(initCap))
-	}
-	return b
+	return p.pool.Get().(*Bytes)
 }
 
 func (p *BytePool) Put(b *Bytes) {

@@ -29,8 +29,9 @@ type StringPool struct {
 // Peek 查看字符串对应的ID,不存在则返回0
 func (p *StringPool) Peek(s string) uint64 {
 	p.lock.RLock()
-	defer p.lock.RUnlock()
-	if v, ok := p.m.Get(s); ok {
+	v, ok := p.m.Get(s)
+	p.lock.RUnlock()
+	if ok {
 		return v.id
 	}
 	return 0
@@ -48,9 +49,10 @@ func (p *StringPool) Use(s string) uint64 {
 	}
 	p.lock.RUnlock()
 	p.lock.Lock()
-	defer p.lock.Unlock()
+	// 写锁互斥: v.using 无并发修改, 直接自增避免 atomic 开销
 	if v, ok := p.m.Get(s); ok {
-		atomic.AddUint32(&v.using, 1)
+		v.using++
+		p.lock.Unlock()
 		return v.id
 	}
 	id := atomic.AddUint64(&p.idGen, 1)
@@ -58,15 +60,17 @@ func (p *StringPool) Use(s string) uint64 {
 		id:    id,
 		using: 1,
 	})
+	p.lock.Unlock()
 	return id
 }
 
 // UnUse 释放一次引用, 引用归零时删除条目
-// 线程安全: 使用写锁保证与 Use 的原子递增之间无 TOCTOU 窗口
+// 线程安全: 写锁保证与 Use 的读锁互斥, using 的自减无需 atomic
 func (p *StringPool) UnUse(s string) {
 	p.lock.Lock()
 	if v, ok := p.m.Get(s); ok {
-		if atomic.AddUint32(&v.using, ^uint32(0)) == 0 {
+		v.using--
+		if v.using == 0 {
 			p.m.Delete(s)
 		}
 	}

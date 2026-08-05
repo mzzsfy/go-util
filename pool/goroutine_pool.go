@@ -20,7 +20,7 @@ var (
 	ErrPoolClosed = errors.New("pool is shut down")
 
 	defaultGoPool = NewGopool(WithName("defaultGoPool"))
-	taskPool      = NewObjectPool[task](func() *task { return &task{} }, func(i *task) { i.ctx = nil; i.fn = nil })
+	taskPool      = NewObjectPool(func() *task { return &task{} }, func(i *task) { i.ctx = nil; i.fn = nil })
 	// shutdownSentinel 用于唤醒阻塞 worker 的哨兵任务, nil 无法入队(lkQueue 丢弃 nil)
 	shutdownSentinel = &task{fn: func() {}, ctx: context.Background()}
 )
@@ -145,14 +145,17 @@ func (p *GoPool) CtxGo(ctx context.Context, f func()) error {
 func (p *GoPool) dispatch(t *task) {
 	p.taskQueue.Enqueue(t)
 	// 入队后二次检查: 若此时已 shutdown, 补发 sentinel 确保 worker 能消费残存任务
-	// 场景: CtxGo 检查 shutDown==0 后被调度走, Shutdown 设 shutDown=1 并入 sentinel 退出 workers,
-	// CtxGo 恢复后入队的任务可能无人处理, 补发 sentinel 唤醒 worker 来消费
 	if atomic.LoadInt32(&p.shutDown) == 1 {
 		p.taskQueue.Enqueue(shutdownSentinel)
 		return
 	}
-	// CAS 创建新 worker, 缓存 maxWorks 减少热路径 atomic load
-	maxW := atomic.LoadInt32(&p.maxWorks)
+	// 有 worker 在 BlockQueue 上阻塞等待时, Enqueue 已通过 Signal 唤醒它, 无需创建新 worker
+	// waiter 在 mu 锁下维护, waiter > 0 严格意味着 worker 在 cond.Wait 中, 不存在"即将退出"的竞态窗口
+	if p.taskQueue.WaiterCount() > 0 {
+		return
+	}
+	// maxWorks 构造后不可变, 直接读避免 atomic 开销
+	maxW := p.maxWorks
 	for {
 		w := atomic.LoadInt32(&p.works)
 		if w >= maxW {
