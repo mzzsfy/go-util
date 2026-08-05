@@ -3,7 +3,6 @@ package storage
 type arrayMap[K comparable, V any] struct {
     keys   []K
     values []V
-    count  int
 }
 
 func (m *arrayMap[K, V]) Has(key K) bool {
@@ -38,19 +37,24 @@ func (m *arrayMap[K, V]) Put(key K, value V) {
     }
     m.keys = append(m.keys, key)
     m.values = append(m.values, value)
-    m.count++
+}
+
+// swapDelete 用末尾元素覆盖位置i, O(1)删除, 不保证顺序
+func (m *arrayMap[K, V]) swapDelete(i int) {
+    last := len(m.keys) - 1
+    m.keys[i] = m.keys[last]
+    m.values[i] = m.values[last]
+    m.keys = m.keys[:last]
+    m.values = m.values[:last]
 }
 
 func (m *arrayMap[K, V]) Delete(key K) {
     for i, k := range m.keys {
         if k == key {
-            m.keys = append(m.keys[:i], m.keys[i+1:]...)
-            m.values = append(m.values[:i], m.values[i+1:]...)
-            m.count--
+            m.swapDelete(i)
             return
         }
     }
-    return
 }
 
 func (m *arrayMap[K, V]) Iter(cb func(k K, v V) (stop bool)) bool {
@@ -62,13 +66,12 @@ func (m *arrayMap[K, V]) Iter(cb func(k K, v V) (stop bool)) bool {
     return false
 }
 
+// IterDelete 倒序遍历, 删除时用末尾元素覆盖(swap-delete), O(1)删除不影响未遍历元素
 func (m *arrayMap[K, V]) IterDelete(cb func(k K, v V) (del bool, stop bool)) bool {
-    for i, k := range m.keys {
-        del, stop := cb(k, m.values[i])
+    for i := len(m.keys) - 1; i >= 0; i-- {
+        del, stop := cb(m.keys[i], m.values[i])
         if del {
-            m.keys = append(m.keys[:i], m.keys[i+1:]...)
-            m.values = append(m.values[:i], m.values[i+1:]...)
-            m.count--
+            m.swapDelete(i)
         }
         if stop {
             return true
@@ -80,11 +83,10 @@ func (m *arrayMap[K, V]) IterDelete(cb func(k K, v V) (del bool, stop bool)) boo
 func (m *arrayMap[K, V]) Clean() {
     m.keys = m.keys[:0]
     m.values = m.values[:0]
-    m.count = 0
 }
 
 func (m *arrayMap[K, V]) Count() int {
-    return m.count
+    return len(m.keys)
 }
 
 // MapTypeArray array底层的map,适合小数据量(低于50个元素),空间利用率高,性能与key的数量成正比

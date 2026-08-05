@@ -7,9 +7,6 @@ import (
     _ "unsafe"
 )
 
-//go:linkname fastrand runtime.fastrand
-func fastrand() uint32
-
 // swissMap is an open-addressing hash map
 // based on Abseil's flat_hash_map.
 type swissMap[K comparable, V any] struct {
@@ -39,13 +36,43 @@ func (m *swissMap[K, V]) Delete(key K) {
 }
 
 func (m *swissMap[K, V]) IterDelete(cb func(k K, v V) (del bool, stop bool)) bool {
-    return m.Iter(func(k K, v V) bool {
-        del, stop := cb(k, v)
-        if del {
-            m.Delete(k)
+    ctrl, groups := m.ctrl, m.groups
+    g := randIntN(len(groups))
+    for n := 0; n < len(groups); n++ {
+        for s := 0; s < len(ctrl[g]); s++ {
+            c := ctrl[g][s]
+            if c == empty || c == tombstone {
+                continue
+            }
+            del, stop := cb(groups[g].keys[s], groups[g].values[s])
+            if del {
+                m.deleteAt(g, s, ctrl)
+            }
+            if stop {
+                return true
+            }
         }
-        return stop
-    })
+        g++
+        if g >= uint32(len(groups)) {
+            g = 0
+        }
+    }
+    return false
+}
+
+// deleteAt 在已知位置删除, 复用于 DeleteWithHash 和 IterDelete
+func (m *swissMap[K, V]) deleteAt(g uint32, s int, ctrl []metadata) {
+    if metaMatchEmpty(&ctrl[g]) != 0 {
+        ctrl[g][s] = empty
+        m.resident--
+    } else {
+        ctrl[g][s] = tombstone
+        m.dead++
+    }
+    var k K
+    var v V
+    m.groups[g].keys[s] = k
+    m.groups[g].values[s] = v
 }
 
 // capacity returns the number of additional elements
@@ -187,24 +214,7 @@ func (m *swissMap[K, V]) DeleteWithHash(key K, hash uint64) (ok bool) {
             s := nextMatch(&matches)
             if key == m.groups[g].keys[s] {
                 ok = true
-                // optimization: if |m.ctrl[g]| contains any empty
-                // metadata bytes, we can physically delete |key|
-                // rather than placing a tombstone.
-                // The observation is that any probes into group |g|
-                // would already be terminated by the existing empty
-                // slot, and therefore reclaiming slot |s| will not
-                // cause premature termination of probes into |g|.
-                if metaMatchEmpty(&m.ctrl[g]) != 0 {
-                    m.ctrl[g][s] = empty
-                    m.resident--
-                } else {
-                    m.ctrl[g][s] = tombstone
-                    m.dead++
-                }
-                var k K
-                var v V
-                m.groups[g].keys[s] = k
-                m.groups[g].values[s] = v
+                m.deleteAt(g, s, m.ctrl)
                 return
             }
         }

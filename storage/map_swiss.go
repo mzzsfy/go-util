@@ -7,5 +7,5 @@ func MapTypeSwiss[K comparable, V any](size uint32) MakeMap[K, V] {
 }
 
 func MapTypeSwissConcurrent[K comparable, V any]() MakeMap[K, V] {
-    return MapTypeConcurrentWrapper(MapTypeGo[K, V](8))
+    return MapTypeConcurrentGo[K, V]()
 }

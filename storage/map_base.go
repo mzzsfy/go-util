@@ -3,6 +3,7 @@ package storage
 import (
     "github.com/mzzsfy/go-util/unsafe"
     "runtime"
+    "sync"
 )
 
 // nextPowerOfTwo 返回大于等于n的最小2的幂次方
@@ -20,27 +21,27 @@ func nextPowerOfTwo(n int) int {
     return n + 1
 }
 
-var slotNumber, modNumber = func() (int, int) {
-    numCPU := runtime.NumCPU()
-    if numCPU <= 1 {
-        return 1, 1
-    }
-    modNum := nextPowerOfTwo(numCPU)
-    return modNum, modNum
-}()
-var idxFn = func(hash uint64) int {
-    // 使用位运算替代取模,modNumber为2的幂次方
-    return int(hash & uint64(modNumber-1))
+// slotNumber 分片数, slotMask 分片位掩码, slotIdx 通过位运算定位分片
+var (
+    slotNumber = func() int {
+        n := runtime.NumCPU()
+        if n <= 1 {
+            return 1
+        }
+        return nextPowerOfTwo(n)
+    }()
+    slotMask = uint64(slotNumber - 1)
+)
+
+// slotIdx 用位掩码替代取模, 编译器可内联
+func slotIdx(hash uint64) int {
+    return int(hash & slotMask)
 }
 
-func init() {
-    //32位系统,int为4字节,uint64强转int有损失
-    if ^uint(0)>>63 == 0 {
-        idxFn = func(key uint64) int {
-            //高32位和低32位异或,减少hash冲突,使用位运算替代取模
-            return int((key ^ (key >> 32)) & uint64(modNumber-1))
-        }
-    }
+// paddedLock 填充至 cache line 大小(64B), 避免并发场景下相邻锁 false sharing
+type paddedLock struct {
+    sync.RWMutex
+    _ [40]byte // sizeof(sync.RWMutex)=24 + 40 = 64
 }
 
 func NewDefaultHasher[K comparable]() unsafe.Hasher[K] {

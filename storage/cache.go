@@ -30,12 +30,13 @@ func (c *CacheWrap[K, V]) GetOr(key K, def func() V) V {
         return get
     }
     c.lock.Lock()
-    defer c.lock.Unlock()
     if get, b = c.Cache.Get(key); b {
+        c.lock.Unlock()
         return get
     }
     v := def()
     c.Cache.Set(key, v)
+    c.lock.Unlock()
     return v
 }
 

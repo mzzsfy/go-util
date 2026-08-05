@@ -4,58 +4,62 @@ package storage
 
 import (
     "github.com/mzzsfy/go-util/unsafe"
-    "sync"
     _ "unsafe"
 )
 
 type concurrentSwissMap[K comparable, V any] struct {
     shards []*swissMap[K, V]
-    locks  []sync.RWMutex
+    locks  []paddedLock
     hash   unsafe.Hasher[K]
 }
 
 func (m *concurrentSwissMap[K, V]) Get(key K) (V, bool) {
     hash := m.hash.Hash(key)
-    shard := idxFn(hash)
+    shard := slotIdx(hash)
     m.locks[shard].RLock()
-    defer m.locks[shard].RUnlock()
-    return m.shards[shard].GetWithHash(key, hash)
+    v, ok := m.shards[shard].GetWithHash(key, hash)
+    m.locks[shard].RUnlock()
+    return v, ok
 }
 
 func (m *concurrentSwissMap[K, V]) GetSimple(key K) (value V) {
-    value, _ = m.Get(key)
+    hash := m.hash.Hash(key)
+    shard := slotIdx(hash)
+    m.locks[shard].RLock()
+    value = m.shards[shard].GetWithHash(key, hash)
+    m.locks[shard].RUnlock()
     return
 }
 
 func (m *concurrentSwissMap[K, V]) Has(key K) bool {
     hash := m.hash.Hash(key)
-    shard := idxFn(hash)
+    shard := slotIdx(hash)
     m.locks[shard].RLock()
-    defer m.locks[shard].RUnlock()
-    return m.shards[shard].HasWithHash(key, hash)
+    ok := m.shards[shard].HasWithHash(key, hash)
+    m.locks[shard].RUnlock()
+    return ok
 }
 
 func (m *concurrentSwissMap[K, V]) Delete(key K) {
     hash := m.hash.Hash(key)
-    shard := idxFn(hash)
+    shard := slotIdx(hash)
     m.locks[shard].Lock()
-    defer m.locks[shard].Unlock()
     m.shards[shard].DeleteWithHash(key, hash)
+    m.locks[shard].Unlock()
 }
 
 func (m *concurrentSwissMap[K, V]) Put(key K, value V) {
     hash := m.hash.Hash(key)
-    shard := idxFn(hash)
+    shard := slotIdx(hash)
     m.locks[shard].Lock()
-    defer m.locks[shard].Unlock()
     m.shards[shard].PutWithHash(key, value, hash)
+    m.locks[shard].Unlock()
 }
+
 func (m *concurrentSwissMap[K, V]) Clean() {
     for i := 0; i < slotNumber; i++ {
         m.locks[i].Lock()
-        if m.shards[i] != nil {
-            m.shards[i].Clean()
-        }
+        m.shards[i].Clean()
         m.locks[i].Unlock()
     }
 }
@@ -64,9 +68,7 @@ func (m *concurrentSwissMap[K, V]) Count() int {
     var count int
     for i := 0; i < slotNumber; i++ {
         m.locks[i].RLock()
-        if m.shards[i] != nil {
-            count += m.shards[i].Count()
-        }
+        count += m.shards[i].Count()
         m.locks[i].RUnlock()
     }
     return count
@@ -75,28 +77,31 @@ func (m *concurrentSwissMap[K, V]) Count() int {
 func (m *concurrentSwissMap[K, V]) Iter(cb func(k K, v V) (stop bool)) bool {
     for i := 0; i < slotNumber; i++ {
         m.locks[i].RLock()
-        if m.shards[i] == nil {
+        if m.shards[i].Iter(cb) {
             m.locks[i].RUnlock()
-            continue
-        }
-        if func() bool {
-            defer m.locks[i].RUnlock()
-            return m.shards[i].Iter(cb)
-        }() {
             return true
         }
+        m.locks[i].RUnlock()
     }
     return false
 }
 
 func (m *concurrentSwissMap[K, V]) IterDelete(cb func(k K, v V) (del bool, stop bool)) bool {
-    return IterDelete[K, V](m, cb)
+    for i := 0; i < slotNumber; i++ {
+        m.locks[i].Lock()
+        if m.shards[i].IterDelete(cb) {
+            m.locks[i].Unlock()
+            return true
+        }
+        m.locks[i].Unlock()
+    }
+    return false
 }
 
 func makeSwissConcurrentMap[K comparable, V any]() *concurrentSwissMap[K, V] {
     c := &concurrentSwissMap[K, V]{
         shards: make([]*swissMap[K, V], slotNumber),
-        locks:  make([]sync.RWMutex, slotNumber),
+        locks:  make([]paddedLock, slotNumber),
         hash:   NewDefaultHasher[K](),
     }
     for i := range c.shards {

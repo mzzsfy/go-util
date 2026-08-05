@@ -60,6 +60,8 @@ m.Put(key, i)
 | `MapTypeArray[K, V](size int)` | 基于数组的线性扫描 map,适合小数据量(低于约50个元素),空间利用率高 |
 | `MapTypeSwiss[K, V](size uint32)` | swiss table(go1.24+ 退化为 `MapTypeGo`) |
 | `MapTypeSwissConcurrent[K, V]()` | 内置分片并发 swiss map(go1.24+ 退化为分片 go map) |
+| `MapTypeConcurrentGo[K, V]()` | 直接操作 `[]map[K]V` 的分片并发 map,消除接口派发开销(go1.24+ `MapTypeSwissConcurrent` 内部使用) |
+| `MapTypeConcurrentGoWithCap[K, V](cap int)` | 指定预期总容量的并发 map,预分配分片避免增长分配 |
 | `MapTypeConcurrentWrapper[K, V](m MakeMap[K, V])` | 对任意底层 map 做分片并发包装,分片数随 CPU 核数自适应 |
 | `MapTypeConcurrentLockWrapper[K, V](m MakeMap[K, V])` | 对任意底层 map 做轻量 `sync.RWMutex` 整体加锁包装 |
 

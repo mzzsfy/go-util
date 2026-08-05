@@ -1,7 +1,6 @@
 package storage
 
 import (
-    "github.com/mzzsfy/go-util/concurrent"
     "github.com/mzzsfy/go-util/unsafe"
     "math"
     "runtime"
@@ -17,10 +16,11 @@ var GoID = unsafe.GoID
 var (
     knowHowToUseGls = false
 
-    glsMap = NewMap(MapTypeSwissConcurrent[int64, Map[uint64, any]]())
+    glsMap sync.Map // int64 -> Map[uint64, any]
 
-    glsLock   concurrent.RwLocker = concurrent.NoLock{}
-    checkLock concurrent.RwLocker = &sync.RWMutex{}
+    glsEntryCount int64 // glsMap 中的活跃条目数, 原子维护, 替代 Range 计数
+
+    checkLock sync.RWMutex
 
     glsSubMapPool = sync.Pool{New: func() any { return NewMap(MapTypeArray[uint64, any](2)) }}
 )
@@ -50,21 +50,30 @@ type Key[T any] interface {
     Delete(autoClean ...bool)
 }
 
-func getSubMap(goid int64, init bool) Map[uint64, any] {
-    glsLock.RLock()
-    m, ok := glsMap.Get(goid)
-    glsLock.RUnlock()
+// getSubMap 快速读路径, 可被编译器内联
+func getSubMap(goid int64) Map[uint64, any] {
+    v, ok := glsMap.Load(goid)
     if !ok {
-        if init {
-            m = glsSubMapPool.Get().(Map[uint64, any])
-            glsLock.Lock()
-            glsMap.Put(goid, m)
-            glsLock.Unlock()
-        } else {
-            return nil
-        }
+        return nil
     }
-    return m
+    return v.(Map[uint64, any])
+}
+
+// getOrInitSubMap 读路径未命中时创建子表, 仅首次访问每 goroutine 触发
+func getOrInitSubMap(goid int64) Map[uint64, any] {
+    if m := getSubMap(goid); m != nil {
+        return m
+    }
+    m := glsSubMapPool.Get().(Map[uint64, any])
+    actual, loaded := glsMap.LoadOrStore(goid, m)
+    if !loaded {
+        atomic.AddInt64(&glsEntryCount, 1)
+    }
+    am := actual.(Map[uint64, any])
+    if am != m {
+        glsSubMapPool.Put(m)
+    }
+    return am
 }
 
 type KeySimple[T any] uint64
@@ -74,7 +83,7 @@ func (k KeySimple[T]) Get() (value T, exist bool) {
 }
 
 func (k KeySimple[T]) GetById(goid int64) (value T, exist bool) {
-    m := getSubMap(goid, false)
+    m := getSubMap(goid)
     if m == nil {
         return
     }
@@ -96,14 +105,14 @@ func (k KeySimple[T]) Set(value T) {
         panic("call `KnowHowToUseGls()` after you know how to use it! (You must call Clean() after code)")
     }
     id := GoID()
-    m := getSubMap(id, true)
+    m := getOrInitSubMap(id)
     m.Put(uint64(k), any(value))
     check()
 }
 
 func (k KeySimple[T]) Delete(c ...bool) {
     id := GoID()
-    m := getSubMap(id, false)
+    m := getSubMap(id)
     if m != nil {
         m.Delete(uint64(k))
         if len(c) > 0 && c[0] && m.Count() == 0 {
@@ -122,15 +131,14 @@ func (k *KeyFn[T]) Get() (value T, exist bool) {
 }
 
 func (k *KeyFn[T]) GetById(goid int64) (value T, exist bool) {
-    exist = true
-    m := getSubMap(goid, true)
+    m := getOrInitSubMap(goid)
     get, o := m.Get(k.key)
     if o {
-        value = get.(T)
+        return get.(T), true
     }
-    get = k.fn()
-    m.Put(k.key, get)
-    return
+    value = k.fn()
+    m.Put(k.key, any(value))
+    return value, true
 }
 
 func (k *KeyFn[T]) Set(t T) {
@@ -145,14 +153,12 @@ func KnowHowToUseGls() {
     knowHowToUseGls = true
 }
 func GlsCleanWithId(goid int64) {
-    m := getSubMap(goid, false)
-    if m == nil {
+    v, loaded := glsMap.LoadAndDelete(goid)
+    if !loaded {
         return
     }
-    glsLock.Lock()
-    glsMap.Delete(goid)
-    glsLock.Unlock()
-
+    atomic.AddInt64(&glsEntryCount, -1)
+    m := v.(Map[uint64, any])
     m.Clean()
     glsSubMapPool.Put(m)
 }
@@ -187,41 +193,45 @@ func NewGlsItemWithDefault[T any](defaultValue T) Key[T] {
     return NewGlsItemWithFunc(func() T { return defaultValue })
 }
 
-var testI = 0
-var testInterval = 10
+// 泄漏检查间隔, 概率性触发: 每次 Set 以 1/checkInterval 的概率执行检查
+var checkInterval int64 = 10
 
 //检查gls是否泄露,每次检查都会增加检查间隔,直到检查间隔大于1000000,所以对性能几乎没影响
 func check() {
-    testI++
-    if testI >= testInterval {
-        if runtime.NumGoroutine() < glsMap.Count() {
+    interval := atomic.LoadInt64(&checkInterval)
+    if fastrand()%uint32(interval) != 0 {
+        return
+    }
+    glsN := int(atomic.LoadInt64(&glsEntryCount))
+    if runtime.NumGoroutine() < glsN {
+        runtime.Gosched()
+        cpuAddNum := runtime.NumCPU() + 32
+        glsN = int(atomic.LoadInt64(&glsEntryCount))
+        if runtime.NumGoroutine()+cpuAddNum < glsN {
+            runtime.GC()
             runtime.Gosched()
-            cpuAddNum := runtime.NumCPU() + 32
-            if runtime.NumGoroutine()+cpuAddNum < glsMap.Count() {
-                runtime.GC()
-                runtime.Gosched()
-                checkLock.Lock()
-                defer checkLock.Unlock()
-                runtime.GC()
-                numGoroutine := runtime.NumGoroutine()
-                if numGoroutine+cpuAddNum < glsMap.Count() {
-                    var ids []int64
-                    glsMap.Iter(func(k int64, v Map[uint64, any]) (stop bool) {
-                        ids = append(ids, k)
-                        return false
-                    })
-                    panic(GlsError{
-                        NumGoroutine: numGoroutine,
-                        GlsGoIds:     ids,
-                    })
-                }
+            checkLock.Lock()
+            runtime.GC()
+            numGoroutine := runtime.NumGoroutine()
+            glsN = int(atomic.LoadInt64(&glsEntryCount))
+            if numGoroutine+cpuAddNum < glsN {
+                var ids []int64
+                glsMap.Range(func(k, _ any) bool {
+                    ids = append(ids, k.(int64))
+                    return false
+                })
+                checkLock.Unlock()
+                panic(GlsError{
+                    NumGoroutine: numGoroutine,
+                    GlsGoIds:     ids,
+                })
             }
+            checkLock.Unlock()
         }
-        testI = 0
-        if testInterval > 1_000_000 {
-            testInterval = 1_000_001
-        } else {
-            testInterval = int(float32(testInterval) * 1.5)
-        }
+    }
+    if interval > 1_000_000 {
+        atomic.StoreInt64(&checkInterval, 1_000_001)
+    } else {
+        atomic.StoreInt64(&checkInterval, interval+interval/2)
     }
 }

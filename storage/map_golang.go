@@ -38,11 +38,12 @@ func (g *goMap[K, V]) Iter(cb func(k K, v V) (stop bool)) bool {
 
 func (g *goMap[K, V]) IterDelete(cb func(k K, v V) (del bool, stop bool)) bool {
     for k, v := range g.m {
-        if del, stop := cb(k, v); del {
+        del, stop := cb(k, v)
+        if del {
             delete(g.m, k)
-            if stop {
-                return true
-            }
+        }
+        if stop {
+            return true
         }
     }
     return false

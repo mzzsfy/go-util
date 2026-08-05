@@ -12,52 +12,67 @@ type rwWrapper[K comparable, V any] struct {
 
 func (m *rwWrapper[K, V]) Get(key K) (V, bool) {
     m.lock.RLock()
-    defer m.lock.RUnlock()
-    return m.m.Get(key)
+    v, ok := m.m.Get(key)
+    m.lock.RUnlock()
+    return v, ok
 }
 
 func (m *rwWrapper[K, V]) GetSimple(key K) (value V) {
-    value, _ = m.Get(key)
+    m.lock.RLock()
+    value = m.m.GetSimple(key)
+    m.lock.RUnlock()
     return
 }
 
 func (m *rwWrapper[K, V]) Has(key K) bool {
     m.lock.RLock()
-    defer m.lock.RUnlock()
-    return m.m.Has(key)
+    ok := m.m.Has(key)
+    m.lock.RUnlock()
+    return ok
 }
 
 func (m *rwWrapper[K, V]) Delete(key K) {
     m.lock.Lock()
-    defer m.lock.Unlock()
     m.m.Delete(key)
+    m.lock.Unlock()
 }
 
 func (m *rwWrapper[K, V]) Put(key K, value V) {
     m.lock.Lock()
-    defer m.lock.Unlock()
     m.m.Put(key, value)
+    m.lock.Unlock()
 }
+
 func (m *rwWrapper[K, V]) Clean() {
     m.lock.Lock()
-    defer m.lock.Unlock()
     m.m.Clean()
+    m.lock.Unlock()
 }
 
 func (m *rwWrapper[K, V]) Count() int {
     m.lock.RLock()
-    defer m.lock.RUnlock()
-    return m.m.Count()
+    n := m.m.Count()
+    m.lock.RUnlock()
+    return n
 }
 
 func (m *rwWrapper[K, V]) Iter(cb func(k K, v V) (stop bool)) bool {
     m.lock.RLock()
-    defer m.lock.RUnlock()
-    return m.m.Iter(cb)
+    r := m.m.Iter(cb)
+    m.lock.RUnlock()
+    return r
 }
 
 func (m *rwWrapper[K, V]) IterDelete(cb func(k K, v V) (del bool, stop bool)) bool {
-    return IterDelete[K, V](m, cb)
+    m.lock.Lock()
+    if idm, ok := m.m.(IterDeleteMap[K, V]); ok {
+        r := idm.IterDelete(cb)
+        m.lock.Unlock()
+        return r
+    }
+    r := IterDelete[K, V](m.m, cb)
+    m.lock.Unlock()
+    return r
 }
 
 // MapTypeConcurrentLockWrapper 轻量级的并发包装

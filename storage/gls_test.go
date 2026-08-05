@@ -2,13 +2,21 @@ package storage
 
 import (
     "fmt"
-    "github.com/mzzsfy/go-util/concurrent"
     "github.com/mzzsfy/go-util/helper"
     "runtime"
     "strconv"
     "sync"
+    "sync/atomic"
     "testing"
 )
+
+func clearGlsMap() {
+    glsMap.Range(func(k, _ any) bool {
+        glsMap.Delete(k)
+        return true
+    })
+    atomic.StoreInt64(&glsEntryCount, 0)
+}
 
 func TestMain(m *testing.M) {
     KnowHowToUseGls()
@@ -119,7 +127,7 @@ func TestGet2(t *testing.T) {
 
 func Test_check(t *testing.T) {
     defer func() {
-        defer glsMap.Clean()
+        defer clearGlsMap()
         r := recover()
         if r == nil {
             t.Errorf("check should panic")
@@ -248,9 +256,9 @@ func BenchmarkGls(b *testing.B) {
 
 func BenchmarkGlsSubMapType(b *testing.B) {
     b.Cleanup(func() {
-        glsMap.Clean()
+        clearGlsMap()
         keyIdGen = 10000
-        glsSubMapPool = sync.Pool{New: func() any { return NewMap(MapTypeArray[uint32, any](2)) }}
+        glsSubMapPool = sync.Pool{New: func() any { return NewMap(MapTypeArray[uint64, any](2)) }}
     })
     goNum := 1000
     for _, l := range []int{5, 15, 50} {
@@ -269,11 +277,11 @@ func BenchmarkGlsSubMapType(b *testing.B) {
                 b.SetParallelism(goNum)
                 switch i {
                 case 1:
-                    glsSubMapPool = sync.Pool{New: func() any { return NewMap(MapTypeGo[uint32, any](1)) }}
+                    glsSubMapPool = sync.Pool{New: func() any { return NewMap(MapTypeGo[uint64, any](1)) }}
                 case 2:
-                    glsSubMapPool = sync.Pool{New: func() any { return NewMap(MapTypeSwiss[uint32, any](1)) }}
+                    glsSubMapPool = sync.Pool{New: func() any { return NewMap(MapTypeSwiss[uint64, any](1)) }}
                 default:
-                    glsSubMapPool = sync.Pool{New: func() any { return NewMap(MapTypeArray[uint32, any](1)) }}
+                    glsSubMapPool = sync.Pool{New: func() any { return NewMap(MapTypeArray[uint64, any](1)) }}
                 }
                 value := 1
                 value1 := 2
@@ -302,67 +310,5 @@ func BenchmarkGlsSubMapType(b *testing.B) {
                 })
             })
         }
-    }
-}
-
-func BenchmarkGlsLock(b *testing.B) {
-    b.Cleanup(func() {
-        glsMap.Clean()
-        glsLock = &sync.RWMutex{}
-        glsMap = NewMap(MapTypeSwiss[int64, Map[uint64, any]](1))
-        keyIdGen = 10000
-    })
-    goNum := 1000
-    l := 5
-    for i := 1; i <= 3; i++ {
-        i := i
-        name := ""
-        switch i {
-        case 1:
-            name = "RWMutex"
-        case 2:
-            name = "CasRwLock"
-        default:
-            name = "ConcurrentMap"
-        }
-        b.Run("BenchmarkGlsSubMapType_"+name, func(b *testing.B) {
-            b.SetParallelism(goNum)
-            switch i {
-            case 1:
-                glsLock = &sync.RWMutex{}
-                glsMap = NewMap(MapTypeSwiss[int64, Map[uint64, any]](1))
-            case 2:
-                glsLock = &concurrent.CasRwLocker{}
-                glsMap = NewMap(MapTypeSwiss[int64, Map[uint64, any]](1))
-            default:
-                glsLock = concurrent.NoLock{}
-                glsMap = NewMap(MapTypeSwissConcurrent[int64, Map[uint64, any]]())
-            }
-            value := 1
-            value1 := 2
-            fmt.Sprint(value, value1)
-            b.RunParallel(func(pb *testing.PB) {
-                defer GlsClean()
-                var items []Key[int]
-                for i := 1; i <= l; i++ {
-                    items = append(items, NewGlsItem[int]())
-                }
-                x := l * 10
-                l1 := l
-                for pb.Next() {
-                    for i := 0; i < x; i++ {
-                        items[(i+0)%l1].Set(value)
-                        items[(i+1)%l1].Get()
-                        items[(i+2)%l1].Delete()
-                        items[(i+3)%l1].Get()
-                        items[(i+4)%l1].Set(value1)
-                        items[(i+5)%l1].Get()
-                        items[(i+1)%l1].Set(value)
-                        items[(i+6)%l1].Delete()
-                        runtime.Gosched()
-                    }
-                }
-            })
-        })
     }
 }
