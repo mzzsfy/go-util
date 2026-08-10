@@ -48,6 +48,12 @@ func newEvent(l *Logger, lv Level) *Event {
 		e.fmt = loadDefaultFormatter()
 	}
 	e.fmt.Begin(&e.buf, lv, l.name, l.context)
+	// hook: Begin之后执行, 追加内容在name后、消息前
+	if atomic.LoadInt32(&hasHooks) != 0 {
+		for _, h := range hooksVa.Load().([]Hook) {
+			h(e)
+		}
+	}
 	// caller: 单次读 callerConfig, 提取 enabled + skip + funcFlag
 	cc := atomic.LoadInt32(&callerConfig)
 	if cc&callerEnabledBit != 0 {
@@ -246,13 +252,8 @@ var asyncBufPool = sync.Pool{
 }
 
 // flush 写入输出并归还 Event
-// 顺序: hook → fmt.End(caller+换行) → write → release
+// 顺序: fmt.End(caller+换行) → write → release
 func (e *Event) flush() {
-	if atomic.LoadInt32(&hasHooks) != 0 {
-		for _, h := range hooksVa.Load().([]Hook) {
-			h(e)
-		}
-	}
 	e.fmt.End(&e.buf, e.caller, e.callerFn)
 
 	if e.lg.isAsync {

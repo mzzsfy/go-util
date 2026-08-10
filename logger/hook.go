@@ -6,8 +6,9 @@ import (
 	"sync/atomic"
 )
 
-// Hook 日志行钩子, 在写入输出前调用
+// Hook 日志行钩子, 在 Formatter.Begin 之后、链式字段和消息之前调用
 // 可通过 Event 的 AppendString / AppendBytes 追加内容到缓冲区
+// 追加内容出现在 name 之后、消息之前
 type Hook func(e *Event)
 
 // maxHooks 最大 hook 数量, 防止每次日志调用开销线性增长
