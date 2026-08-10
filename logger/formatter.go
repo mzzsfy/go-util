@@ -83,19 +83,17 @@ func (f ConsoleFormatter) nw() int {
 func (f ConsoleFormatter) Begin(buf *[]byte, lv Level, name string, context string) {
 	*buf = appendTime(*buf)
 	nw := f.nw()
-	if len(name) >= nw {
-		*buf = append(*buf, '[')
-		*buf = append(*buf, name...)
-		*buf = append(*buf, ']')
+	*buf = append(*buf, '[')
+	if len(name) > nw {
+		// 超长截断
+		*buf = append(*buf, name[:nw]...)
 	} else {
-		*buf = append(*buf, '[')
 		for i := len(name); i < nw; i++ {
 			*buf = append(*buf, ' ')
 		}
 		*buf = append(*buf, name...)
-		*buf = append(*buf, ']')
 	}
-	*buf = append(*buf, lv.tag(), ':')
+	*buf = append(*buf, ']')
 	if len(context) > 0 {
 		*buf = append(*buf, ' ')
 		*buf = append(*buf, context...)

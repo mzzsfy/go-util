@@ -31,9 +31,6 @@ func Test_Event_BasicOutput(t *testing.T) {
 	if !strings.Contains(out, "hello") {
 		t.Fatalf("missing message: %q", out)
 	}
-	if !strings.Contains(out, "]I:") {
-		t.Fatalf("missing level tag: %q", out)
-	}
 	if !strings.HasSuffix(out, "\n") {
 		t.Fatalf("missing newline: %q", out)
 	}
@@ -230,18 +227,6 @@ func Test_Level_StringAndFromString(t *testing.T) {
 	}
 	if FromString("unknown") != InfoLevel {
 		t.Error("unknown should return InfoLevel")
-	}
-}
-
-func Test_Level_Tag(t *testing.T) {
-	tags := map[Level]byte{
-		TraceLevel: 'T', DebugLevel: 'D', InfoLevel: 'I',
-		WarnLevel: 'W', ErrorLevel: 'E', FatalLevel: 'F',
-	}
-	for lv, want := range tags {
-		if lv.tag() != want {
-			t.Errorf("%v.tag() = %c, want %c", lv, lv.tag(), want)
-		}
 	}
 }
 

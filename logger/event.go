@@ -41,8 +41,12 @@ func newEvent(l *Logger, lv Level) *Event {
 	e.level = lv
 	e.enabled = true
 	e.buf = e.buf[:0]
-	e.fmt = l.fmt
 	e.ctx = l.ctx
+	if l.fmt != nil {
+		e.fmt = l.fmt
+	} else {
+		e.fmt = loadDefaultFormatter()
+	}
 	e.fmt.Begin(&e.buf, lv, l.name, l.context)
 	// caller: 单次读 callerConfig, 提取 enabled + skip + funcFlag
 	cc := atomic.LoadInt32(&callerConfig)

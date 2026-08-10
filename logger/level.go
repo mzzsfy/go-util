@@ -15,19 +15,8 @@ const (
 // LevelUnset 哨兵值: 清除本地级别设置, 继承父级
 const LevelUnset Level = -1
 
-// levelShort 单字符标识, 索引对应 Level
-var levelShort = [6]byte{'T', 'D', 'I', 'W', 'E', 'F'}
-
 // levelName 全名, 索引对应 Level
 var levelName = [6]string{"Trace", "Debug", "Info", "Warn", "Error", "Fatal"}
-
-// tag 返回级别的单字符标识
-func (l Level) tag() byte {
-	if l >= 0 && int(l) < len(levelShort) {
-		return levelShort[l]
-	}
-	return 'I'
-}
 
 // String 返回级别全名
 func (l Level) String() string {

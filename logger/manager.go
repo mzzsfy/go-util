@@ -69,7 +69,6 @@ func createNamedLocked(name string) *Logger {
 			localLv:  levelInherit,
 			resolved: resolved,
 			gen:      atomic.LoadInt32(&globalGen),
-			fmt:      loadDefaultFormatter(),
 		}
 		if _, ok := registry[fullname].writer.(asyncWriter); ok {
 			registry[fullname].isAsync = true

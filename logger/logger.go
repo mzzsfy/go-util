@@ -23,7 +23,7 @@ type Logger struct {
     resolved int32           // atomic, 缓存的有效级别
     gen      int32           // atomic, 上次 resolved 更新时的 generation
     isAsync  bool            // writer 是否实现 asyncWriter, flush 中避免 type assertion
-    fmt      Formatter       // 编码器, 从全局快照
+    fmt      Formatter       // nil=使用全局Formatter, WithFormatter 设置
     ctx      context.Context // 请求级上下文, WithContext 注入, 默认 nil 无开销
 }
 
@@ -68,7 +68,6 @@ func New(name string, opts ...Option) *Logger {
         localLv:  lv,
         resolved: lv,
         gen:      g,
-        fmt:      loadDefaultFormatter(),
     }
     for _, opt := range opts {
         opt(l)
@@ -175,7 +174,11 @@ func newWithEvent(l *Logger) *Event {
     e.lg = l
     e.enabled = true
     e.buf = e.buf[:0]
-    e.fmt = l.fmt
+    if l.fmt != nil {
+        e.fmt = l.fmt
+    } else {
+        e.fmt = loadDefaultFormatter()
+    }
     if len(l.context) > 0 {
         e.buf = append(e.buf, l.context...)
     }
