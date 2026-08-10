@@ -17,14 +17,14 @@ const levelInherit int32 = -1
 type Logger struct {
     name     string
     writer   io.Writer
-    context  string    // 预编码字段前缀 "k=v k2=v2 ", 空=无
-    parent   *Logger   // 命名继承链, nil=独立
-    localLv  int32     // 本地级别, levelInherit=继承
-    resolved int32     // atomic, 缓存的有效级别
-    gen      int32     // atomic, 上次 resolved 更新时的 generation
-    isAsync  bool             // writer 是否实现 asyncWriter, flush 中避免 type assertion
-    fmt      Formatter        // 编码器, 从全局快照
-    ctx      context.Context  // 请求级上下文, WithContext 注入, 默认 nil 无开销
+    context  string          // 预编码字段前缀 "k=v k2=v2 ", 空=无
+    parent   *Logger         // 命名继承链, nil=独立
+    localLv  int32           // 本地级别, levelInherit=继承
+    resolved int32           // atomic, 缓存的有效级别
+    gen      int32           // atomic, 上次 resolved 更新时的 generation
+    isAsync  bool            // writer 是否实现 asyncWriter, flush 中避免 type assertion
+    fmt      Formatter       // 编码器, 从全局快照
+    ctx      context.Context // 请求级上下文, WithContext 注入, 默认 nil 无开销
 }
 
 // Option Logger 配置选项
@@ -213,6 +213,12 @@ func (l *Logger) I(msg string, args ...any) *Logger {
     return l
 }
 
+// W 便捷Warn日志, msg支持{}占位符, 性能版用 Warn().Str().Msg()
+func (l *Logger) W(msg string, args ...any) *Logger {
+    emitFormat(l, WarnLevel, msg, args)
+    return l
+}
+
 // E 便捷Error日志, msg支持{}占位符, 性能版用 Error().Str().Msg()
 func (l *Logger) E(msg string, args ...any) *Logger {
     emitFormat(l, ErrorLevel, msg, args)
@@ -240,6 +246,15 @@ func (l *Logger) IF(msg string, f func() []any) *Logger {
         return l
     }
     emitFormat(l, InfoLevel, msg, f())
+    return l
+}
+
+// WF 延迟参数Warn日志, f返回占位符参数, 级别不够时f不会被调用
+func (l *Logger) WF(msg string, f func() []any) *Logger {
+    if !l.Enabled(WarnLevel) {
+        return l
+    }
+    emitFormat(l, WarnLevel, msg, f())
     return l
 }
 
