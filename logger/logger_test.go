@@ -714,20 +714,20 @@ func Test_Hook_RemoveAndClean(t *testing.T) {
 
 	marker := func(e *Event) { e.AppendString(" [m]") }
 	AddHook(marker)
-	if atomic.LoadInt32(&hasHooks) != 1 {
-		t.Fatal("hasHooks should be 1")
+	if atomic.LoadInt32(&preHooks.has) != 1 {
+		t.Fatal("preHooks.has should be 1")
 	}
 
 	RemoveHook(marker)
-	if atomic.LoadInt32(&hasHooks) != 0 {
-		t.Fatal("hasHooks should be 0 after remove")
+	if atomic.LoadInt32(&preHooks.has) != 0 {
+		t.Fatal("preHooks.has should be 0 after remove")
 	}
 
 	AddHook(func(e *Event) {})
 	AddHook(func(e *Event) {})
 	CleanHooks()
-	if atomic.LoadInt32(&hasHooks) != 0 {
-		t.Fatal("hasHooks should be 0 after clean")
+	if atomic.LoadInt32(&preHooks.has) != 0 {
+		t.Fatal("preHooks.has should be 0 after clean")
 	}
 }
 
