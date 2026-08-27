@@ -195,9 +195,3 @@ func (t BiSeq[K, V]) JoinStringBy(f func(K, V) string, delimiter ...string) stri
     })
     return sb.String()
 }
-
-// Reduce 求值
-func (t BiSeq[K, V]) Reduce(f func(K, V, any) any, init any) any {
-    t(func(k K, v V) { init = f(k, v, init) })
-    return init
-}

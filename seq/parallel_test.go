@@ -9,7 +9,7 @@ import (
 const allSleepDuration = time.Millisecond * 500
 
 func Test_Parallel(t *testing.T) {
-    preTest(t)
+    t.Parallel()
     FromIntSeq(1).Take(1).ForEach(func(x int) {
         now := time.Now()
         FromIntSeq().Take(5).Parallel().OnLast(func(i *int) {

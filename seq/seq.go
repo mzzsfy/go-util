@@ -187,47 +187,6 @@ func FromTreeAnyTV[V any](o any, getChild func(any) Seq[any], getValue func(any)
     }
 }
 
-// CastAny 从any类型的Seq转换为T类型的Seq,强制转换
-func CastAny[T any](seq Seq[any]) Seq[T] {
-    return func(c func(T)) { seq(func(t any) { c((t).(T)) }) }
-}
-
-// CastAnyT 从any类型的Seq转换为T类型的Seq,强制转换,简便写法
-func CastAnyT[T any](seq Seq[any], _ T) Seq[T] {
-    return func(c func(T)) { seq(func(t any) { c((t).(T)) }) }
-}
-
-// Map 每个元素自定义转换
-func Map[E, T any](seq Seq[T], cast func(T) E) Seq[E] {
-    return func(c func(E)) { seq(func(t T) { c(cast(t)) }) }
-}
-
-// Join 合并多个Seq
-func Join[T any](seqs ...Seq[T]) Seq[T] {
-    return func(c func(T)) {
-        defer stopRecover()
-        for _, seq := range seqs {
-            seq(func(t T) { c(t) })
-        }
-    }
-}
-
-// JoinL 合并2个不同Seq,右边转换为左边的类型
-func JoinL[T, E any](seq1 Seq[T], seq2 Seq[E], cast func(E) T) Seq[T] {
-    return func(c func(T)) {
-        seq1(func(t T) { c(t) })
-        seq2(func(t E) { c(cast(t)) })
-    }
-}
-
-// JoinBy 合并2个不同Seq,统一转换为新类型
-func JoinBy[T, E, R any](seq1 Seq[T], cast1 func(T) R, seq2 Seq[E], cast2 func(E) R) Seq[R] {
-    return func(c func(R)) {
-        seq1(func(t T) { c(cast1(t)) })
-        seq2(func(t E) { c(cast2(t)) })
-    }
-}
-
 // stopRecover 捕获Stop panic,用于所有调用消费者回调的生产者函数
 func stopRecover() {
     if a := recover(); a != nil && a != &Stop {

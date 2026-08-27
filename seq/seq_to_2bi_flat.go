@@ -1,3 +1,5 @@
+//go:build !go1.27
+
 package seq
 
 //========转换为 BiSeq ================

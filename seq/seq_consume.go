@@ -92,69 +92,31 @@ func (t Seq[T]) LastOrF(d func() T) T {
 
 // AnyMatch 任意匹配
 func (t Seq[T]) AnyMatch(f func(T) bool) bool {
-	r := false
-	t(func(e T) {
-		if f(e) {
-			r = true
-			panic(&Stop)
-		}
-	})
-	return r
-}
-
-// AllMatch 全部匹配
-func (t Seq[T]) AllMatch(f func(T) bool) bool {
-	r := true
-	t(func(e T) {
-		if !f(e) {
-			r = false
-			panic(&Stop)
-		}
-	})
-	return r
-}
-
-// NonMatch 全部不匹配
-func (t Seq[T]) NonMatch(f func(T) bool) bool {
-    return !t.AnyMatch(f)
-}
-
-// GroupBy 元素分组,每个组保留所有元素
-func (t Seq[T]) GroupBy(f func(T) any) map[any][]T {
-    r := make(map[any][]T)
-    t(func(t T) {
-        k := f(t)
-        r[k] = append(r[k], t)
-    })
-    return r
-}
-
-// GroupByFirst 元素分组,每个组只保留第一个元素
-func (t Seq[T]) GroupByFirst(f func(T) any) map[any]T {
-    r := make(map[any]T)
-    t(func(t T) {
-        k := f(t)
-        if _, ok := r[k]; !ok {
-            r[k] = t
+    r := false
+    t(func(e T) {
+        if f(e) {
+            r = true
+            panic(&Stop)
         }
     })
     return r
 }
 
-// GroupByLast 元素分组,每个组只保留最后一个元素
-func (t Seq[T]) GroupByLast(f func(T) any) map[any]T {
-    r := make(map[any]T)
-    t(func(t T) {
-        k := f(t)
-        r[k] = t
+// AllMatch 全部匹配
+func (t Seq[T]) AllMatch(f func(T) bool) bool {
+    r := true
+    t(func(e T) {
+        if !f(e) {
+            r = false
+            panic(&Stop)
+        }
     })
     return r
 }
 
-// Reduce 自定义聚合
-func (t Seq[T]) Reduce(f func(T, any) any, init any) any {
-    t(func(t T) { init = f(t, init) })
-    return init
+// NonMatch 全部不匹配
+func (t Seq[T]) NonMatch(f func(T) bool) bool {
+    return !t.AnyMatch(f)
 }
 
 // ToSlice 转换为切片
@@ -213,7 +175,8 @@ func (t Seq[T]) JoinStringBy(f func(T) string, delimiter ...string) string {
     if len(delimiter) > 0 {
         d = delimiter[0]
     }
-    t.MapString(f).ForEach(func(s string) {
+    t(func(t T) {
+        s := f(t)
         if d != "" && sb.Len() > 0 {
             sb.WriteString(d)
         }

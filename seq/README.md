@@ -2,6 +2,9 @@
 
 一个高性能的golang的泛型链式调用库,实现了类似java stream逻辑,不依赖chan和goroutine,支持任意类型的链式调用,支持并行化(可限制并行数量),排序等
 
+> **版本要求**: Go 1.27+ 使用下述泛型方法 API (Map/GroupBy/Cast 等为强类型方法);Go 1.18~1.26 构建时自动回退到旧版 any
+> 形态函数 (`*_pre127.go`),功能对应但类型信息丢失,如 `CastAny`/`MapString` 等。
+
 ```go
 // print 0,1,2,3,4,5,6,7,8,9
 FromIntSeq().Take(10).ForEach(func(i int) {
@@ -25,27 +28,25 @@ FromSlice([]int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}).Sort(func(i, j int) bool {
 }).JoinString(strconv.Itoa,",")
 
 
-// 远端下载多个文件,限制并发,限制顺序, 测试代码在 seq_demo_download_test.go
-BiCastAnyT(FromSlice(urls).MapBiSerialNumber(1).OnEach(func(i int, s string) {
+// 远端下载多个文件,限制并发,限制顺序 (go1.27 泛型方法版本)
+FromSlice(urls).Enumerate(1).OnEach(func(i int, s string) {
     fmt.Printf("开始下载第%d个文件:%s\n", i, s)
-}).MapVParallel(func(id int, s string) any {
-    //下载文件,返回[]byte
+}).
+MapVParallel(func(id int, s string) []byte {
+    //下载文件
     return DownloadFile(s)
 },
-//设置为按照顺序下载 1弱排序 2强排序
+//按照顺序消费 2 强排序
 2,
 //并发数
 thread).
-//强制转换
-Map(AnyBiTK[int]), 0, []byte{}).
-//写入下载文件名称
-.OnBefore(1, func(_ i, _ []byte) {
+OnBefore(1, func(i int, v []byte) {
     name := string(FromSlice(fileName).Take(40).ToSlice())
     writer.Header().Set("Content-Type", "text/plain")
     writer.Header().Set("Content-Disposition", `attachment; filename="`+time.Now().Format("02_15:04:05")+"_"+name+`.merge.txt"`)
 }).
 OnLast(func(i *int, i2 *[]byte) {
-    fmt.Printf("第%d个文件已写入\n", i)
+    fmt.Printf("第%d个文件已写入\n", *i)
 }).
 ForEach(func(i int, bytes []byte) {
     writer.Write(bytes)
@@ -97,12 +98,13 @@ interface Seq[T]{
     Skip(n int) Seq[T]
     Distinct(equals func(T, T) bool) Seq[T]
     DistinctCustomize(contains func(T) bool) Seq[T]
-    MapParallel(syncFn func(T) any, order ...int) Seq[any]
-    MapParallelCustomize(asyncFn func(T, func(any))) Seq[any]
-    Map(f func(T) any) Seq[any]
-    MapString(f func(T) string) Seq[string]
-    MapInt(f func(T) int) Seq[int]
-    MapFlat(f func(T) Seq[any]) Seq[any]
+    MapParallel[R any](syncFn func(T) R, order ...int) Seq[R]
+    MapParallelCustomize[R any](asyncFn func(T, func(R))) Seq[R]
+    Map[E any](cast func(T) E) Seq[E]
+    MapFlat[E any](f func(T) Seq[E]) Seq[E]
+    JoinL[E any](s2 Seq[E], cast func(E) T) Seq[T]
+    JoinBy[E, R any](s2 Seq[E], cast1 func(T) R, cast2 func(E) R) Seq[R]
+    Cast[N any]() Seq[N]
     Join(seqs ...Seq[T]) Seq[T]
     Add(ts ...T) Seq[T]
     AddIf(condition bool, ts ...T) Seq[T]
@@ -116,10 +118,15 @@ interface Seq[T]{
     AnyMatch(f func(T) bool) bool
     AllMatch(f func(T) bool) bool
     NonMatch(f func(T) bool) bool
-    GroupBy(f func(T) any) map[any][]T
-    GroupByFirst(f func(T) any) map[any]T
-    GroupByLast(f func(T) any) map[any]T
-    Reduce(f func(T, any) any, init any) any
+    GroupBy[K comparable](f func(T) K) map[K][]T
+    GroupByFirst[K comparable](f func(T) K) map[K]T
+    GroupByLast[K comparable](f func(T) K) map[K]T
+    Reduce[R any](f func(T, R) R, init R) R
+    MergeBi[K any](iterator Iterator[K]) BiSeq[K, T]
+    MergeBiR[V any](iterator Iterator[V]) BiSeq[T, V]
+    MapBi[K any](f func(T) K) BiSeq[K, T]
+    MapBiR[V any](f func(T) V) BiSeq[T, V]
+    Enumerate(Range ...int) BiSeq[int, T]
     ToSlice() []T
     Count() int
     SumBy(f func(T) int) int
@@ -152,12 +159,18 @@ interface BiSeq[K,V]{
     Take(n int) BiSeq[K, V]
     Drop(n int) BiSeq[K, V]
     Distinct(equals func(K, V, K, V) bool) BiSeq[K, V]
-    MapVParallel(f func(k K, v V) any, order ...int) BiSeq[K, any]
-    Map(f func(K, V) (any, any)) BiSeq[any, any]
-    MapV(f func(K, V) any) BiSeq[K, any]
-    MapFlat(f func(K, V) BiSeq[any, any]) BiSeq[any, any]
+    MapVParallel[R any](f func(k K, v V) R, order ...int) BiSeq[K, R]
+    Map[A, B any](f func(K, V) (A, B)) BiSeq[A, B]
+    MapK[R any](f func(K, V) R) BiSeq[R, V]
+    MapV[R any](f func(K, V) R) BiSeq[K, R]
+    MapFlat[A, B any](f func(K, V) BiSeq[A, B]) BiSeq[A, B]
+    MapFlatK[R any](f func(K, V) Seq[R]) BiSeq[R, V]
+    MapFlatV[R any](f func(K, V) Seq[R]) BiSeq[K, R]
+    MapFlatSingle[E any](f func(K, V) Seq[E]) Seq[E]
+    JoinL[K1, V1 any](s2 BiSeq[K1, V1], cast func(K1, V1) (K, V)) BiSeq[K, V]
+    JoinBy[A, B, K2, V2 any](s2 BiSeq[K2, V2], cast1 func(K, V) (A, B), cast2 func(K2, V2) (A, B)) BiSeq[A, B]
+    Cast[NK, NV any]() BiSeq[NK, NV]
     Join(seqs ...BiSeq[K, V]) BiSeq[K, V]
-    JoinBy(seq BiSeq[any, any], cast func(any, any) (K, V)) BiSeq[K, V]
     Add(k K, v V) BiSeq[K, V]
     AddIf(condition bool, k K, v V) BiSeq[K, V]
     AddIfF(condition func(BiSeq[K, V]) bool, k K, v V) BiSeq[K, V]
@@ -187,29 +200,24 @@ interface BiSeq[K,V]{
     SumBy(f func(K, V) int) int
     SumByFloat64(f func(K, V) float64) float64
     JoinStringBy(f func(K, V) string, delimiter ...string) string
-    Reduce(f func(K, V, any) any, init any) any
+    Reduce[R any](f func(K, V, R) R, init R) R
 }
 ```
 
-> 以下为包级函数(非 Seq/BiSeq 方法),调用方式为 `Func(seq, ...)`:
+> 以下包级函数仅 go1.27 以下轨道可用 (非穷举,详见 `*_pre127.go`);go1.27+ 使用同名语义的泛型方法:
 
 ```go
-// Seq -> BiSeq 转换
-MergeBiInt[T any](t Seq[T], iterator Iterator[int]) BiSeq[int, T]
-MergeBiIntRight[T any](t Seq[T], iterator Iterator[int]) BiSeq[T, int]
-MergeBiString[T any](t Seq[T], iterator Iterator[string]) BiSeq[string, T]
-MergeBiStringRight[T any](t Seq[T], iterator Iterator[string]) BiSeq[T, string]
-MergeBiAny[T any](t Seq[T], iterator Iterator[any]) BiSeq[any, T]
-MergeBiAnyRight[T any](t Seq[T], iterator Iterator[any]) BiSeq[T, any]
-MapBiSerialNumber[T any](t Seq[T], Range ...int) BiSeq[int, T]
-MapBiInt[T any](t Seq[T], f func(T) int) BiSeq[int, T]
-MapBiString[T any](t Seq[T], f func(T) string) BiSeq[string, T]
-MapBiAny[T any](t Seq[T], f func(T) any) BiSeq[any, T]
-MapBiAnyRight[T any](t Seq[T], f func(T) any) BiSeq[T, any]
-
-// Seq 扁平化/切片
-MapFlatInt[T any](t Seq[T], f func(T) Seq[int]) Seq[int]
-MapFlatString[T any](t Seq[T], f func(T) Seq[string]) Seq[string]
+// 双轨通用(非方法形态,轨道无关)
 MapSliceN[T any](t Seq[T], n int) Seq[any]
 MapSliceBy[T any](t Seq[T], f func(T, []T) bool) Seq[any]
+
+// 仅旧轨示例 → go1.27 泛型方法替代
+CastAny(seq)          → seq.Cast[T]()
+BiCastAny(seq)        → seq.Cast[K,V]()
+BiMap(seq, cast)      → seq.Map(f)
+MapString/MapInt      → seq.Map[E](f)
+MergeBiInt/String/Any → seq.MergeBi(iterator)
+MapBiSerialNumber     → seq.Enumerate(range...)
+GroupBy(any键)        → seq.GroupBy[K comparable](f)
+Reduce(any)           → seq.Reduce[R any](f, init)
 ```
