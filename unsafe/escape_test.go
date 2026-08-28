@@ -18,6 +18,7 @@ func takePointer(p unsafe.Pointer) {
 }
 
 // 场景A: 对局部变量取 unsafe.Pointer,然后传给外部函数
+//
 //go:noinline
 func EscapeTest_BasicInt() unsafe.Pointer {
 	var v int = 42
@@ -25,6 +26,7 @@ func EscapeTest_BasicInt() unsafe.Pointer {
 }
 
 // 场景B: 对局部变量取 unsafe.Pointer,仅在函数内部使用
+//
 //go:noinline
 func EscapeTest_LocalOnly() uintptr {
 	var v int = 42
@@ -34,15 +36,18 @@ func EscapeTest_LocalOnly() uintptr {
 }
 
 // 场景C: 传入参数取 unsafe.Pointer
+//
 //go:noinline
 func EscapeTest_Arg(v int) unsafe.Pointer {
 	return unsafe.Pointer(&v) // v是参数,取地址是否逃逸?
 }
 
 // 场景D: noescape技巧 -- 复制运行时的做法
+//
 //go:nosplit
 //go:nocheckptr
 func noescapeLocal(p unsafe.Pointer) unsafe.Pointer {
+	//必须使用 unsafe: uintptr 往返是刻意的逃逸分析规避, 本文件用于验证该技巧的行为
 	x := uintptr(p)
 	return unsafe.Pointer(x ^ 0)
 }
@@ -111,6 +116,7 @@ func EscapeTest_AtomicStore() {
 }
 
 // 同上但结构体
+//
 //go:noinline
 func EscapeTest_AtomicStoreStruct() {
 	var ga genericArray[smallStruct]
@@ -201,6 +207,7 @@ func EscapeTest_NodeEmbed() *node[int] {
 }
 
 // 对比: 直接用 unsafe.Pointer 存值的地址 vs 嵌入值
+//
 //go:noinline
 func EscapeTest_NodePointerStore() unsafe.Pointer {
 	n := &node[int]{value: 42}
@@ -213,6 +220,7 @@ func EscapeTest_NodePointerStore() unsafe.Pointer {
 // ============================================================
 
 // 场景: 值存储在预分配的 []byte 中,通过 memmove 复制,不逃逸原始值
+//
 //go:noinline
 func ZeroAllocStore[T any](buf []byte, v T) {
 	var local T = v

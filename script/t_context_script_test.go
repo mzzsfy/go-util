@@ -485,89 +485,97 @@ a + s + m`)
 
 // ========== Script Encode/Decode ==========
 
-// Test_ContextScript_Encode_ReturnsNoError Encode 不报错
+// Test_ContextScript_Encode_ReturnsNoError Encode 未实现返回明确错误
 func Test_ContextScript_Encode_ReturnsNoError(t *testing.T) {
-	t.Run("Encode简单表达式不报错", func(t *testing.T) {
+	t.Run("Encode简单表达式报错", func(t *testing.T) {
 		cs := compileScript(t, "1 + 2")
 		s := NewScript(cs)
-		_, err := s.Encode()
-		assertNoError(t, err)
+		if _, err := s.Encode(); err == nil {
+			t.Error("Encode未实现应返回错误而非静默成功")
+		}
 	})
 }
 
-// Test_ContextScript_Decode_FromEncode Decode 恢复后不报错
+// Test_ContextScript_Decode_FromEncode Decode 未实现返回明确错误
 func Test_ContextScript_Decode_FromEncode(t *testing.T) {
-	t.Run("Decode不报错", func(t *testing.T) {
+	t.Run("Decode报错", func(t *testing.T) {
 		cs := compileScript(t, "3 * 4")
 		s := NewScript(cs)
-		data, _ := s.Encode()
-		_, err := s.Decode(data)
-		assertNoError(t, err)
+		if _, err := s.Decode(nil); err == nil {
+			t.Error("Decode未实现应返回错误而非静默成功")
+		}
 	})
 }
 
-// Test_ContextScript_EncodeDecode_Consistency Encode -> Decode 结果不报错
+// Test_ContextScript_EncodeDecode_Consistency Encode -> Decode 均返回错误
 func Test_ContextScript_EncodeDecode_Consistency(t *testing.T) {
-	t.Run("Encode后Decode不panic不报错", func(t *testing.T) {
+	t.Run("Encode后Decode均报错", func(t *testing.T) {
 		cs := compileScript(t, "10 + 20")
 		s := NewScript(cs)
-		data, _ := s.Encode()
-		_, err := s.Decode(data)
-		assertNoError(t, err)
+		_, err := s.Encode()
+		if err == nil {
+			t.Error("Encode未实现应返回错误")
+		}
+		if _, err := s.Decode(nil); err == nil {
+			t.Error("Decode未实现应返回错误")
+		}
 	})
 }
 
 // Test_ContextScript_Encode_EmptyScript Encode 空脚本
 func Test_ContextScript_Encode_EmptyScript(t *testing.T) {
-	t.Run("Encode空脚本不报错", func(t *testing.T) {
+	t.Run("Encode空脚本报错", func(t *testing.T) {
 		cs := compileScript(t, "")
 		s := NewScript(cs)
-		_, err := s.Encode()
-		assertNoError(t, err)
+		if _, err := s.Encode(); err == nil {
+			t.Error("Encode未实现应返回错误")
+		}
 	})
 }
 
 // Test_ContextScript_Encode_ConstantScript Encode 常量脚本
 func Test_ContextScript_Encode_ConstantScript(t *testing.T) {
-	t.Run("Encode常量脚本不报错", func(t *testing.T) {
+	t.Run("Encode常量脚本报错", func(t *testing.T) {
 		cs := compileScript(t, `s := "hello"
 n := 42
 b := true`)
 		s := NewScript(cs)
-		_, err := s.Encode()
-		assertNoError(t, err)
+		if _, err := s.Encode(); err == nil {
+			t.Error("Encode未实现应返回错误")
+		}
 	})
 }
 
 // Test_ContextScript_Encode_FunctionScript Encode 函数脚本
 func Test_ContextScript_Encode_FunctionScript(t *testing.T) {
-	t.Run("Encode带函数的脚本不报错", func(t *testing.T) {
+	t.Run("Encode带函数的脚本报错", func(t *testing.T) {
 		cs := compileScript(t, `
 fn add(a, b) { return a + b }
 add(1, 2)
 `)
 		s := NewScript(cs)
-		_, err := s.Encode()
-		assertNoError(t, err)
+		if _, err := s.Encode(); err == nil {
+			t.Error("Encode未实现应返回错误")
+		}
 	})
 }
 
 // Test_ContextScript_Decode_InvalidData Decode 错误数据处理
 func Test_ContextScript_Decode_InvalidData(t *testing.T) {
-	t.Run("Decode空数据不报错", func(t *testing.T) {
+	t.Run("Decode空数据报错", func(t *testing.T) {
 		cs := compileScript(t, "1 + 1")
 		s := NewScript(cs)
-		// 传入空数据, 引擎行为是不报错
-		_, err := s.Decode(nil)
-		assertNoError(t, err)
+		if _, err := s.Decode(nil); err == nil {
+			t.Error("Decode未实现应返回错误而非静默成功")
+		}
 	})
 
-	t.Run("Decode非法数据不报错", func(t *testing.T) {
+	t.Run("Decode非法数据报错", func(t *testing.T) {
 		cs := compileScript(t, "1 + 1")
 		s := NewScript(cs)
-		// 传入非法数据, 引擎行为是不报错
-		_, err := s.Decode([]byte{0xFF, 0xFE, 0xFD})
-		assertNoError(t, err)
+		if _, err := s.Decode([]byte{0xFF, 0xFE, 0xFD}); err == nil {
+			t.Error("Decode未实现应返回错误而非静默成功")
+		}
 	})
 }
 

@@ -3,7 +3,10 @@ package script
 import "testing"
 
 func Test_CompoundAssign_Basic(t *testing.T) {
-	cases := []struct{ name, src string; expected int }{
+	cases := []struct {
+		name, src string
+		expected  int
+	}{
 		{"plus", "x := 10\nx += 5\nx", 15},
 		{"minus", "x := 10\nx -= 3\nx", 7},
 		{"mul", "x := 10\nx *= 3\nx", 30},

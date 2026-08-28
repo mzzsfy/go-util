@@ -8,10 +8,10 @@ import (
 // Test_FriendlyErrorMessages 测试友好的错误消息
 func Test_FriendlyErrorMessages(t *testing.T) {
 	tests := []struct {
-		name              string
-		input             string
-		shouldContain     string
-		shouldNotContain  string
+		name             string
+		input            string
+		shouldContain    string
+		shouldNotContain string
 	}{
 		{
 			name:             "缺少右括号",

@@ -2,6 +2,8 @@ package di
 
 import (
 	"context"
+	"errors"
+	"os"
 	"reflect"
 	"testing"
 	"time"
@@ -270,14 +272,15 @@ func Test_ReplaceInstanceIncompatibleType(t *testing.T) {
 
 // ========== container_lifecycle.go ==========
 
-// 测试 checkAndSetStartedState 已经启动的分支
+// 测试 Start 已启动时返回错误
 func Test_CheckAndSetStartedStateAlreadyStarted(t *testing.T) {
 	c := New().(*container)
 
-	// 第一次启动
-	c.started = true
+	if err := c.Start(); err != nil {
+		t.Fatalf("第一次 Start 失败: %v", err)
+	}
 
-	err := c.checkAndSetStartedState()
+	err := c.Start()
 	if err == nil {
 		t.Error("Expected error when container already started")
 	}
@@ -288,11 +291,11 @@ func Test_ExecuteShutdownHooksError(t *testing.T) {
 	c := New().(*container)
 
 	// 添加一个会失败的关闭钩子
-	c.shutdown = append(c.shutdown, func(ctx context.Context) error {
+	hooks := []ShutdownHook{func(ctx context.Context) error {
 		return context.Canceled
-	})
+	}}
 
-	err := c.executeShutdownHooks(context.Background())
+	err := c.executeShutdownHooks(context.Background(), nil, hooks)
 	if err == nil {
 		t.Error("Expected error when shutdown hook fails")
 	}
@@ -302,16 +305,11 @@ func Test_ExecuteShutdownHooksError(t *testing.T) {
 func Test_ShutdownOnSignalsTriggerShutdown(t *testing.T) {
 	c := New().(*container)
 
-	// 监听信号
+	env := newSignalTestEnv(t)
 	c.ShutdownOnSignals()
 
-	// 验证容器仍然正常
-	select {
-	case <-c.Done():
-		t.Error("Container should not be shutdown yet")
-	default:
-		// 正常
-	}
+	env.sendSignal(os.Interrupt)
+	env.assertShutdownComplete(c)
 }
 
 // ========== container_type_conversion.go ==========
@@ -775,7 +773,7 @@ func (m *testImplForMatchValue) Method() {}
 // 实现 OnDestroyCallback 接口的测试类型
 type errorServiceForDestroy struct{}
 
-func (e *errorServiceForDestroy) OnDestroyCallback(ctx context.Context) error {
+func (e *errorServiceForDestroy) OnDestroyCallback() error {
 	return context.Canceled
 }
 
@@ -864,22 +862,16 @@ func Test_ValidateAndInjectValidateFalse(t *testing.T) {
 	}
 }
 
-// 测试 checkAndSetStartedState 的双重检查分支
+// 测试 Start 的已启动双重检查分支
 func Test_CheckAndSetStartedStateDoubleCheck(t *testing.T) {
 	c := New().(*container)
 
-	// 第一次检查通过
-	c.mu.RLock()
-	c.started = false
-	c.mu.RUnlock()
-
-	// 在获取写锁之前，模拟另一个 goroutine 设置 started
-	// 这里我们直接测试已经启动的情况
+	// 模拟另一路径已将容器置为启动态,Start 应立即报错
 	c.mu.Lock()
 	c.started = true
 	c.mu.Unlock()
 
-	err := c.checkAndSetStartedState()
+	err := c.Start()
 	if err == nil {
 		t.Error("Expected error when container already started")
 	}
@@ -905,10 +897,14 @@ func Test_CreateDestroyHookInstanceDestroyError(t *testing.T) {
 
 	hook := c.createDestroyHook(entry, "test", svc)
 
-	// 执行销毁钩子
+	// OnDestroyCallback 返回错误时销毁钩子必须返回包装错误
 	err := hook(context.Background())
-	// 注意：createDestroyHook 可能不会返回错误，因为它会捕获错误并记录
-	t.Logf("createDestroyHook error: %v", err)
+	if err == nil {
+		t.Fatal("OnDestroyCallback 返回错误时销毁钩子应返回错误")
+	}
+	if !errors.Is(err, context.Canceled) {
+		t.Errorf("错误应包装 context.Canceled,实际: %v", err)
+	}
 }
 
 // 测试 ProvideNamedWith 的验证失败分支

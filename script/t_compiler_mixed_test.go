@@ -254,7 +254,7 @@ func Test_Mixed_LoopAndFunction(t *testing.T) {
 func Test_TokenType_String(t *testing.T) {
 	// 所有token类型都应有可读名称
 	tests := []struct {
-		typ   TokenType
+		typ      TokenType
 		nonEmpty bool
 	}{
 		{TokenEOF, true},

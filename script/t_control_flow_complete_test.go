@@ -116,9 +116,9 @@ func Test_ControlFlow_StandardForLoop(t *testing.T) {
 func Test_ControlFlow_RangeLoop(t *testing.T) {
 	t.Run("range循环语法", func(t *testing.T) {
 		tests := []struct {
-			name     string
-			input    string
-			wantErr  bool
+			name    string
+			input   string
+			wantErr bool
 		}{
 			{"range显式关键字", `arr := [1, 2, 3] for v := range arr { print(v) }`, false},
 			{"range隐式", `arr := [1, 2, 3] for v := arr { print(v) }`, false},

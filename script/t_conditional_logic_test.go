@@ -13,22 +13,22 @@ import (
 // Test_ConditionalLogic_BasicIf_True if true 条件成立时执行then块
 func Test_ConditionalLogic_BasicIf_True(t *testing.T) {
 	t.Run("if true取then", func(t *testing.T) {
-			runIntTest(t, `if true { 1 }`, 1)
+		runIntTest(t, `if true { 1 }`, 1)
 	})
 	t.Run("if true带表达式", func(t *testing.T) {
-			runIntTest(t, `if true { 10 + 20 }`, 30)
+		runIntTest(t, `if true { 10 + 20 }`, 30)
 	})
 }
 
 // Test_ConditionalLogic_BasicIf_False if false 条件不成立时不执行then块
 func Test_ConditionalLogic_BasicIf_False(t *testing.T) {
 	t.Run("if false不修改变量", func(t *testing.T) {
-			runIntTest(t, `x := 0
+		runIntTest(t, `x := 0
 if false { x = 1 }
 x`, 0)
 	})
 	t.Run("if false无else保持默认", func(t *testing.T) {
-			runIntTest(t, `x := 99
+		runIntTest(t, `x := 99
 if false { x = 1 }
 x`, 99)
 	})
@@ -37,22 +37,22 @@ x`, 99)
 // Test_ConditionalLogic_BasicIf_ComparisonTrue 比较条件为真
 func Test_ConditionalLogic_BasicIf_ComparisonTrue(t *testing.T) {
 	t.Run("1大于0", func(t *testing.T) {
-			runIntTest(t, `if 1 > 0 { 1 }`, 1)
+		runIntTest(t, `if 1 > 0 { 1 }`, 1)
 	})
 	t.Run("5大于等于5", func(t *testing.T) {
-			runIntTest(t, `if 5 >= 5 { 1 }`, 1)
+		runIntTest(t, `if 5 >= 5 { 1 }`, 1)
 	})
 }
 
 // Test_ConditionalLogic_BasicIf_ComparisonFalse 比较条件为假
 func Test_ConditionalLogic_BasicIf_ComparisonFalse(t *testing.T) {
 	t.Run("1小于0不执行", func(t *testing.T) {
-			runIntTest(t, `x := 0
+		runIntTest(t, `x := 0
 if 1 < 0 { x = 1 }
 x`, 0)
 	})
 	t.Run("3等于4不执行", func(t *testing.T) {
-			runIntTest(t, `x := 0
+		runIntTest(t, `x := 0
 if 3 == 4 { x = 1 }
 x`, 0)
 	})
@@ -61,7 +61,7 @@ x`, 0)
 // Test_ConditionalLogic_BasicIf_MultipleStatements if块内多条语句
 func Test_ConditionalLogic_BasicIf_MultipleStatements(t *testing.T) {
 	t.Run("then块多条语句", func(t *testing.T) {
-			runIntTest(t, `x := 3
+		runIntTest(t, `x := 3
 if x > 0 {
     a := x + 1
     b := a * 2
@@ -69,7 +69,7 @@ if x > 0 {
 }`, 8)
 	})
 	t.Run("then块累加变量", func(t *testing.T) {
-			runIntTest(t, `x := 10
+		runIntTest(t, `x := 10
 if x > 5 {
     x = x + 1
     x = x + 2
@@ -83,27 +83,27 @@ if x > 5 {
 // Test_ConditionalLogic_IfElse_TrueBranch if true时取then分支
 func Test_ConditionalLogic_IfElse_TrueBranch(t *testing.T) {
 	t.Run("条件为真取then", func(t *testing.T) {
-			runIntTest(t, `if true { 1 } else { 2 }`, 1)
+		runIntTest(t, `if true { 1 } else { 2 }`, 1)
 	})
 	t.Run("比较为真取then", func(t *testing.T) {
-			runIntTest(t, `if 5 > 3 { 10 } else { 20 }`, 10)
+		runIntTest(t, `if 5 > 3 { 10 } else { 20 }`, 10)
 	})
 }
 
 // Test_ConditionalLogic_IfElse_FalseBranch if false时取else分支
 func Test_ConditionalLogic_IfElse_FalseBranch(t *testing.T) {
 	t.Run("条件为假取else", func(t *testing.T) {
-			runIntTest(t, `if false { 1 } else { 2 }`, 2)
+		runIntTest(t, `if false { 1 } else { 2 }`, 2)
 	})
 	t.Run("比较为假取else", func(t *testing.T) {
-			runIntTest(t, `if 3 > 5 { 10 } else { 20 }`, 20)
+		runIntTest(t, `if 3 > 5 { 10 } else { 20 }`, 20)
 	})
 }
 
 // Test_ConditionalLogic_IfElse_MultiStatements if-else中都有多条语句
 func Test_ConditionalLogic_IfElse_MultiStatements(t *testing.T) {
 	t.Run("then块多语句", func(t *testing.T) {
-			runIntTest(t, `if true {
+		runIntTest(t, `if true {
     a := 1
     b := 2
     a + b
@@ -112,7 +112,7 @@ func Test_ConditionalLogic_IfElse_MultiStatements(t *testing.T) {
 }`, 3)
 	})
 	t.Run("else块多语句", func(t *testing.T) {
-			runIntTest(t, `if false {
+		runIntTest(t, `if false {
     0
 } else {
     a := 10
@@ -125,10 +125,10 @@ func Test_ConditionalLogic_IfElse_MultiStatements(t *testing.T) {
 // Test_ConditionalLogic_IfElse_ExpressionInElse else块中的表达式
 func Test_ConditionalLogic_IfElse_ExpressionInElse(t *testing.T) {
 	t.Run("else块算术表达式", func(t *testing.T) {
-			runIntTest(t, `if false { 0 } else { 3 * 4 + 1 }`, 13)
+		runIntTest(t, `if false { 0 } else { 3 * 4 + 1 }`, 13)
 	})
 	t.Run("else块函数调用", func(t *testing.T) {
-			runIntTest(t, `fn double(n) {
+		runIntTest(t, `fn double(n) {
     n * 2
 }
 if false { 0 } else { double(21) }`, 42)
@@ -172,57 +172,57 @@ if x == 0 { 0 } else if x == 10 { 1 } else if x == 20 { 2 } else if x == 30 { 3 
 // Test_ConditionalLogic_Cond_ComparisonOps 所有比较运算符作为条件
 func Test_ConditionalLogic_Cond_ComparisonOps(t *testing.T) {
 	t.Run("大于", func(t *testing.T) {
-	runIntTest(t, `if 5 > 3 { 1 } else { 0 }`, 1)
+		runIntTest(t, `if 5 > 3 { 1 } else { 0 }`, 1)
 	})
 	t.Run("小于", func(t *testing.T) {
-	runIntTest(t, `if 3 < 5 { 1 } else { 0 }`, 1)
+		runIntTest(t, `if 3 < 5 { 1 } else { 0 }`, 1)
 	})
 	t.Run("等于", func(t *testing.T) {
-	runIntTest(t, `if 3 == 3 { 1 } else { 0 }`, 1)
+		runIntTest(t, `if 3 == 3 { 1 } else { 0 }`, 1)
 	})
 	t.Run("不等", func(t *testing.T) {
-	runIntTest(t, `if 3 != 4 { 1 } else { 0 }`, 1)
+		runIntTest(t, `if 3 != 4 { 1 } else { 0 }`, 1)
 	})
 	t.Run("大于等于", func(t *testing.T) {
-	runIntTest(t, `if 5 >= 5 { 1 } else { 0 }`, 1)
+		runIntTest(t, `if 5 >= 5 { 1 } else { 0 }`, 1)
 	})
 	t.Run("小于等于", func(t *testing.T) {
-	runIntTest(t, `if 5 <= 5 { 1 } else { 0 }`, 1)
+		runIntTest(t, `if 5 <= 5 { 1 } else { 0 }`, 1)
 	})
 }
 
 // Test_ConditionalLogic_Cond_LogicalOps 逻辑运算符作为条件
 func Test_ConditionalLogic_Cond_LogicalOps(t *testing.T) {
 	t.Run("逻辑与都真", func(t *testing.T) {
-	runIntTest(t, `if true && true { 1 } else { 0 }`, 1)
+		runIntTest(t, `if true && true { 1 } else { 0 }`, 1)
 	})
 	t.Run("逻辑与有假", func(t *testing.T) {
-	runIntTest(t, `if true && false { 1 } else { 0 }`, 0)
+		runIntTest(t, `if true && false { 1 } else { 0 }`, 0)
 	})
 	t.Run("逻辑或有真", func(t *testing.T) {
-	runIntTest(t, `if true || false { 1 } else { 0 }`, 1)
+		runIntTest(t, `if true || false { 1 } else { 0 }`, 1)
 	})
 	t.Run("逻辑或都假", func(t *testing.T) {
-	runIntTest(t, `if false || false { 1 } else { 0 }`, 0)
+		runIntTest(t, `if false || false { 1 } else { 0 }`, 0)
 	})
 	t.Run("逻辑非真", func(t *testing.T) {
-	runIntTest(t, `if !false { 1 } else { 0 }`, 1)
+		runIntTest(t, `if !false { 1 } else { 0 }`, 1)
 	})
 	t.Run("逻辑非假", func(t *testing.T) {
-	runIntTest(t, `if !true { 1 } else { 0 }`, 0)
+		runIntTest(t, `if !true { 1 } else { 0 }`, 0)
 	})
 }
 
 // Test_ConditionalLogic_Cond_CompoundLogic 复合逻辑条件
 func Test_ConditionalLogic_Cond_CompoundLogic(t *testing.T) {
 	t.Run("括号分组与运算", func(t *testing.T) {
-	runIntTest(t, `if (3 > 1) && (5 < 10) { 1 } else { 0 }`, 1)
+		runIntTest(t, `if (3 > 1) && (5 < 10) { 1 } else { 0 }`, 1)
 	})
 	t.Run("括号分组或运算", func(t *testing.T) {
-	runIntTest(t, `if (3 > 5) || (1 < 2) { 1 } else { 0 }`, 1)
+		runIntTest(t, `if (3 > 5) || (1 < 2) { 1 } else { 0 }`, 1)
 	})
 	t.Run("非运算与比较组合", func(t *testing.T) {
-	runIntTest(t, `if !(3 > 4) { 1 } else { 0 }`, 1)
+		runIntTest(t, `if !(3 > 4) { 1 } else { 0 }`, 1)
 	})
 }
 
@@ -241,11 +241,11 @@ if isPositive(x) { 1 } else { 0 }`)
 // Test_ConditionalLogic_Cond_VariableAsCondition 变量作为条件
 func Test_ConditionalLogic_Cond_VariableAsCondition(t *testing.T) {
 	t.Run("bool变量true", func(t *testing.T) {
-	runIntTest(t, `b := true
+		runIntTest(t, `b := true
 if b { 1 } else { 0 }`, 1)
 	})
 	t.Run("bool变量false", func(t *testing.T) {
-	runIntTest(t, `b := false
+		runIntTest(t, `b := false
 if b { 1 } else { 0 }`, 0)
 	})
 }
@@ -256,52 +256,52 @@ if b { 1 } else { 0 }`, 0)
 // Test_ConditionalLogic_NonBool_Int 整数条件
 func Test_ConditionalLogic_NonBool_Int(t *testing.T) {
 	t.Run("非零整数条件为真", func(t *testing.T) {
-	runIntTest(t, `if 1 { 1 } else { 2 }`, 1)
+		runIntTest(t, `if 1 { 1 } else { 2 }`, 1)
 	})
 }
 
 // Test_ConditionalLogic_NonBool_Zero 零条件
 func Test_ConditionalLogic_NonBool_Zero(t *testing.T) {
 	t.Run("零整数条件为假", func(t *testing.T) {
-	runIntTest(t, `if 0 { 1 } else { 2 }`, 2)
+		runIntTest(t, `if 0 { 1 } else { 2 }`, 2)
 	})
 }
 
 // Test_ConditionalLogic_NonBool_String 字符串条件
 func Test_ConditionalLogic_NonBool_String(t *testing.T) {
 	t.Run("非空字符串条件为真", func(t *testing.T) {
-	runIntTest(t, `if "hello" { 1 } else { 2 }`, 1)
+		runIntTest(t, `if "hello" { 1 } else { 2 }`, 1)
 	})
 }
 
 // Test_ConditionalLogic_NonBool_EmptyString 空字符串条件
 func Test_ConditionalLogic_NonBool_EmptyString(t *testing.T) {
 	t.Run("空字符串条件为假", func(t *testing.T) {
-	runIntTest(t, `if "" { 1 } else { 2 }`, 2)
+		runIntTest(t, `if "" { 1 } else { 2 }`, 2)
 	})
 }
 
 // Test_ConditionalLogic_NonBool_Nil nil条件
 func Test_ConditionalLogic_NonBool_Nil(t *testing.T) {
 	t.Run("nil条件为假", func(t *testing.T) {
-	runIntTest(t, `if nil { 1 } else { 2 }`, 2)
+		runIntTest(t, `if nil { 1 } else { 2 }`, 2)
 	})
 }
 
 // Test_ConditionalLogic_NonBool_Array 数组条件
 func Test_ConditionalLogic_NonBool_Array(t *testing.T) {
 	t.Run("非空数组条件为真", func(t *testing.T) {
-	runIntTest(t, `if [1, 2] { 1 } else { 2 }`, 1)
+		runIntTest(t, `if [1, 2] { 1 } else { 2 }`, 1)
 	})
 }
 
 // Test_ConditionalLogic_NonBool_Map Map条件
 func Test_ConditionalLogic_NonBool_Map(t *testing.T) {
 	t.Run("非空Map条件为真", func(t *testing.T) {
-	runIntTest(t, `if {"a": 1} { 1 } else { 2 }`, 1)
+		runIntTest(t, `if {"a": 1} { 1 } else { 2 }`, 1)
 	})
 	t.Run("空Map条件为真", func(t *testing.T) {
-	runIntTest(t, `if {} { 1 } else { 2 }`, 1)
+		runIntTest(t, `if {} { 1 } else { 2 }`, 1)
 	})
 }
 
@@ -309,16 +309,16 @@ func Test_ConditionalLogic_NonBool_Map(t *testing.T) {
 func Test_ConditionalLogic_NonBool_NotOperator(t *testing.T) {
 	// 取反基于truthiness: 真值取反为false, 假值取反为true
 	t.Run("非零整数取反为false", func(t *testing.T) {
-	runBoolTest(t, `!1`, false)
+		runBoolTest(t, `!1`, false)
 	})
 	t.Run("零取反为true", func(t *testing.T) {
-	runBoolTest(t, `!0`, true)
+		runBoolTest(t, `!0`, true)
 	})
 	t.Run("nil取反为true", func(t *testing.T) {
-	runBoolTest(t, `!nil`, true)
+		runBoolTest(t, `!nil`, true)
 	})
 	t.Run("非空字符串取反为false", func(t *testing.T) {
-	runBoolTest(t, `!"hello"`, false)
+		runBoolTest(t, `!"hello"`, false)
 	})
 }
 
@@ -394,7 +394,7 @@ r`, 2)
 // Test_ConditionalLogic_IfBlock_VariableDecl if块中定义变量
 func Test_ConditionalLogic_IfBlock_VariableDecl(t *testing.T) {
 	t.Run("if块中声明并使用变量", func(t *testing.T) {
-	runIntTest(t, `x := 10
+		runIntTest(t, `x := 10
 if x > 5 {
     y := x * 2
     z := y + 1
@@ -408,12 +408,12 @@ if x > 5 {
 // Test_ConditionalLogic_IfBlock_ArrayOp if块中数组操作
 func Test_ConditionalLogic_IfBlock_ArrayOp(t *testing.T) {
 	t.Run("if块中push数组", func(t *testing.T) {
-	runIntTest(t, `arr := [1, 2]
+		runIntTest(t, `arr := [1, 2]
 if true { arr = push(arr, 3) }
 len(arr)`, 3)
 	})
 	t.Run("if块中修改数组元素", func(t *testing.T) {
-	runIntTest(t, `arr := [1, 2, 3]
+		runIntTest(t, `arr := [1, 2, 3]
 if arr[0] == 1 { arr[0] = 99 }
 arr[0]`, 99)
 	})
@@ -422,11 +422,11 @@ arr[0]`, 99)
 // Test_ConditionalLogic_IfBlock_MapOp if块中Map操作
 func Test_ConditionalLogic_IfBlock_MapOp(t *testing.T) {
 	t.Run("if块中读取Map值", func(t *testing.T) {
-	runIntTest(t, `m := {"a": 1, "b": 2}
+		runIntTest(t, `m := {"a": 1, "b": 2}
 if m["a"] == 1 { m["b"] } else { 0 }`, 2)
 	})
 	t.Run("if块中修改Map值", func(t *testing.T) {
-	runIntTest(t, `m := {"key": 10}
+		runIntTest(t, `m := {"key": 10}
 if true { m["key"] = 42 }
 m["key"]`, 42)
 	})
@@ -435,7 +435,7 @@ m["key"]`, 42)
 // Test_ConditionalLogic_IfBlock_FuncCall if块中函数调用
 func Test_ConditionalLogic_IfBlock_FuncCall(t *testing.T) {
 	t.Run("if块中调用用户函数", func(t *testing.T) {
-	runIntTest(t, `fn add(a, b) {
+		runIntTest(t, `fn add(a, b) {
     a + b
 }
 if true { add(3, 4) } else { 0 }`, 7)
@@ -445,7 +445,7 @@ if true { add(3, 4) } else { 0 }`, 7)
 // Test_ConditionalLogic_IfBlock_Loop if块中循环
 func Test_ConditionalLogic_IfBlock_Loop(t *testing.T) {
 	t.Run("if块中for循环累加", func(t *testing.T) {
-	runIntTest(t, `sum := 0
+		runIntTest(t, `sum := 0
 n := 5
 if n > 0 {
     for i := 1; i <= n; i = i + 1 {
@@ -457,7 +457,7 @@ if n > 0 {
 }`, 15)
 	})
 	t.Run("if块中break跳出循环", func(t *testing.T) {
-	runIntTest(t, `sum := 0
+		runIntTest(t, `sum := 0
 limit := 10
 if limit > 0 {
     for i := 1; i <= limit; i = i + 1 {
@@ -556,43 +556,43 @@ test(0)`)
 // Test_ConditionalLogic_ComplexExpr_Arithmetic 算术表达式条件
 func Test_ConditionalLogic_ComplexExpr_Arithmetic(t *testing.T) {
 	t.Run("加法比较条件", func(t *testing.T) {
-	runIntTest(t, `if 1 + 2 > 2 { 1 } else { 0 }`, 1)
+		runIntTest(t, `if 1 + 2 > 2 { 1 } else { 0 }`, 1)
 	})
 	t.Run("乘法比较条件", func(t *testing.T) {
-	runIntTest(t, `if 2 * 3 > 5 { 1 } else { 0 }`, 1)
+		runIntTest(t, `if 2 * 3 > 5 { 1 } else { 0 }`, 1)
 	})
 }
 
 // Test_ConditionalLogic_ComplexExpr_Parens 带括号的复杂条件
 func Test_ConditionalLogic_ComplexExpr_Parens(t *testing.T) {
 	t.Run("括号改变优先级", func(t *testing.T) {
-	runIntTest(t, `if (1 + 2) * 3 > 8 { 1 } else { 0 }`, 1)
+		runIntTest(t, `if (1 + 2) * 3 > 8 { 1 } else { 0 }`, 1)
 	})
 	t.Run("嵌套括号", func(t *testing.T) {
-	runIntTest(t, `if ((1 + 2) * 3) > 8 { 1 } else { 0 }`, 1)
+		runIntTest(t, `if ((1 + 2) * 3) > 8 { 1 } else { 0 }`, 1)
 	})
 }
 
 // Test_ConditionalLogic_ComplexExpr_CompareChain 比较链
 func Test_ConditionalLogic_ComplexExpr_CompareChain(t *testing.T) {
 	t.Run("递减链", func(t *testing.T) {
-	runIntTest(t, `if 5 > 3 && 3 > 2 && 2 > 1 { 1 } else { 0 }`, 1)
+		runIntTest(t, `if 5 > 3 && 3 > 2 && 2 > 1 { 1 } else { 0 }`, 1)
 	})
 	t.Run("链中有一个不满足", func(t *testing.T) {
-	runIntTest(t, `if 5 > 3 && 3 > 4 && 2 > 1 { 1 } else { 0 }`, 0)
+		runIntTest(t, `if 5 > 3 && 3 > 4 && 2 > 1 { 1 } else { 0 }`, 0)
 	})
 }
 
 // Test_ConditionalLogic_ComplexExpr_MixedOps 混合运算符条件
 func Test_ConditionalLogic_ComplexExpr_MixedOps(t *testing.T) {
 	t.Run("非运算与比较组合", func(t *testing.T) {
-	runIntTest(t, `done := false
+		runIntTest(t, `done := false
 count := 3
 max := 10
 if !done && count < max { 1 } else { 0 }`, 1)
 	})
 	t.Run("或运算与非运算组合", func(t *testing.T) {
-	runIntTest(t, `done := true
+		runIntTest(t, `done := true
 if done || !done { 1 } else { 0 }`, 1)
 	})
 }
@@ -600,11 +600,11 @@ if done || !done { 1 } else { 0 }`, 1)
 // Test_ConditionalLogic_ComplexExpr_ArrayLen 数组长度条件
 func Test_ConditionalLogic_ComplexExpr_ArrayLen(t *testing.T) {
 	t.Run("数组长度大于零", func(t *testing.T) {
-	runIntTest(t, `arr := [1, 2, 3]
+		runIntTest(t, `arr := [1, 2, 3]
 if len(arr) > 0 { 1 } else { 0 }`, 1)
 	})
 	t.Run("空数组长度等于零", func(t *testing.T) {
-	runIntTest(t, `arr := []
+		runIntTest(t, `arr := []
 if len(arr) == 0 { 1 } else { 0 }`, 1)
 	})
 }
@@ -614,11 +614,11 @@ if len(arr) == 0 { 1 } else { 0 }`, 1)
 // Test_ConditionalLogic_IndexAccess_Array 条件中使用数组索引
 func Test_ConditionalLogic_IndexAccess_Array(t *testing.T) {
 	t.Run("数组索引比较条件", func(t *testing.T) {
-	runIntTest(t, `arr := [10, 20, 30]
+		runIntTest(t, `arr := [10, 20, 30]
 if arr[0] > 5 { arr[1] } else { arr[2] }`, 20)
 	})
 	t.Run("数组索引等于比较", func(t *testing.T) {
-	runIntTest(t, `arr := [5, 10, 15]
+		runIntTest(t, `arr := [5, 10, 15]
 if arr[1] == 10 { 1 } else { 0 }`, 1)
 	})
 }
@@ -626,11 +626,11 @@ if arr[1] == 10 { 1 } else { 0 }`, 1)
 // Test_ConditionalLogic_IndexAccess_Map 条件中使用Map访问
 func Test_ConditionalLogic_IndexAccess_Map(t *testing.T) {
 	t.Run("Map值等于比较", func(t *testing.T) {
-	runIntTest(t, `m := {"key": 42}
+		runIntTest(t, `m := {"key": 42}
 if m["key"] == 42 { 1 } else { 0 }`, 1)
 	})
 	t.Run("Map值不等比较", func(t *testing.T) {
-	runIntTest(t, `m := {"a": 1, "b": 2}
+		runIntTest(t, `m := {"a": 1, "b": 2}
 if m["a"] != m["b"] { 1 } else { 0 }`, 1)
 	})
 }
@@ -638,11 +638,11 @@ if m["a"] != m["b"] { 1 } else { 0 }`, 1)
 // Test_ConditionalLogic_IndexAccess_Nested 嵌套索引条件
 func Test_ConditionalLogic_IndexAccess_Nested(t *testing.T) {
 	t.Run("嵌套Map索引比较", func(t *testing.T) {
-	runIntTest(t, `m := {"outer": {"inner": 42}}
+		runIntTest(t, `m := {"outer": {"inner": 42}}
 if m["outer"]["inner"] > 0 { 1 } else { 0 }`, 1)
 	})
 	t.Run("数组中Map索引比较", func(t *testing.T) {
-	runIntTest(t, `arr := [{"v": 10}, {"v": 20}]
+		runIntTest(t, `arr := [{"v": 10}, {"v": 20}]
 if arr[1]["v"] == 20 { 1 } else { 0 }`, 1)
 	})
 }
@@ -702,13 +702,13 @@ result`, 3)
 // Test_ConditionalLogic_SwitchPattern_ByValue 用if-else if模拟switch按值分发
 func Test_ConditionalLogic_SwitchPattern_ByValue(t *testing.T) {
 	t.Run("值分发匹配", func(t *testing.T) {
-	runStringTest(t, `x := 2
+		runStringTest(t, `x := 2
 result := ""
 if x == 1 { result = "one" } else if x == 2 { result = "two" } else if x == 3 { result = "three" } else { result = "other" }
 result`, "two")
 	})
 	t.Run("值分发default", func(t *testing.T) {
-	runStringTest(t, `x := 99
+		runStringTest(t, `x := 99
 result := ""
 if x == 1 { result = "one" } else if x == 2 { result = "two" } else { result = "other" }
 result`, "other")
@@ -718,19 +718,19 @@ result`, "other")
 // Test_ConditionalLogic_SwitchPattern_Range 范围判断(分数等级)
 func Test_ConditionalLogic_SwitchPattern_Range(t *testing.T) {
 	t.Run("A级", func(t *testing.T) {
-	runStringTest(t, `score := 95
+		runStringTest(t, `score := 95
 grade := ""
 if score >= 90 { grade = "A" } else if score >= 80 { grade = "B" } else if score >= 70 { grade = "C" } else if score >= 60 { grade = "D" } else { grade = "F" }
 grade`, "A")
 	})
 	t.Run("C级", func(t *testing.T) {
-	runStringTest(t, `score := 75
+		runStringTest(t, `score := 75
 grade := ""
 if score >= 90 { grade = "A" } else if score >= 80 { grade = "B" } else if score >= 70 { grade = "C" } else if score >= 60 { grade = "D" } else { grade = "F" }
 grade`, "C")
 	})
 	t.Run("F级", func(t *testing.T) {
-	runStringTest(t, `score := 55
+		runStringTest(t, `score := 55
 grade := ""
 if score >= 90 { grade = "A" } else if score >= 80 { grade = "B" } else if score >= 70 { grade = "C" } else if score >= 60 { grade = "D" } else { grade = "F" }
 grade`, "F")
@@ -740,15 +740,15 @@ grade`, "F")
 // Test_ConditionalLogic_SwitchPattern_TypeCheck 类型判断模式
 func Test_ConditionalLogic_SwitchPattern_TypeCheck(t *testing.T) {
 	t.Run("typeof判断int", func(t *testing.T) {
-	runIntTest(t, `x := 42
+		runIntTest(t, `x := 42
 if typeof(x) == "int" { 1 } else { 0 }`, 1)
 	})
 	t.Run("typeof判断string", func(t *testing.T) {
-	runIntTest(t, `x := "hello"
+		runIntTest(t, `x := "hello"
 if typeof(x) == "string" { 1 } else { 0 }`, 1)
 	})
 	t.Run("typeof多分支", func(t *testing.T) {
-	runStringTest(t, `x := true
+		runStringTest(t, `x := true
 result := ""
 if typeof(x) == "int" { result = "number" } else if typeof(x) == "string" { result = "text" } else if typeof(x) == "bool" { result = "flag" } else { result = "unknown" }
 result`, "flag")
@@ -772,11 +772,11 @@ func Test_ConditionalLogic_ShortCircuit_OrTrue(t *testing.T) {
 // Test_ConditionalLogic_ShortCircuit_SafeAccess 安全访问模式
 func Test_ConditionalLogic_ShortCircuit_SafeAccess(t *testing.T) {
 	t.Run("nil安全访问不报错", func(t *testing.T) {
-	runBoolTest(t, `a := nil
+		runBoolTest(t, `a := nil
 a != nil && a[0] > 0`, false)
 	})
 	t.Run("非nil安全访问正常求值", func(t *testing.T) {
-	runBoolTest(t, `a := [1, 2]
+		runBoolTest(t, `a := [1, 2]
 a != nil && a[0] > 0`, true)
 	})
 }
@@ -803,59 +803,58 @@ func Test_ConditionalLogic_ShortCircuit_AvoidError(t *testing.T) {
 // Test_ConditionalLogic_Boundary_Equal 相等比较边界
 func Test_ConditionalLogic_Boundary_Equal(t *testing.T) {
 	t.Run("相等时取then", func(t *testing.T) {
-	runIntTest(t, `if 5 == 5 { 1 } else { 0 }`, 1)
+		runIntTest(t, `if 5 == 5 { 1 } else { 0 }`, 1)
 	})
 	t.Run("不等时取else", func(t *testing.T) {
-	runIntTest(t, `if 5 == 6 { 1 } else { 0 }`, 0)
+		runIntTest(t, `if 5 == 6 { 1 } else { 0 }`, 0)
 	})
 }
 
 // Test_ConditionalLogic_Boundary_Compare 大小比较边界
 func Test_ConditionalLogic_Boundary_Compare(t *testing.T) {
 	t.Run("正好等于边界取then(大于等于)", func(t *testing.T) {
-	runIntTest(t, `if 10 >= 10 { 1 } else { 0 }`, 1)
+		runIntTest(t, `if 10 >= 10 { 1 } else { 0 }`, 1)
 	})
 	t.Run("正好等于边界取then(小于等于)", func(t *testing.T) {
-	runIntTest(t, `if 10 <= 10 { 1 } else { 0 }`, 1)
+		runIntTest(t, `if 10 <= 10 { 1 } else { 0 }`, 1)
 	})
 	t.Run("正好等于边界取else(大于)", func(t *testing.T) {
-	runIntTest(t, `if 10 > 10 { 1 } else { 0 }`, 0)
+		runIntTest(t, `if 10 > 10 { 1 } else { 0 }`, 0)
 	})
 	t.Run("正好等于边界取else(小于)", func(t *testing.T) {
-	runIntTest(t, `if 10 < 10 { 1 } else { 0 }`, 0)
+		runIntTest(t, `if 10 < 10 { 1 } else { 0 }`, 0)
 	})
 }
 
 // Test_ConditionalLogic_Boundary_Zero 0值判断
 func Test_ConditionalLogic_Boundary_Zero(t *testing.T) {
 	t.Run("0等于0", func(t *testing.T) {
-	runIntTest(t, `if 0 == 0 { 1 } else { 0 }`, 1)
+		runIntTest(t, `if 0 == 0 { 1 } else { 0 }`, 1)
 	})
 	t.Run("0不等于1", func(t *testing.T) {
-	runIntTest(t, `if 0 != 1 { 1 } else { 0 }`, 1)
+		runIntTest(t, `if 0 != 1 { 1 } else { 0 }`, 1)
 	})
 	t.Run("0小于1", func(t *testing.T) {
-	runIntTest(t, `if 0 < 1 { 1 } else { 0 }`, 1)
+		runIntTest(t, `if 0 < 1 { 1 } else { 0 }`, 1)
 	})
 }
 
 // Test_ConditionalLogic_Boundary_EmptyCollection 空集合判断
 func Test_ConditionalLogic_Boundary_EmptyCollection(t *testing.T) {
 	t.Run("空数组长度为0", func(t *testing.T) {
-	runIntTest(t, `arr := []
+		runIntTest(t, `arr := []
 if len(arr) == 0 { 1 } else { 0 }`, 1)
 	})
 	t.Run("非空数组长度大于0", func(t *testing.T) {
-	runIntTest(t, `arr := [1]
+		runIntTest(t, `arr := [1]
 if len(arr) > 0 { 1 } else { 0 }`, 1)
 	})
 	t.Run("空Map长度为0", func(t *testing.T) {
-	runIntTest(t, `m := {}
+		runIntTest(t, `m := {}
 if len(m) == 0 { 1 } else { 0 }`, 1)
 	})
 	t.Run("非空Map长度大于0", func(t *testing.T) {
-	runIntTest(t, `m := {"a": 1}
+		runIntTest(t, `m := {"a": 1}
 if len(m) > 0 { 1 } else { 0 }`, 1)
 	})
 }
-

@@ -89,11 +89,11 @@ func Test_ValueString_ParseFailed(t *testing.T) {
 func Test_ValueString_Parsing(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
-		name     string
-		input    string
-		wantInt  int
+		name      string
+		input     string
+		wantInt   int
 		wantFloat float64
-		wantBool bool
+		wantBool  bool
 	}{
 		{"整数", "42", 42, 42.0, false},
 		{"负整数", "-10", -10, -10.0, false},
@@ -297,11 +297,11 @@ func Test_ValueFromPath(t *testing.T) {
 	}
 
 	tests := []struct {
-		name     string
-		path     string
-		wantNil  bool
-		wantStr  string
-		wantInt  int
+		name      string
+		path      string
+		wantNil   bool
+		wantStr   string
+		wantInt   int
 		wantFloat float64
 	}{
 		{"简单字符串", "key", false, "value", 0, 0},
@@ -397,9 +397,9 @@ func Test_ValueFromPath_InvalidPathFormat(t *testing.T) {
 	}
 
 	tests := []struct {
-		name      string
-		path      string
-		wantPanic bool
+		name    string
+		path    string
+		wantNil bool
 	}{
 		{"空路径", "", false}, // 空路径返回整个对象
 		{"仅点号", ".", true},
@@ -410,21 +410,18 @@ func Test_ValueFromPath_InvalidPathFormat(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if tt.wantPanic {
-				defer func() {
-					if r := recover(); r == nil {
-						t.Errorf("路径 %q 应该触发 panic", tt.path)
-					}
-				}()
-			}
 			v := ValueFromPath(data, tt.path)
-			if !tt.wantPanic {
-				// 不应panic的情况检查返回值
-				if tt.path == "" {
-					// 空路径返回整个对象
-					if v.Any() == nil {
-						t.Error("空路径应返回整个对象")
-					}
+			if tt.wantNil {
+				// 非法路径与未命中一致, 返回 valueNil 而非 panic
+				if _, ok := v.(valueNil); !ok {
+					t.Errorf("路径 %q 应返回 valueNil", tt.path)
+				}
+				return
+			}
+			if tt.path == "" {
+				// 空路径返回整个对象
+				if v.Any() == nil {
+					t.Error("空路径应返回整个对象")
 				}
 			}
 		})
@@ -439,37 +436,27 @@ func Test_ValueFromPath_ArrayIndex(t *testing.T) {
 	}
 
 	tests := []struct {
-		name     string
-		path     string
-		wantNil  bool
-		wantStr  string
-		wantPanic bool
+		name    string
+		path    string
+		wantNil bool
+		wantStr string
 	}{
-		{"有效索引", "arr[0]", false, "a", false},
-		{"第二个索引", "arr[1]", false, "b", false},
-		{"超范围索引", "arr[10]", true, "", false}, // 超范围返回nil而非panic
-		{"负数索引", "arr[-1]", false, "", true},   // 负数索引会panic
-		{"非数字索引", "arr[abc]", false, "", true}, // 非数字会panic
+		{"有效索引", "arr[0]", false, "a"},
+		{"第二个索引", "arr[1]", false, "b"},
+		{"超范围索引", "arr[10]", true, ""},  // 超范围返回nil而非panic
+		{"负数索引", "arr[-1]", true, ""},   // 负数索引视为未命中
+		{"非数字索引", "arr[abc]", true, ""}, // 非数字视为未命中
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if tt.wantPanic {
-				defer func() {
-					if r := recover(); r == nil {
-						t.Errorf("路径 %q 应该触发 panic", tt.path)
-					}
-				}()
-			}
 			v := ValueFromPath(data, tt.path)
-			if !tt.wantPanic {
-				if tt.wantNil {
-					if _, ok := v.(valueNil); !ok {
-						t.Errorf("路径 %q 应返回 valueNil", tt.path)
-					}
-				} else if v.String() != tt.wantStr {
-					t.Errorf("路径 %q String() = %q, 期望 %q", tt.path, v.String(), tt.wantStr)
+			if tt.wantNil {
+				if _, ok := v.(valueNil); !ok {
+					t.Errorf("路径 %q 应返回 valueNil", tt.path)
 				}
+			} else if v.String() != tt.wantStr {
+				t.Errorf("路径 %q String() = %q, 期望 %q", tt.path, v.String(), tt.wantStr)
 			}
 		})
 	}

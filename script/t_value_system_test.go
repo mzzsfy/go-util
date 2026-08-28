@@ -806,7 +806,8 @@ func Test_ValueSystem_IntValSlow(t *testing.T) {
 
 // Test_ValueSystem_Boundary_LargeInt 大整数
 func Test_ValueSystem_Boundary_LargeInt(t *testing.T) {
-	big := 1<<62 + 1
+	// 平台宽度下的大值, 均超过小整数缓存
+	big := 1<<(strconv.IntSize-2) + 1
 	v := NewValue(big)
 	if v.Int() != big {
 		t.Errorf("Int() = %d, want %d", v.Int(), big)

@@ -1,52 +1,122 @@
 package di
 
 import (
-	"context"
 	"os"
 	"reflect"
+	"sync"
+	"syscall"
 	"testing"
 	"time"
 )
 
-// 测试 ShutdownOnSignals
+// signalTestEnv 记录信号注册与退出调用的测试环境
+// 替换 signalNotify/osExit,不注册真实信号,不触发进程退出
+type signalTestEnv struct {
+	t        *testing.T
+	sigChan  chan<- os.Signal
+	signals  []os.Signal
+	exitCode int
+	exited   chan struct{}
+	once     sync.Once
+}
+
+// newSignalTestEnv 替换信号注册与退出函数为记录实现,测试结束自动恢复
+// 依赖串行测试执行,不可用于并行测试
+func newSignalTestEnv(t *testing.T) *signalTestEnv {
+	env := &signalTestEnv{t: t, exited: make(chan struct{})}
+	origNotify, origExit := signalNotify, osExit
+	t.Cleanup(func() {
+		signalNotify, osExit = origNotify, origExit
+	})
+	signalNotify = func(c chan<- os.Signal, sig ...os.Signal) {
+		env.sigChan = c
+		env.signals = sig
+	}
+	osExit = func(code int) {
+		env.exitCode = code
+		env.once.Do(func() { close(env.exited) })
+	}
+	return env
+}
+
+// sendSignal 发送模拟信号
+func (e *signalTestEnv) sendSignal(sig os.Signal) {
+	e.t.Helper()
+	if e.sigChan == nil {
+		e.t.Fatal("signalNotify 尚未被调用")
+	}
+	e.sigChan <- sig
+}
+
+// waitExit 等待退出调用并返回退出码
+func (e *signalTestEnv) waitExit() int {
+	e.t.Helper()
+	select {
+	case <-e.exited:
+		return e.exitCode
+	case <-time.After(shutdownHookTimeout):
+		e.t.Fatal("osExit 未在时限内被调用")
+		return -1
+	}
+}
+
+// assertSignals 断言注册的信号列表
+func (e *signalTestEnv) assertSignals(want ...os.Signal) {
+	e.t.Helper()
+	if !reflect.DeepEqual(e.signals, want) {
+		e.t.Errorf("期望注册信号 %v,实际 %v", want, e.signals)
+	}
+}
+
+// assertShutdownComplete 断言退出码为 0 且容器已关闭
+func (e *signalTestEnv) assertShutdownComplete(c Container) {
+	e.t.Helper()
+	if code := e.waitExit(); code != 0 {
+		e.t.Errorf("期望退出码 0,实际 %d", code)
+	}
+	select {
+	case <-c.Done():
+	default:
+		e.t.Error("收到信号后容器应已关闭")
+	}
+}
+
+// 测试 ShutdownOnSignals 收到信号后关闭容器并退出
 func TestShutdownOnSignals(t *testing.T) {
 	c := New()
 
 	// 注册一个服务
 	_ = ProvideValue(c, "test-service")
 
-	// 调用 ShutdownOnSignals（不发送信号，只测试设置）
+	env := newSignalTestEnv(t)
 	c.ShutdownOnSignals()
 
-	// 由于信号监听是异步的，我们只测试不会立即 panic
-	time.Sleep(10 * time.Millisecond)
-
-	// 手动关闭容器
-	_ = c.Shutdown(context.Background())
+	env.sendSignal(os.Interrupt)
+	env.assertShutdownComplete(c)
 }
 
 func TestShutdownOnSignalsWithCustomSignals(t *testing.T) {
 	c := New()
 
-	// 使用自定义信号列表
+	env := newSignalTestEnv(t)
 	c.ShutdownOnSignals(os.Interrupt)
 
-	// 给 goroutine 一点时间启动
-	time.Sleep(10 * time.Millisecond)
+	env.assertSignals(os.Interrupt)
 
-	// 清理
-	_ = c.Shutdown(context.Background())
+	env.sendSignal(os.Interrupt)
+	env.assertShutdownComplete(c)
 }
 
 func TestShutdownOnSignalsEmpty(t *testing.T) {
 	c := New()
 
-	// 不提供信号参数（使用默认）
+	env := newSignalTestEnv(t)
 	c.ShutdownOnSignals()
 
-	time.Sleep(10 * time.Millisecond)
+	env.assertSignals(syscall.SIGTERM, os.Interrupt)
 
-	_ = c.Shutdown(context.Background())
+	env.sendSignal(syscall.SIGTERM)
+	env.assertShutdownComplete(c)
 }
 
 // 测试 GetAllInstances

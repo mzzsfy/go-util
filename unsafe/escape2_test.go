@@ -13,6 +13,7 @@ import (
 
 // 场景E: noescape 技巧 + atomic.StorePointer
 // 这是关键: 用 noescape 包装后, atomic.StorePointer 是否还导致逃逸?
+//
 //go:noinline
 func EscapeTest_NoEscapeAtomicStore() {
 	var ga genericArray[int]
@@ -25,6 +26,7 @@ func EscapeTest_NoEscapeAtomicStore() {
 }
 
 // 场景F: 用 reflect 检查 T 是否含指针,并据此选择存储策略
+//
 //go:noinline
 func isPointerFree[T any]() bool {
 	t := reflect.TypeOf((*T)(nil)).Elem()
@@ -49,6 +51,7 @@ func isPointerFreeType(t reflect.Type) bool {
 
 // 场景G: 使用 unsafe.Sizeof + typedmemmove 的替代方案
 // 这里用 reflect.TypeOf 检查后,不含指针的类型直接 copy
+//
 //go:noinline
 func SafeCopy[T any](dst, src *T) {
 	size := unsafe.Sizeof(*src)
@@ -61,6 +64,7 @@ func SafeCopy[T any](dst, src *T) {
 }
 
 // 用 reflect.TypeOf 判断的零分配存储
+//
 //go:noinline
 func ReflectTypeCheck() {
 	_ = isPointerFree[int]()
@@ -114,6 +118,7 @@ func (c *ChanSim[T]) Recv() T {
 }
 
 // 测试 ChanSim 是否零分配
+//
 //go:noinline
 func EscapeTest_ChanSim() int {
 	ch := NewChanSim[int](4)
@@ -130,6 +135,7 @@ func EscapeTest_ChanSim() int {
 // SetV 中用 atomic.StorePointer(&l.arr[idx], unsafe.Pointer(v))
 // v 是 *T 类型, T 的值嵌入在 node 中
 // 这意味着每次 Enqueue 都需要分配一个 node, T 的值随之到堆上
+//
 //go:noinline
 func EscapeTest_CurrentQueuePattern() {
 	var arr [4]unsafe.Pointer
@@ -139,6 +145,7 @@ func EscapeTest_CurrentQueuePattern() {
 }
 
 // 改进方案: 用 []byte + memmove 存储 T 的值, 不需要分配 node
+//
 //go:noinline
 func EscapeTest_MemmovePattern() int {
 	// 预分配缓冲区

@@ -101,8 +101,12 @@ func Test_ContainerHooksBeforeCreate(t *testing.T) {
 		return nil, nil
 	}))
 
-	_ = ProvideValue(c, &TestService{Value: 500})
-	_, _ = Get[*TestService](c)
+	if err := ProvideValue(c, &TestService{Value: 500}); err != nil {
+		t.Fatalf("ProvideValue failed: %v", err)
+	}
+	if _, err := Get[*TestService](c); err != nil {
+		t.Fatalf("Get failed: %v", err)
+	}
 
 	if !hookCalled {
 		t.Error("Expected before create hook to be called")
@@ -118,8 +122,12 @@ func Test_ContainerHooksAfterCreate(t *testing.T) {
 		return nil, nil
 	}))
 
-	_ = ProvideValue(c, &TestService{Value: 600})
-	_, _ = Get[*TestService](c)
+	if err := ProvideValue(c, &TestService{Value: 600}); err != nil {
+		t.Fatalf("ProvideValue failed: %v", err)
+	}
+	if _, err := Get[*TestService](c); err != nil {
+		t.Fatalf("Get failed: %v", err)
+	}
 
 	if !hookCalled {
 		t.Error("Expected after create hook to be called")
@@ -134,14 +142,25 @@ func Test_ContainerHooksBeforeDestroy(t *testing.T) {
 		hookCalled = true
 	}))
 
-	_ = ProvideValue(c, &TestService{Value: 700})
-	_ = c.Start()
+	if err := ProvideValue(c, &TestService{Value: 700}); err != nil {
+		t.Fatalf("ProvideValue failed: %v", err)
+	}
+	// 触发实例创建, 销毁钩子在实例创建时注册
+	if _, err := Get[*TestService](c); err != nil {
+		t.Fatalf("Get failed: %v", err)
+	}
+	if err := c.Start(); err != nil {
+		t.Fatalf("Start failed: %v", err)
+	}
 
 	// 关闭容器以触发销毁钩子
-	_ = c.Shutdown(context.Background())
+	if err := c.Shutdown(context.Background()); err != nil {
+		t.Fatalf("Shutdown failed: %v", err)
+	}
 
-	// 注意：销毁钩子可能在 shutdown 时被调用
-	t.Logf("Before destroy hook called: %v", hookCalled)
+	if !hookCalled {
+		t.Error("Expected before destroy hook to be called")
+	}
 }
 
 func Test_ContainerHooksAfterDestroy(t *testing.T) {
@@ -152,11 +171,23 @@ func Test_ContainerHooksAfterDestroy(t *testing.T) {
 		hookCalled = true
 	}))
 
-	_ = ProvideValue(c, &TestService{Value: 800})
-	_ = c.Start()
-	_ = c.Shutdown(context.Background())
+	if err := ProvideValue(c, &TestService{Value: 800}); err != nil {
+		t.Fatalf("ProvideValue failed: %v", err)
+	}
+	// 触发实例创建, 销毁钩子在实例创建时注册
+	if _, err := Get[*TestService](c); err != nil {
+		t.Fatalf("Get failed: %v", err)
+	}
+	if err := c.Start(); err != nil {
+		t.Fatalf("Start failed: %v", err)
+	}
+	if err := c.Shutdown(context.Background()); err != nil {
+		t.Fatalf("Shutdown failed: %v", err)
+	}
 
-	t.Logf("After destroy hook called: %v", hookCalled)
+	if !hookCalled {
+		t.Error("Expected after destroy hook to be called")
+	}
 }
 
 func Test_ContainerHooksOnStart(t *testing.T) {
@@ -168,7 +199,9 @@ func Test_ContainerHooksOnStart(t *testing.T) {
 		return nil
 	}))
 
-	_ = ProvideValue(c, &TestService{Value: 900})
+	if err := ProvideValue(c, &TestService{Value: 900}); err != nil {
+		t.Fatalf("ProvideValue failed: %v", err)
+	}
 	err := c.Start()
 	if err != nil {
 		t.Fatalf("Start failed: %v", err)
@@ -178,7 +211,9 @@ func Test_ContainerHooksOnStart(t *testing.T) {
 		t.Error("Expected on start hook to be called")
 	}
 
-	_ = c.Shutdown(context.Background())
+	if err := c.Shutdown(context.Background()); err != nil {
+		t.Fatalf("Shutdown failed: %v", err)
+	}
 }
 
 func Test_ContainerHooksAfterStart(t *testing.T) {
@@ -190,7 +225,9 @@ func Test_ContainerHooksAfterStart(t *testing.T) {
 		return nil
 	}))
 
-	_ = ProvideValue(c, &TestService{Value: 1000})
+	if err := ProvideValue(c, &TestService{Value: 1000}); err != nil {
+		t.Fatalf("ProvideValue failed: %v", err)
+	}
 	err := c.Start()
 	if err != nil {
 		t.Fatalf("Start failed: %v", err)
@@ -200,7 +237,9 @@ func Test_ContainerHooksAfterStart(t *testing.T) {
 		t.Error("Expected after start hook to be called")
 	}
 
-	_ = c.Shutdown(context.Background())
+	if err := c.Shutdown(context.Background()); err != nil {
+		t.Fatalf("Shutdown failed: %v", err)
+	}
 }
 
 // 测试 validateProviderFunction 更多错误场景

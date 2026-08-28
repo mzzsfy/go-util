@@ -6,7 +6,6 @@ import (
 	"reflect"
 	"strings"
 	"testing"
-	"time"
 )
 
 // TestPackage 测试Package函数
@@ -268,7 +267,7 @@ func Test_PrepareLazyDependenciesEdgeCases(t *testing.T) {
 		// 非Lazy模式应该直接返回nil
 		key := cacheKey{reflect.TypeOf((*Service)(nil)), ""}
 		entry := ctr.providers[key]
-		err = ctr.prepareLazyDependencies(entry, key)
+		err = ctr.prepareLazyDependencies(entry)
 		if err != nil {
 			t.Errorf("prepareLazyDependencies() error = %v", err)
 		}
@@ -291,7 +290,7 @@ func Test_PrepareLazyDependenciesEdgeCases(t *testing.T) {
 
 		key := cacheKey{reflect.TypeOf((*Service)(nil)), ""}
 		entry := ctr.providers[key]
-		err = ctr.prepareLazyDependencies(entry, key)
+		err = ctr.prepareLazyDependencies(entry)
 		if err == nil {
 			t.Error("prepareLazyDependencies() should return error for missing dependency")
 		}
@@ -324,7 +323,7 @@ func Test_PrepareLazyDependenciesEdgeCases(t *testing.T) {
 
 		key := cacheKey{reflect.TypeOf((*Service)(nil)), ""}
 		entry := ctr.providers[key]
-		err = ctr.prepareLazyDependencies(entry, key)
+		err = ctr.prepareLazyDependencies(entry)
 		if err == nil {
 			t.Error("prepareLazyDependencies() should return error for failed dependency creation")
 		}
@@ -356,7 +355,7 @@ func Test_PrepareLazyDependenciesEdgeCases(t *testing.T) {
 
 		key := cacheKey{reflect.TypeOf((*Service)(nil)), ""}
 		entry := ctr.providers[key]
-		err = ctr.prepareLazyDependencies(entry, key)
+		err = ctr.prepareLazyDependencies(entry)
 		if err != nil {
 			t.Errorf("prepareLazyDependencies() error = %v", err)
 		}
@@ -404,7 +403,7 @@ func Test_PrepareLazyDependenciesEdgeCases(t *testing.T) {
 
 		key := cacheKey{reflect.TypeOf((*Service)(nil)), ""}
 		entry := ctr.providers[key]
-		err = ctr.prepareLazyDependencies(entry, key)
+		err = ctr.prepareLazyDependencies(entry)
 		if err != nil {
 			t.Errorf("prepareLazyDependencies() error = %v", err)
 		}
@@ -674,10 +673,9 @@ func TestShutdownWithContextCancellation(t *testing.T) {
 			t.Fatalf("ProvideNamedWith() error = %v", err)
 		}
 
-		// 创建一个已经过期的context
-		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Nanosecond)
-		defer cancel()
-		time.Sleep(10 * time.Millisecond) // 确保已过期
+		// 创建一个已取消的context, 立即取消确保过期
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
 
 		_ = ctr.Shutdown(ctx)
 		// Shutdown可能返回context错误，也可能忽略，取决于实现

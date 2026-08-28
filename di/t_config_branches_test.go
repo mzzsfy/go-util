@@ -6,7 +6,6 @@ import (
 	"reflect"
 	"syscall"
 	"testing"
-	"time"
 )
 
 // 测试 getConfigValue 的所有分支
@@ -106,25 +105,25 @@ func TestShutdownOnSignalsAdvanced(t *testing.T) {
 	t.Run("自定义信号参数", func(t *testing.T) {
 		c := New().(*container)
 
-		// 测试传递自定义信号（不实际触发）
-		c.ShutdownOnSignals(syscall.SIGTERM)
+		env := newSignalTestEnv(t)
+		env.assertSignals()
 
-		// 验证容器仍然正常工作
-		if err := c.Shutdown(context.Background()); err != nil {
-			t.Errorf("Shutdown failed: %v", err)
-		}
+		c.ShutdownOnSignals(syscall.SIGTERM)
+		env.assertSignals(syscall.SIGTERM)
+
+		env.sendSignal(syscall.SIGTERM)
+		env.assertShutdownComplete(c)
 	})
 
 	t.Run("空信号参数使用默认值", func(t *testing.T) {
 		c := New().(*container)
 
-		// 测试不传递信号参数（使用默认值）
+		env := newSignalTestEnv(t)
 		c.ShutdownOnSignals()
+		env.assertSignals(syscall.SIGTERM, os.Interrupt)
 
-		// 验证容器仍然正常工作
-		if err := c.Shutdown(context.Background()); err != nil {
-			t.Errorf("Shutdown failed: %v", err)
-		}
+		env.sendSignal(os.Interrupt)
+		env.assertShutdownComplete(c)
 	})
 
 	t.Run("信号触发关闭", func(t *testing.T) {
@@ -133,18 +132,11 @@ func TestShutdownOnSignalsAdvanced(t *testing.T) {
 		// 提供一个provider
 		_ = c.ProvideNamedWith("", func(c Container) (string, error) { return "test", nil })
 
-		// 监听信号（使用SIGTERM，这在Windows上也可用）
+		env := newSignalTestEnv(t)
 		c.ShutdownOnSignals(syscall.SIGTERM)
 
-		// 模拟发送信号
-		go func() {
-			time.Sleep(50 * time.Millisecond)
-			p, _ := os.FindProcess(os.Getpid())
-			p.Signal(syscall.SIGTERM)
-		}()
-
-		// 等待一段时间让信号处理完成
-		time.Sleep(150 * time.Millisecond)
+		env.sendSignal(syscall.SIGTERM)
+		env.assertShutdownComplete(c)
 	})
 }
 
@@ -174,22 +166,19 @@ func TestCheckAndGetCachedInstanceAllBranches(t *testing.T) {
 		}
 	})
 
-	t.Run("实例存在-第二次检查命中", func(t *testing.T) {
+	t.Run("实例存在-检查命中", func(t *testing.T) {
 		c := New().(*container)
 		key := cacheKey{reflect.TypeOf(""), "test-key"}
 		instance := "test-instance"
 
-		// 不预先添加，在第二次检查前添加
-		go func() {
-			time.Sleep(10 * time.Millisecond)
-			c.storeInstance(key, instance)
-		}()
+		// 先添加实例再检查, 确定性命中, 覆盖同一代码路径
+		c.storeInstance(key, instance)
 
-		// 这个测试主要是为了覆盖代码路径
-		// 由于时序问题，可能不一定总是命中
-		time.Sleep(20 * time.Millisecond)
 		result, found := c.checkAndGetCachedInstance(key)
-		if found && result != instance {
+		if !found {
+			t.Fatal("实例已存储, 检查应命中")
+		}
+		if result != instance {
 			t.Errorf("If found, expected '%v', got '%v'", instance, result)
 		}
 	})
@@ -214,7 +203,7 @@ func TestCheckAndGetCachedInstanceAllBranches(t *testing.T) {
 
 		// 标记为正在加载
 		c.mu.Lock()
-		c.loading[key] = true
+		c.loading[key] = &loadingState{done: make(chan struct{})}
 		c.mu.Unlock()
 
 		// 应该返回false（检测到循环依赖）
@@ -683,8 +672,11 @@ func Test_SignalHandlingEdgeCases(t *testing.T) {
 	t.Run("多个信号监听", func(t *testing.T) {
 		c := New().(*container)
 
+		env := newSignalTestEnv(t)
+
 		// 监听多个信号
 		c.ShutdownOnSignals(syscall.SIGTERM, os.Interrupt)
+		env.assertSignals(syscall.SIGTERM, os.Interrupt)
 
 		// 验证容器仍然正常
 		_ = c.ProvideNamedWith("", func(c Container) (string, error) { return "test", nil })
@@ -696,7 +688,7 @@ func Test_SignalHandlingEdgeCases(t *testing.T) {
 			t.Errorf("Expected 'test', got '%v'", instance)
 		}
 
-		// 清理
-		c.Shutdown(context.Background())
+		env.sendSignal(os.Interrupt)
+		env.assertShutdownComplete(c)
 	})
 }

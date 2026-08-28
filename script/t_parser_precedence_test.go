@@ -99,8 +99,8 @@ func Test_Parser_Precedence_Bitwise(t *testing.T) {
 		input    string
 		expected int
 	}{
-		{"1 | 2 & 3", 3},   // & 优先于 |: 2&3=2, 1|2=3
-		{"1 << 2 + 1", 8},  // + 优先于 <<: 2+1=3, 1<<3=8
+		{"1 | 2 & 3", 3},  // & 优先于 |: 2&3=2, 1|2=3
+		{"1 << 2 + 1", 8}, // + 优先于 <<: 2+1=3, 1<<3=8
 	}
 
 	for _, tt := range tests {
@@ -131,10 +131,10 @@ func Test_Parser_Precedence_Unary(t *testing.T) {
 }
 
 func Test_Parser_Precedence_ComplexChain(t *testing.T) {
-	runIntTest(t, "1 + 2 * 3 - 4 / 2", 5)       // 1+6-2=5
-	runIntTest(t, "2 * (3 + 4) - 5", 9)          // 2*7-5=9
-	runIntTest(t, "(1 + 2) * (3 + 4) - 1", 20)   // 3*7-1=20
-	runIntTest(t, "100 / 10 / 2 + 3 * 4", 17)    // (100/10)/2=5, 3*4=12, 5+12=17
+	runIntTest(t, "1 + 2 * 3 - 4 / 2", 5)      // 1+6-2=5
+	runIntTest(t, "2 * (3 + 4) - 5", 9)        // 2*7-5=9
+	runIntTest(t, "(1 + 2) * (3 + 4) - 1", 20) // 3*7-1=20
+	runIntTest(t, "100 / 10 / 2 + 3 * 4", 17)  // (100/10)/2=5, 3*4=12, 5+12=17
 }
 
 func Test_Parser_Precedence_Associativity(t *testing.T) {

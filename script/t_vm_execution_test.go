@@ -1,6 +1,7 @@
 package script
 
 import (
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -591,7 +592,8 @@ func Test_VMExec_Constants_Int(t *testing.T) {
 		runIntTest(t, "-42", -42)
 	})
 	t.Run("大整数", func(t *testing.T) {
-		runIntTest(t, "1000000000000", 1000000000000)
+		// 平台宽度下的大值常量, 均超过小整数缓存
+		runIntTest(t, strconv.FormatInt(1<<(strconv.IntSize-2), 10), 1<<(strconv.IntSize-2))
 	})
 	t.Run("十六进制", func(t *testing.T) {
 		runIntTest(t, "0xFF", 255)

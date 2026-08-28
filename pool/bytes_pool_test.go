@@ -10,86 +10,86 @@ import (
 )
 
 func Test_bufferPool(t *testing.T) {
-    bp := NewBufferPool()
-    bp.SetMaxCap(1024)
+	bp := NewBufferPool()
+	bp.SetMaxCap(1024)
 
-    b := bp.Get()
-    b.WriteString("Hello, World!")
-    bp.Put(b)
+	b := bp.Get()
+	b.WriteString("Hello, World!")
+	bp.Put(b)
 
-    b2 := bp.Get()
-    if b2.String() != "" {
-        t.Errorf("Expected empty buffer, got %s", b2.String())
-    }
+	b2 := bp.Get()
+	if b2.String() != "" {
+		t.Errorf("Expected empty buffer, got %s", b2.String())
+	}
 }
 
 func Test_bytePool(t *testing.T) {
-    bp := NewSimpleBytesPool()
-    bp.SetMaxCap(1024)
-    bp.SetInitCap(512)
+	bp := NewSimpleBytesPool()
+	bp.SetMaxCap(1024)
+	bp.SetInitCap(512)
 
-    b := bp.Get()
-    b.Write([]byte("Hello, World!"))
-    bp.Put(b)
+	b := bp.Get()
+	b.Write([]byte("Hello, World!"))
+	bp.Put(b)
 
-    b2 := bp.Get()
-    if len(b2.buf) != 0 {
-        t.Errorf("Expected empty buffer, got %s", string(b2.buf))
-    }
+	b2 := bp.Get()
+	if len(b2.buf) != 0 {
+		t.Errorf("Expected empty buffer, got %s", string(b2.buf))
+	}
 }
 
 var (
-    shortStr []string
-    midStr   []string
-    longStr  []string
+	shortStr []string
+	midStr   []string
+	longStr  []string
 )
 
 func init() {
-    rand.Seed(time.Now().UnixNano())
-    for i := 0; i < 1000; i++ {
-        shortStr = append(shortStr, strings.Repeat(strconv.Itoa(rand.Int()), 1))
-        midStr = append(midStr, strings.Repeat(strconv.Itoa(rand.Int()), 10))
-        longStr = append(longStr, strings.Repeat(strconv.Itoa(rand.Int()), 100))
-    }
+	rand.Seed(time.Now().UnixNano())
+	for i := 0; i < 1000; i++ {
+		shortStr = append(shortStr, strings.Repeat(strconv.Itoa(rand.Int()), 1))
+		midStr = append(midStr, strings.Repeat(strconv.Itoa(rand.Int()), 10))
+		longStr = append(longStr, strings.Repeat(strconv.Itoa(rand.Int()), 100))
+	}
 }
 
 func BenchmarkBufferPool(b *testing.B) {
-    bp := NewBufferPool()
-    bp.SetMaxCap(1024)
-    b.RunParallel(func(pb *testing.PB) {
-        for pb.Next() {
-            for z := range shortStr {
-                buf := bp.Get()
-                buf.WriteString(shortStr[z])
-                bp.Put(buf)
-                buf = bp.Get()
-                buf.WriteString(shortStr[z])
-                bp.Put(buf)
-                buf = bp.Get()
-                buf.WriteString(shortStr[z])
-                bp.Put(buf)
-            }
-        }
-    })
+	bp := NewBufferPool()
+	bp.SetMaxCap(1024)
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			for z := range shortStr {
+				buf := bp.Get()
+				buf.WriteString(shortStr[z])
+				bp.Put(buf)
+				buf = bp.Get()
+				buf.WriteString(shortStr[z])
+				bp.Put(buf)
+				buf = bp.Get()
+				buf.WriteString(shortStr[z])
+				bp.Put(buf)
+			}
+		}
+	})
 }
 
 func BenchmarkBytePool(b *testing.B) {
-    bp := NewSimpleBytesPool()
-    b.RunParallel(func(pb *testing.PB) {
-        for pb.Next() {
-            for z := range shortStr {
-                buf := bp.Get()
-                buf.WriteString(shortStr[z])
-                bp.Put(buf)
-                buf = bp.Get()
-                buf.WriteString(shortStr[z])
-                bp.Put(buf)
-                buf = bp.Get()
-                buf.WriteString(shortStr[z])
-                bp.Put(buf)
-            }
-        }
-    })
+	bp := NewSimpleBytesPool()
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			for z := range shortStr {
+				buf := bp.Get()
+				buf.WriteString(shortStr[z])
+				bp.Put(buf)
+				buf = bp.Get()
+				buf.WriteString(shortStr[z])
+				bp.Put(buf)
+				buf = bp.Get()
+				buf.WriteString(shortStr[z])
+				bp.Put(buf)
+			}
+		}
+	})
 }
 
 // TestBytePoolConcurrentConfig 并发读写 BytePool 配置字段, 验证无数据竞争
@@ -321,6 +321,47 @@ func Test_Bytes_MixedOperations(t *testing.T) {
 	if b.Len() != 12 {
 		t.Fatalf("总长度应为 12, got %d", b.Len())
 	}
+}
+
+// Test_PooledBytes_ResetContract 锁定池化契约: 归还后取出即空, 无需调用方自行 Reset
+// 同时约束 Put 不得泄漏旧内容到下一次取出的对象上
+func Test_PooledBytes_ResetContract(t *testing.T) {
+	t.Parallel()
+	t.Run("BytePool 取出即空", func(t *testing.T) {
+		t.Parallel()
+		bp := NewSimpleBytesPool()
+		b := bp.Get()
+		b.Write([]byte("stale-data"))
+		bp.Put(b)
+		b2 := bp.Get()
+		if b2.Len() != 0 {
+			t.Fatalf("取出后 Len 应为 0, got %d", b2.Len())
+		}
+		if b2.String() != "" {
+			t.Fatalf("取出后 String 应为空, got %q", b2.String())
+		}
+		if b2.Bytes() == nil || len(b2.Bytes()) != 0 {
+			t.Fatalf("取出后 Bytes 应为空切片")
+		}
+		b2.WriteString("new")
+		if b2.String() != "new" {
+			t.Fatalf("取出后写入应从零开始, got %q", b2.String())
+		}
+	})
+	t.Run("BufferPool 取出即空", func(t *testing.T) {
+		t.Parallel()
+		bp := NewBufferPool()
+		b := bp.Get()
+		b.WriteString("stale-data")
+		bp.Put(b)
+		b2 := bp.Get()
+		if b2.Len() != 0 {
+			t.Fatalf("取出后 Len 应为 0, got %d", b2.Len())
+		}
+		if b2.String() != "" {
+			t.Fatalf("取出后 String 应为空, got %q", b2.String())
+		}
+	})
 }
 
 // TestBufferPool_MaxCap_Boundary 验证 BufferPool 的 maxCap 边界行为

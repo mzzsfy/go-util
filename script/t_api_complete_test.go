@@ -708,55 +708,59 @@ func Test_APIComplete_Script_Clone(t *testing.T) {
 // ========== Script - Encode/Decode 测试 ==========
 
 func Test_APIComplete_Script_EncodeDecode(t *testing.T) {
-	t.Run("Encode不报错", func(t *testing.T) {
+	t.Run("Encode未实现报错", func(t *testing.T) {
 		cs := compileScript(t, "1 + 2")
 		s := NewScript(cs)
 		_, err := s.Encode()
-		// Encode当前为TODO实现, 但不应报错
-		assertNoError(t, err)
+		if err == nil {
+			t.Error("Encode未实现应返回错误而非静默成功")
+		}
 	})
 
-	t.Run("Decode不报错", func(t *testing.T) {
+	t.Run("Decode未实现报错", func(t *testing.T) {
 		cs := compileScript(t, "1 + 2")
 		s := NewScript(cs)
-		data, _ := s.Encode()
-		_, err := s.Decode(data)
-		// Decode当前为TODO实现, 但不应报错
-		assertNoError(t, err)
+		_, err := s.Decode(nil)
+		if err == nil {
+			t.Error("Decode未实现应返回错误而非静默成功")
+		}
 	})
 
-	t.Run("Encode后Decode结果一致", func(t *testing.T) {
-		// Encode/Decode未实现, 验证不panic即可
+	t.Run("Clone共享编译产物", func(t *testing.T) {
 		cs := compileScript(t, "3 * 4")
 		s := NewScript(cs)
-		data, _ := s.Encode()
-		_, err := s.Decode(data)
-		assertNoError(t, err)
+		clone := s.Clone()
+		if clone.GetCompiled() != s.GetCompiled() {
+			t.Error("Clone应与原脚本共享同一编译产物")
+		}
 	})
 
-	t.Run("Encode空脚本", func(t *testing.T) {
+	t.Run("Encode空脚本报错", func(t *testing.T) {
 		cs := compileScript(t, "")
 		s := NewScript(cs)
-		_, err := s.Encode()
-		assertNoError(t, err)
+		if _, err := s.Encode(); err == nil {
+			t.Error("Encode未实现应返回错误")
+		}
 	})
 
-	t.Run("Encode带常量的脚本", func(t *testing.T) {
+	t.Run("Encode带常量的脚本报错", func(t *testing.T) {
 		cs := compileScript(t, `s := "hello"
 s`)
 		s := NewScript(cs)
-		_, err := s.Encode()
-		assertNoError(t, err)
+		if _, err := s.Encode(); err == nil {
+			t.Error("Encode未实现应返回错误")
+		}
 	})
 
-	t.Run("Encode带函数的脚本", func(t *testing.T) {
+	t.Run("Encode带函数的脚本报错", func(t *testing.T) {
 		cs := compileScript(t, `
 fn add(a, b) { return a + b }
 add(1, 2)
 `)
 		s := NewScript(cs)
-		_, err := s.Encode()
-		assertNoError(t, err)
+		if _, err := s.Encode(); err == nil {
+			t.Error("Encode未实现应返回错误")
+		}
 	})
 }
 
@@ -1024,24 +1028,18 @@ var _ error = (*testAPIError)(nil)
 // ========== Context - BindFunc panic 测试 ==========
 
 func Test_APIComplete_BindFunc_PanicOnNonFunc(t *testing.T) {
-	t.Run("传入string应panic", func(t *testing.T) {
-		defer func() {
-			if r := recover(); r == nil {
-				t.Error("BindFunc传入非函数应panic")
-			}
-		}()
+	t.Run("传入string返回错误", func(t *testing.T) {
 		ctx := NewContext()
-		ctx.BindFunc("bad", "not a function")
+		if err := ctx.BindFunc("bad", "not a function"); err == nil {
+			t.Error("BindFunc传入非函数应返回错误")
+		}
 	})
 
-	t.Run("传入int应panic", func(t *testing.T) {
-		defer func() {
-			if r := recover(); r == nil {
-				t.Error("BindFunc传入非函数应panic")
-			}
-		}()
+	t.Run("传入int返回错误", func(t *testing.T) {
 		ctx := NewContext()
-		ctx.BindFunc("bad", 42)
+		if err := ctx.BindFunc("bad", 42); err == nil {
+			t.Error("BindFunc传入非函数应返回错误")
+		}
 	})
 }
 

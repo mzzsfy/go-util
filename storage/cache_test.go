@@ -1,11 +1,14 @@
 package storage
 
 import (
+	"sync"
 	"testing"
 )
 
 // mockCache 简单的内存缓存实现,用于测试
+// CacheWrap 契约要求底层 Cache 并发安全, 因此 mock 自带锁
 type mockCache[K comparable, V any] struct {
+	mu   sync.Mutex
 	data map[K]V
 }
 
@@ -13,24 +16,34 @@ func newMockCache[K comparable, V any]() *mockCache[K, V] {
 	return &mockCache[K, V]{data: make(map[K]V)}
 }
 
-func (m *mockCache[K, V]) Get(key K) (V, bool) {
-	v, ok := m.data[key]
+func (m *mockCache[K, V]) Get(key K) (v V, ok bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	v, ok = m.data[key]
 	return v, ok
 }
 
 func (m *mockCache[K, V]) Set(key K, value V) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.data[key] = value
 }
 
 func (m *mockCache[K, V]) Delete(key K) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	delete(m.data, key)
 }
 
 func (m *mockCache[K, V]) Clear() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.data = make(map[K]V)
 }
 
 func (m *mockCache[K, V]) Size() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	return len(m.data)
 }
 

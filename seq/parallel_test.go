@@ -1,46 +1,36 @@
 package seq
 
 import (
-    "math/rand"
-    "testing"
-    "time"
+	"sync/atomic"
+	"testing"
 )
 
-const allSleepDuration = time.Millisecond * 500
-
 func Test_Parallel(t *testing.T) {
-    t.Parallel()
-    FromIntSeq(1).Take(1).ForEach(func(x int) {
-        now := time.Now()
-        FromIntSeq().Take(5).Parallel().OnLast(func(i *int) {
-            t.Logf("%d ok,use %s", x, time.Now().Sub(now).String())
-        }).ForEach(func(i int) {
-            n := 30 + rand.Intn(500)
-            concurrent := 1 + int(float64(n/10+rand.Intn(n-10))*0.9)
-            p := NewParallel(concurrent)
-            sleepDuration := time.Duration(float64(allSleepDuration) / (float64(n) / float64(concurrent)))
-            //t.Logf("%d,开始,concurrent=%d,n=%d", i, concurrent, n)
-            now := time.Now()
-            for i := 0; i < n; i++ {
-                //i := i
-                p.Add(func() {
-                    d := sleepDuration
-                    //t.Logf("%d sleep %s", i, d.String())
-                    time.Sleep(d)
-                })
-            }
-            if time.Now().Sub(now) < 10*time.Millisecond {
-                t.Logf("%d,启动时间不正确%s,concurrent=%d,n=%d,sleepDuration=%s", i, time.Now().Sub(now).String(), concurrent, n, sleepDuration.String())
-                t.FailNow()
-            }
-            p.Wait()
-            sub := time.Now().Sub(now)
-            if sub < allSleepDuration || sub > 3*allSleepDuration {
-                t.Logf("%d,运行时间不正确%s,%s,concurrent=%d,n=%d,sleepDuration=%s", i, allSleepDuration.String(), sub.String(), concurrent, n, sleepDuration.String())
-                t.FailNow()
-            } else {
-                //t.Log("ok,use ", i, sub.String())
-            }
-        })
-    })
+	t.Parallel()
+	//门闩同步:worker并发达到上限后统一放行,验证NewParallel并发度,任务阻塞保持并发无需sleep
+	const concurrent = 4
+	const taskCount = 50
+	p, err := NewParallel(concurrent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var nowC, maxC int32
+	gate := waitPeak(concurrent, &nowC, awaitTimeout)
+	msg := awaitResult(awaitTimeout, func() {
+		for i := 0; i < taskCount; i++ {
+			p.Add(func() {
+				c := atomic.AddInt32(&nowC, 1)
+				recordPeak(&maxC, c)
+				<-gate
+				atomic.AddInt32(&nowC, -1)
+			})
+		}
+		p.Wait()
+	})
+	if msg != "ok" {
+		t.Fatalf("NewParallel执行异常:%s", msg)
+	}
+	if atomic.LoadInt32(&maxC) != concurrent {
+		t.Fatalf("并发峰值 %d != %d", maxC, concurrent)
+	}
 }

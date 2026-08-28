@@ -37,7 +37,7 @@ func Test_PrepareLazyDependenciesMoreCases(t *testing.T) {
 		key := cacheKey{reflect.TypeOf(0), "service"}
 		entry := c.providers[key]
 
-		err := c.prepareLazyDependencies(entry, key)
+		err := c.prepareLazyDependencies(entry)
 		if err != nil {
 			t.Errorf("Expected nil for non-lazy mode, got %v", err)
 		}

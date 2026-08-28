@@ -53,14 +53,14 @@ func Test_Eval_FunctionDefinition(t *testing.T) {
 }
 
 func Test_Eval_CompileError(t *testing.T) {
-	_, err := Eval("x + ")  // 语法错误
+	_, err := Eval("x + ") // 语法错误
 	if err == nil {
 		t.Error("Expected compile error, got nil")
 	}
 }
 
 func Test_Eval_RuntimeError(t *testing.T) {
-	_, err := Eval("undefinedVar")  // 未定义变量
+	_, err := Eval("undefinedVar") // 未定义变量
 	if err == nil {
 		t.Error("Expected runtime error, got nil")
 	}
@@ -199,7 +199,7 @@ func Test_MustEval_Panic(t *testing.T) {
 		}
 	}()
 
-	MustEval("invalid + syntax +")  // 应该 panic
+	MustEval("invalid + syntax +") // 应该 panic
 }
 
 // ========== MustEvalWithBindings 测试 ==========
@@ -230,9 +230,8 @@ func Test_MustEvalWithBindings_Panic(t *testing.T) {
 	}()
 
 	bindings := map[string]interface{}{"x": 10}
-	MustEvalWithBindings("x + y", bindings)  // y 未定义，应该 panic
+	MustEvalWithBindings("x + y", bindings) // y 未定义，应该 panic
 }
-
 
 // ========== 复杂场景测试 ==========
 

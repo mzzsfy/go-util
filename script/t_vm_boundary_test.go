@@ -1,6 +1,8 @@
 package script
 
 import (
+	"math"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -9,8 +11,9 @@ import (
 // ========== VM边界条件测试 ==========
 
 func Test_VM_MaxIntArithmetic(t *testing.T) {
-	runIntTest(t, "9223372036854775807", 9223372036854775807)
-	runIntTest(t, "0 - 9223372036854775807", -9223372036854775807)
+	maxInt := strconv.FormatInt(math.MaxInt, 10)
+	runIntTest(t, maxInt, math.MaxInt)
+	runIntTest(t, "0 - "+maxInt, math.MinInt+1)
 }
 
 func Test_VM_ZeroOperations(t *testing.T) {
@@ -27,7 +30,9 @@ func Test_VM_OneOperations(t *testing.T) {
 }
 
 func Test_VM_LargeNumbers(t *testing.T) {
-	runIntTest(t, "1000000 * 1000000", 1000000000000)
+	// 期望值与引擎同为int回绕语义
+	a := 1000000
+	runIntTest(t, "1000000 * 1000000", a*a)
 	runIntTest(t, "999999 + 1", 1000000)
 }
 

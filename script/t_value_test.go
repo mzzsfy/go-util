@@ -67,7 +67,7 @@ func Test_Value_Nil(t *testing.T) {
 }
 
 func Test_Value_Array(t *testing.T) {
- elems := []Value{NewValue(1), NewValue(2), NewValue(3)}
+	elems := []Value{NewValue(1), NewValue(2), NewValue(3)}
 	v := NewValue(elems)
 	if v.Type != TypeArray {
 		t.Errorf("type应为TypeArray, got %v", v.Type)
@@ -108,7 +108,7 @@ func Test_Value_Function(t *testing.T) {
 	if v.Type != TypeFunction {
 		t.Errorf("type应为TypeFunction, got %v", v.Type)
 	}
- fv := v.Function()
+	fv := v.Function()
 	if fv == nil {
 		t.Fatal("Function()不应返回nil")
 	}

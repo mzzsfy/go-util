@@ -383,8 +383,8 @@ func Test_Lexer_MixedTokens(t *testing.T) {
 	assertNoError(t, err)
 
 	expected := []struct {
-		typ  TokenType
-		val  string
+		typ TokenType
+		val string
 	}{
 		{TokenIdent, "x"},
 		{TokenAssign, ":="},

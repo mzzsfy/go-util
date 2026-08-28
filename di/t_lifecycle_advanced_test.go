@@ -2,7 +2,9 @@ package di
 
 import (
 	"context"
+	"os"
 	"reflect"
+	"syscall"
 	"testing"
 )
 
@@ -94,7 +96,7 @@ func Test_CheckAndGetCachedInstanceAllPaths(t *testing.T) {
 		key := cacheKey{reflect.TypeOf(""), "test-key"}
 
 		c.mu.Lock()
-		c.loading[key] = true
+		c.loading[key] = &loadingState{done: make(chan struct{})}
 		c.mu.Unlock()
 
 		_, found := c.checkAndGetCachedInstance(key)
@@ -108,11 +110,12 @@ func Test_CheckAndGetCachedInstanceAllPaths(t *testing.T) {
 func Test_ShutdownOnSignalsDefaults(t *testing.T) {
 	c := New().(*container)
 
-	// 使用默认参数
+	env := newSignalTestEnv(t)
 	c.ShutdownOnSignals()
+	env.assertSignals(syscall.SIGTERM, os.Interrupt)
 
-	// 清理
-	_ = c.Shutdown(context.Background())
+	env.sendSignal(syscall.SIGTERM)
+	env.assertShutdownComplete(c)
 }
 
 // 测试executeBeforeCreateHooks的错误路径

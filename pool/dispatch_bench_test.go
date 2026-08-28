@@ -8,7 +8,7 @@ import (
 
 // BenchmarkGoPool_DispatchRoundtrip 测量单任务提交+执行往返延迟(无sleep)
 func BenchmarkGoPool_DispatchRoundtrip(b *testing.B) {
-	p := NewGopool()
+	p := NewGoPool()
 	// 预热: 确保 worker 已创建, 排除冷启动
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -39,7 +39,7 @@ func BenchmarkGo_DispatchRoundtrip(b *testing.B) {
 
 // BenchmarkGoPool_Throughput 纯吞吐: 并发提交+执行大量任务
 func BenchmarkGoPool_Throughput(b *testing.B) {
-	p := NewGopool()
+	p := NewGoPool()
 	_ = runtime.NumCPU
 	var wg sync.WaitGroup
 	wg.Add(b.N)

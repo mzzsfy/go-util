@@ -3,7 +3,10 @@ package script
 import "testing"
 
 func Test_TrailingComma_Array(t *testing.T) {
-	cases := []struct{ src string; expected int }{
+	cases := []struct {
+		src      string
+		expected int
+	}{
 		{"[1, 2, 3,][0]", 1},
 		{"[1, 2, 3,][2]", 3},
 		{"[1,][0]", 1},
@@ -23,7 +26,10 @@ func Test_TrailingComma_Array(t *testing.T) {
 }
 
 func Test_TrailingComma_Map(t *testing.T) {
-	cases := []struct{ src string; expected string }{
+	cases := []struct {
+		src      string
+		expected string
+	}{
 		{`{"a": 1, "b": 2,}["a"]`, "1"},
 		{`{"a": 1,}["a"]`, "1"},
 		{`m := {"a": 1, "b": 2,}

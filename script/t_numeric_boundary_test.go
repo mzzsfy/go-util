@@ -2,12 +2,13 @@ package script
 
 import (
 	"math"
+	"strconv"
 	"testing"
 )
 
 // ========== 数值精度与边界测试 ==========
 // 完整覆盖整数/浮点数的字面量边界、运算溢出、类型转换、位运算与数学模式
-// int 对应 Go int64, float 对应 Go float64
+// int 对应 Go int(平台宽度), float 对应 Go float64
 // 混合 int/float 运算: int 操作数自动转换为 float64 参与运算, 见 Test_Numeric_MixedIntFloat
 
 // ---------- 整数字面量边界 ----------
@@ -23,25 +24,26 @@ func Test_Numeric_IntUnits(t *testing.T) {
 	t.Run("负一", func(t *testing.T) { runIntTest(t, `-1`, -1) })
 }
 
-// Test_Numeric_IntMaxBoundary int64最大值边界
+// Test_Numeric_IntMaxBoundary 平台int最大值边界
 func Test_Numeric_IntMaxBoundary(t *testing.T) {
-	const maxInt64 = 9223372036854775807
-	t.Run("最大值", func(t *testing.T) { runIntTest(t, `9223372036854775807`, maxInt64) })
-	t.Run("最大值减一", func(t *testing.T) { runIntTest(t, `9223372036854775807 - 1`, maxInt64-1) })
+	maxInt := strconv.FormatInt(math.MaxInt, 10)
+	t.Run("最大值", func(t *testing.T) { runIntTest(t, maxInt, math.MaxInt) })
+	t.Run("最大值减一", func(t *testing.T) { runIntTest(t, maxInt+" - 1", math.MaxInt-1) })
 }
 
-// Test_Numeric_IntMinBoundary int64最小值边界
-// 字面量 -9223372036854775808 无法直接解析, 编译器先解析正数再取负, 正数溢出
+// Test_Numeric_IntMinBoundary 平台int最小值边界
+// 字面量最小值无法直接解析, 编译器先解析正数再取负, 正数溢出
 func Test_Numeric_IntMinBoundary(t *testing.T) {
 	const minInt64 = -9223372036854775808
 	t.Run("最小值字面量编译错误", func(t *testing.T) {
 		runErrorTest(t, `-9223372036854775808`)
 	})
+	maxInt := strconv.FormatInt(math.MaxInt, 10)
 	t.Run("通过减法得到最小值", func(t *testing.T) {
-		runIntTest(t, `-9223372036854775807 - 1`, minInt64)
+		runIntTest(t, "-"+maxInt+" - 1", math.MinInt)
 	})
 	t.Run("最小值加一", func(t *testing.T) {
-		runIntTest(t, `-9223372036854775807 - 1 + 1`, minInt64+1)
+		runIntTest(t, "-"+maxInt+" - 1 + 1", math.MinInt+1)
 	})
 }
 
@@ -55,7 +57,9 @@ func Test_Numeric_IntLarge(t *testing.T) {
 func Test_Numeric_HexLiterals(t *testing.T) {
 	t.Run("0xFF", func(t *testing.T) { runIntTest(t, `0xFF`, 255) })
 	t.Run("0x0", func(t *testing.T) { runIntTest(t, `0x0`, 0) })
-	t.Run("0xDEADBEEF", func(t *testing.T) { runIntTest(t, `0xDEADBEEF`, 0xDEADBEEF) })
+	// 超过32位int的字面量与引擎同样按int截断, 期望值用运行时截断保持同步
+	deadbeef := int64(0xDEADBEEF)
+	t.Run("0xDEADBEEF", func(t *testing.T) { runIntTest(t, `0xDEADBEEF`, int(deadbeef)) })
 	t.Run("0X大写前缀", func(t *testing.T) { runIntTest(t, `0XFF`, 255) })
 }
 
@@ -136,30 +140,38 @@ func Test_Numeric_NoScientificNotation(t *testing.T) {
 
 // Test_Numeric_IntAddBoundary 加法边界
 func Test_Numeric_IntAddBoundary(t *testing.T) {
+	maxInt := strconv.FormatInt(math.MaxInt, 10)
 	t.Run("最大值加一溢出", func(t *testing.T) {
-		// int64 溢出回绕, 引擎不报错
-		runIntTest(t, `9223372036854775807 + 1`, -9223372036854775808)
+		// int 溢出回绕, 引擎不报错
+		runIntTest(t, maxInt+" + 1", math.MinInt)
 	})
 	t.Run("大数加法", func(t *testing.T) {
-		runIntTest(t, `1000000000 + 2000000000`, 3000000000)
+		// 期望值与引擎同为int回绕语义
+		a, b := 1000000000, 2000000000
+		runIntTest(t, `1000000000 + 2000000000`, a+b)
 	})
 }
 
 // Test_Numeric_IntSubBoundary 减法边界
 func Test_Numeric_IntSubBoundary(t *testing.T) {
+	maxInt := strconv.FormatInt(math.MaxInt, 10)
 	t.Run("最小值减一溢出", func(t *testing.T) {
-		// -9223372036854775807 - 1 - 1 溢出回绕到最大值
-		runIntTest(t, `-9223372036854775807 - 1 - 1`, 9223372036854775807)
+		// 最小值再减一溢出回绕到最大值
+		runIntTest(t, "-"+maxInt+" - 1 - 1", math.MaxInt)
 	})
 	t.Run("大数减法", func(t *testing.T) {
-		runIntTest(t, `3000000000 - 1000000000`, 2000000000)
+		// 期望值与引擎同为int截断语义
+		a := int64(3000000000)
+		runIntTest(t, `3000000000 - 1000000000`, int(a)-1000000000)
 	})
 }
 
 // Test_Numeric_IntMulLarge 乘法大数
 func Test_Numeric_IntMulLarge(t *testing.T) {
 	t.Run("百万乘百万", func(t *testing.T) {
-		runIntTest(t, `1000000 * 1000000`, 1000000000000)
+		// 期望值与引擎同为int回绕语义
+		a := 1000000
+		runIntTest(t, `1000000 * 1000000`, a*a)
 	})
 }
 

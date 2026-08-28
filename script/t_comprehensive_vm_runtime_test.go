@@ -43,14 +43,16 @@ func Test_Comprehensive_Arithmetic_Int(t *testing.T) {
 	})
 
 	t.Run("边界值", func(t *testing.T) {
-		// 大数运算
-		runIntTest(t, "1000000 * 1000000", 1000000000000)
+		// 大数运算, 期望值与引擎同为int回绕语义
+		a := 1000000
+		runIntTest(t, "1000000 * 1000000", a*a)
 		// 零的运算
 		runIntTest(t, "0 + 5", 5)
 		runIntTest(t, "5 - 0", 5)
 		runIntTest(t, "0 * 100", 0)
-		// 最大int边界
-		runIntTest(t, "0x7FFFFFFFFFFFFFFF", math.MaxInt64)
+		// 最大int边界, 期望值与引擎同为int截断语义
+		maxInt64 := int64(math.MaxInt64)
+		runIntTest(t, "0x7FFFFFFFFFFFFFFF", int(maxInt64))
 	})
 }
 

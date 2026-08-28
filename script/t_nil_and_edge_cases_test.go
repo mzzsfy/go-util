@@ -1,6 +1,10 @@
 package script
 
-import "testing"
+import (
+	"math"
+	"strconv"
+	"testing"
+)
 
 // ========== Nil值和边界测试 ==========
 // 参照 goja/otto 和 expr-lang 的 nil 处理与边界值测试模式
@@ -196,14 +200,16 @@ r`, 2)
 
 // ========== E. 数值边界 ==========
 
-// Test_Num_MaxInt64 最大int64值
-func Test_Num_MaxInt64(t *testing.T) {
-	runIntTest(t, "9223372036854775807", 9223372036854775807)
+// Test_Num_MaxInt 平台int最大值
+func Test_Num_MaxInt(t *testing.T) {
+	maxInt := strconv.FormatInt(math.MaxInt, 10)
+	runIntTest(t, maxInt, math.MaxInt)
 }
 
-// Test_Num_MinInt64 最小int64值（通过减法避免词法问题）
-func Test_Num_MinInt64(t *testing.T) {
-	runIntTest(t, "0 - 9223372036854775807", -9223372036854775807)
+// Test_Num_MinInt 平台int最小值（通过减法避免词法问题）
+func Test_Num_MinInt(t *testing.T) {
+	maxInt := strconv.FormatInt(math.MaxInt, 10)
+	runIntTest(t, "0 - "+maxInt, math.MinInt+1)
 }
 
 // Test_Num_ZeroArithmetic 零的特殊运算
@@ -227,7 +233,9 @@ func Test_Num_ZeroArithmetic(t *testing.T) {
 
 // Test_Num_LargeMultiply 大数乘法
 func Test_Num_LargeMultiply(t *testing.T) {
-	runIntTest(t, "1000000 * 1000000", 1000000000000)
+	// 期望值与引擎同为int回绕语义
+	a := 1000000
+	runIntTest(t, "1000000 * 1000000", a*a)
 }
 
 // Test_Num_NegativeArithmetic 负数运算
