@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a Go utility library (`github.com/mzzsfy/go-util`) that provides high-performance, generic-based utility functions and components. The project has a strict philosophy of **zero third-party dependencies** (except gopkg.in/yaml.v3 for config) and heavily leverages Go generics (requires Go 1.18+).
+This is a Go utility library (`github.com/mzzsfy/go-util`) that provides high-performance, generic-based utility functions and components. The project has a strict philosophy of **zero third-party dependencies** (go.mod has no `require` entries) and heavily leverages Go generics (requires Go 1.18+).
 
 ## Architecture
 
@@ -50,7 +50,7 @@ The codebase is organized into modular packages, each serving a specific purpose
   - Configurable log levels and formats
   - Performance-oriented design
   - Integration with other components
-  - Key files: `logger_test.go`, `logger_test/*.go`
+  - Key files: `logger.go`, `logger_test.go`
 
 - **`helper`**: General utilities
   - String and time processing
@@ -83,7 +83,7 @@ The codebase is organized into modular packages, each serving a specific purpose
 ### Key Design Patterns
 
 1. **Generic-First**: All utilities use Go generics extensively
-2. **Zero Dependencies**: Only essential dependencies (yaml.v3)
+2. **Zero Dependencies**: No third-party dependencies
 3. **Performance-Oriented**: Focus on minimal allocations and optimal algorithms
 4. **Test-Driven**: Comprehensive test suite with benchmarks
 5. **Modular Design**: Each package is self-contained
@@ -99,7 +99,7 @@ The codebase is organized into modular packages, each serving a specific purpose
 go test -timeout 30s ./...
 
 # Run specific package tests
-go test -timeout 30s -v ./seq  timeout 30s
+go test -timeout 30s -v ./seq
 go test -timeout 30s -v ./di 
 
 # Run specific test
@@ -130,8 +130,8 @@ go vet ./...
 ## Important Notes
 
 ### Go Version Requirements
-- **Minimum**: Go 1.18 (for generics support)
-- **Current**: Go 1.25.0 (in development environment)
+- **Minimum**: Go 1.18 (for generics support, as declared in go.mod)
+- **Development environment**: Go 1.27.0 (enables the seq package's generic-method API)
 
 ### Test Structure
 - Tests are comprehensive and often include benchmarks

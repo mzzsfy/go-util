@@ -7,4 +7,14 @@
 //
 //	result, err := script.Eval("10 + 20")
 //	fmt.Println(result.Int()) // 30
+//
+// # 语义说明
+//
+// 切片: 切片操作与原数组共享底层数组, 修改切片元素会影响原数组。
+// 需要独立数据时避免通过切片修改元素, 或重建新数组。
+//
+// Script.Clone: 浅拷贝, 副本与原脚本共享同一编译产物。
+// 编译产物不可变, 共享安全; Context 需各自创建。
+//
+// Script.Encode/Decode: 未实现, 调用返回错误。
 package script

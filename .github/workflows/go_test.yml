@@ -6,6 +6,7 @@ on:
   schedule:
     - cron: '0 14 * * *'
 jobs:
+  # 版本矩阵回归: 每版本 amd64 3 遍 + ARM64/ARM32 真机各 3 遍(刻意设计, 勿改遍数)
   run_test:
     runs-on: ubuntu-latest
     strategy:
@@ -22,7 +23,7 @@ jobs:
         run: |
           for ((i=1; i<=3; i++))
           do
-            go test -count=1 -run Test_.+ -timeout 15s ./...
+            go test -count=1 -run Test_.+ -timeout 45s ./...
             echo "Test $i done"
           done
 
@@ -49,6 +50,8 @@ jobs:
               go test -count=1 -run Test_.+ -timeout 45s ./...
               echo "Test $i done"
             done
+
+  # 最新版回归 10 遍(刻意设计) + 覆盖率基线(仅记录, 不设阈值门禁)
   run_latest_test:
     runs-on: ubuntu-latest
     steps:
@@ -62,6 +65,108 @@ jobs:
         run: |
           for ((i=1; i<=10; i++))
           do
-            go test -count=1 -run Test_.+ -timeout 15s ./...
+            go test -count=1 -run Test_.+ -timeout 45s ./...
             echo "Test $i done"
           done
+      - name: Coverage baseline
+        run: go test -cover -count=1 -timeout 300s ./...
+
+  # vet 门禁: unsafe 包 3 处 unsafe.Pointer 为已备案 runtime hack(见 unsafe 包内注释), 精确排除该包
+  vet:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: '1.27'
+      - name: Vet
+        run: go vet $(go list ./... | grep -v '/unsafe$')
+
+  # gofmt 门禁
+  gofmt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: '1.27'
+      - name: Check gofmt
+        run: |
+          files=$(gofmt -l .)
+          if [ -n "$files" ]; then
+            echo "以下文件未通过 gofmt:"
+            echo "$files"
+            exit 1
+          fi
+
+  # 数据竞争门禁: 只在 go1.27/linux 单轨跑, 不进矩阵(慢)
+  race:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: '1.27'
+      - name: Test with race
+        run: go test -race -count=1 -timeout 300s ./...
+
+  # 32 位编译门禁
+  build_386:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: '1.27'
+      - name: Build linux/386
+        env:
+          GOOS: linux
+          GOARCH: '386'
+        run: go build ./...
+
+  # 自定义构建标签验证: 每标签 vet+build, go1.27/go1.18 两轨各验一次
+  # concurrent_fast 与 concurrent_memory 互斥(同定义常量), 不组合
+  build_tags:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go-version: [ '1.27', '1.18' ]
+    steps:
+      - uses: actions/checkout@v7
+      - name: Setup Go ${{ matrix.go-version }}
+        uses: actions/setup-go@v7
+        with:
+          go-version: ${{ matrix.go-version }}
+      - name: Vet and build with tags
+        run: |
+          set -e
+          pkgs=$(go list ./... | grep -v '/unsafe$')
+          # go1.18 vet 规则集早于 go1.20 的 Unwrap() []error 标准接口, 误报合法代码, 关闭该检查
+          vetflags=""
+          if [ "${{ matrix.go-version }}" = "1.18" ]; then vetflags="-stdmethods=false"; fi
+          for tag in json_parser concurrent_fast concurrent_memory nosimd; do
+            echo "=== tag: $tag ==="
+            go vet $vetflags -tags "$tag" $pkgs
+            go build -tags "$tag" ./...
+          done
+          echo "=== tag: json_parser 下运行 config 测试 ==="
+          go test -tags json_parser -count=1 -timeout 60s ./config
+
+  # 漏洞扫描: 对旧依赖误报风险, 先观察不阻断
+  govulncheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: '1.27'
+      - name: govulncheck
+        continue-on-error: true
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...

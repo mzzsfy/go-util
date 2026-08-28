@@ -243,7 +243,7 @@ container := di.New(
         fmt.Println("before shutdown")
         return nil
     }),
-    // Shutdown() 时按注册顺序执行
+    // Shutdown() 时按注册逆序执行(后注册先执行,销毁依赖序:被依赖者最后销毁)
     di.WithContainerShutdown(func(ctx context.Context) error {
         fmt.Println("on shutdown")
         return nil
@@ -537,8 +537,8 @@ func(context.Context) error
 - `WithContainerAfterDestroy` - 容器级销毁后钩子
 - `WithContainerOnStart` - 启动时钩子
 - `WithContainerAfterStart` - 启动后钩子
-- `WithContainerBeforeShutdown` - 关闭前钩子（插队到链首）
-- `WithContainerShutdown` - 关闭钩子
+- `WithContainerBeforeShutdown` - 关闭前钩子（最先执行）
+- `WithContainerShutdown` - 关闭钩子（按注册逆序执行）
 
 > 注: 除 `WithContainerShutdown` 和 `WithContainerBeforeShutdown` 外，上述容器选项在 `Start` 之后调用会 panic。`AppendOption` 会将 panic 转为错误返回。
 

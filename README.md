@@ -2,6 +2,10 @@
 
 [![](https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=https%3A%2F%2Fgithub.com%2Fmzzsfy%2Fgo-util&count_bg=%2379C83D&title_bg=%23555555&icon=&icon_color=%23E7E7E7&title=hits&edge_flat=false)](https://github.com/mzzsfy)
 
+```bash
+go get github.com/mzzsfy/go-util
+```
+
 项目遵守:
 
 - **不引入任何第三方库**
@@ -69,7 +73,10 @@
     val := adder.Sum() // 30
 
     // 滑动窗口限流: 1秒内最多允许100次请求,分为10个窗口
-    sw := concurrent.NewSlidingWindow(1000, 100, 10)
+    sw, err := concurrent.NewSlidingWindow(1000, 100, 10)
+    if err != nil {
+        panic(err) // 参数非法返回哨兵错误
+    }
     if sw.CanDo() {
         // 允许执行
     } else {
@@ -162,3 +169,7 @@
     result, _ = engine.Run(ctx, compiled) // 42
     ```
   更多例子见: [README.md](./script/README.md)
+
+## License
+
+[Apache-2.0](./LICENSE)
