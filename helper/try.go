@@ -1,14 +1,14 @@
 package helper
 
 import (
-    "runtime"
-    "strings"
-    "sync/atomic"
+	"runtime"
+	"strings"
+	"sync/atomic"
 )
 
 type Err struct {
-    Error any
-    Stack Stacks
+	Error any
+	Stack Stacks
 }
 
 // tryBoundary 缓存 TryWithStack 帧的 PC, 后续 panic 走 O(1) 整数比较
@@ -17,14 +17,14 @@ var tryBoundary uintptr
 // TryWithStack 执行函数 f, 在 panic 时捕获错误和调用栈
 // 首次 panic 通过函数名查找 boundary PC 并缓存, 后续走 PC 整数比较
 func TryWithStack(f func(), callback func(recoverValue any, stack Stacks)) {
-    defer func() {
-        if err := recover(); err != nil {
-            stack := CallerStack(2)
-            cleanTryFrame(&stack)
-            callback(err, stack)
-        }
-    }()
-    f()
+	defer func() {
+		if err := recover(); err != nil {
+			stack := CallerStack(2)
+			cleanTryFrame(&stack)
+			callback(err, stack)
+		}
+	}()
+	f()
 }
 
 // cleanTryFrame 从调用栈中移除 TryWithStack 帧

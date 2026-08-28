@@ -179,7 +179,7 @@ func newCompositeValue(data any) Value {
 // 检查类型为nil或数据为nil
 func (v Value) IsNil() bool {
 	return v.Type == TypeNil
-}// getTyped 获取指定类型的值（泛型辅助函数）
+} // getTyped 获取指定类型的值（泛型辅助函数）
 func getTyped[T any](v Value, typ ValueType) T {
 	if v.Type == typ {
 		return v.Data.(T)

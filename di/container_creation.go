@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"reflect"
 	"time"
+
+	gounsafe "github.com/mzzsfy/go-util/unsafe"
 )
 
 // create 主创建函数
@@ -32,16 +34,33 @@ func (c *container) create(entry providerEntry, name string) (any, error) {
 }
 
 // createNewInstance 创建新实例
-// 处理循环依赖检查、依赖准备和实例创建
+// 以 singleflight 语义协调创建权:同 key 并发请求等待首个创建完成,同 goroutine 递归判定为循环依赖
 func (c *container) createNewInstance(entry providerEntry, name string, key cacheKey, startTime time.Time) (any, error) {
-	// 检查循环依赖并标记加载(合并为单次 Lock)
-	if err := c.tryMarkLoading(key, entry.reflectType, name); err != nil {
-		return nil, err
+	state := &loadingState{goid: gounsafe.GoID(), done: make(chan struct{})}
+	for {
+		wait, err := c.tryMarkLoading(key, state, entry.reflectType, name)
+		if err != nil {
+			return nil, err
+		}
+		if wait == nil {
+			// 获得创建权,创建结束后通知等待方
+			defer c.finishLoading(key, state)
+			return c.runCreation(entry, name, key, startTime)
+		}
+		// 其他 goroutine 正在创建,等待创建结束后重试
+		<-wait.done
+		if instance, found := c.getCachedInstance(key); found {
+			c.updateGetCallsStats()
+			return instance, nil
+		}
+		// 创建失败或 Transient 未缓存,重新竞争创建权
 	}
-	defer c.clearLoadingFlag(key)
+}
 
+// runCreation 已获得创建权,执行实际创建流程
+func (c *container) runCreation(entry providerEntry, name string, key cacheKey, startTime time.Time) (any, error) {
 	// 懒加载模式先创建依赖
-	if err := c.prepareLazyDependencies(entry, key); err != nil {
+	if err := c.prepareLazyDependencies(entry); err != nil {
 		return nil, err
 	}
 
@@ -50,8 +69,11 @@ func (c *container) createNewInstance(entry providerEntry, name string, key cach
 	if err != nil {
 		return nil, err
 	}
+	if instance == nil {
+		return nil, providerNilResultError(entry.reflectType, name)
+	}
 
-	// 双重检查：其他 goroutine 可能已创建实例
+	// 双重检查：其他路径可能已创建实例
 	if existingInstance, found := c.checkExistingInstanceDuringCreation(key, entry.config.loadMode); found {
 		c.updateGetCallsStats()
 		return existingInstance, nil
@@ -62,7 +84,7 @@ func (c *container) createNewInstance(entry providerEntry, name string, key cach
 }
 
 // finalizeInstanceCreation 完成实例创建的最后步骤
-// 执行注入、缓存和钩子
+// 执行注入、缓存和钩子;afterCreate 失败时回滚缓存,半初始化实例不外泄
 func (c *container) finalizeInstanceCreation(entry providerEntry, name string, instance any, startTime time.Time) (any, error) {
 	// 验证并注入依赖
 	instance, err := c.validateAndInject(instance)
@@ -70,12 +92,30 @@ func (c *container) finalizeInstanceCreation(entry providerEntry, name string, i
 		return instance, err
 	}
 
-	// 缓存实例并注册销毁钩子
-	c.cacheAndRegisterHooks(entry, name, instance)
+	key := cacheKey{entry.reflectType, name}
+	c.mu.Lock()
+	c.cacheInstance(entry, name, instance)
+	c.mu.Unlock()
 	c.updateCreateStats(startTime)
 
 	// 执行 afterCreate 钩子
-	return c.executeAfterCreateHooks(entry, name, instance)
+	inst, err := c.executeAfterCreateHooks(entry, name, instance)
+	if err != nil {
+		// 回滚:移除缓存,销毁钩子尚未注册,无需清理
+		c.mu.Lock()
+		if _, exists := c.instances[key]; exists {
+			delete(c.instances, key)
+		}
+		c.mu.Unlock()
+		return nil, err
+	}
+
+	// afterCreate 成功后按最终实例注册销毁钩子
+	c.mu.Lock()
+	c.registerDestroyHook(entry, name, inst)
+	c.mu.Unlock()
+
+	return inst, nil
 }
 
 // executeBeforeCreateHooks 执行 beforeCreate 钩子
@@ -140,20 +180,33 @@ func (c *container) executeAfterCreateHooks(entry providerEntry, name string, in
 	return info.Instance, nil
 }
 
-// tryMarkLoading 检查循环依赖并标记加载
-// 如果正在加载说明存在循环依赖,否则标记并返回 nil
-func (c *container) tryMarkLoading(key cacheKey, reflectType reflect.Type, name string) error {
+// tryMarkLoading 竞争创建权
+// 成功写入 state 返回 (nil, nil);同 key 已有创建者时:
+//   - 创建者为本 goroutine 判定为循环依赖,返回错误
+//   - 创建者为其他 goroutine 返回其状态,调用方等待 done 后重试
+func (c *container) tryMarkLoading(key cacheKey, state *loadingState, reflectType reflect.Type, name string) (*loadingState, error) {
 	c.mu.Lock()
-	if c.loading[key] {
+	if existing, ok := c.loading[key]; ok {
 		c.mu.Unlock()
-		return circularDependencyError(reflectType, name)
+		if existing.goid == state.goid {
+			return nil, circularDependencyError(reflectType, name)
+		}
+		return existing, nil
 	}
-	c.loading[key] = true
+	c.loading[key] = state
 	c.mu.Unlock()
-	return nil
+	return nil, nil
 }
 
-// checkExistingInstanceDuringCreation 检查创建过程中是否有其他 goroutine 已创建实例
+// finishLoading 清除加载标记并通知等待方
+func (c *container) finishLoading(key cacheKey, state *loadingState) {
+	c.mu.Lock()
+	delete(c.loading, key)
+	c.mu.Unlock()
+	close(state.done)
+}
+
+// checkExistingInstanceDuringCreation 检查创建过程中是否有其他路径已创建实例
 // 用于并发场景下的双重检查
 func (c *container) checkExistingInstanceDuringCreation(key cacheKey, loadMode LoadMode) (any, bool) {
 	if loadMode == LoadModeTransient {
@@ -164,39 +217,30 @@ func (c *container) checkExistingInstanceDuringCreation(key cacheKey, loadMode L
 
 // prepareLazyDependencies 准备懒加载依赖
 // 对于懒加载模式，先创建所有依赖
-func (c *container) prepareLazyDependencies(entry providerEntry, key cacheKey) error {
+func (c *container) prepareLazyDependencies(entry providerEntry) error {
 	if entry.config.loadMode != LoadModeLazy {
 		return nil
 	}
 
 	depend, err := c.findDepend(entry.reflectType)
 	if err != nil {
-		c.clearLoadingFlag(key)
 		return err
 	}
 
 	return c.createDependencies(depend)
 }
 
-// clearLoadingFlag 清除加载标记
-func (c *container) clearLoadingFlag(key cacheKey) {
-	c.mu.Lock()
-	delete(c.loading, key)
-	c.mu.Unlock()
-}
-
 // createDependencies 创建依赖实例
-// 按顺序创建所有依赖
+// 按顺序创建所有依赖,依赖 provider 沿父链解析,实例缓存到定义所在容器
 func (c *container) createDependencies(depend []cacheKey) error {
 	for i, k := range depend {
-		entry, exists := c.providers[k]
+		owner, entry, exists := c.findProviderOwner(k)
 		if !exists {
 			return fmt.Errorf("dependency[%d] not found: provider %s does not exist", i, k.String())
 		}
-		if _, err := c.create(entry, k.name); err != nil {
+		if _, err := owner.create(entry, k.name); err != nil {
 			return fmt.Errorf("failed to create dependency[%d] %s: %w", i, k.String(), err)
 		}
 	}
 	return nil
 }
-

@@ -204,16 +204,59 @@ func (vm *VM) bitNot(a Value) (Value, error) {
 	return vm.bitUnaryOp(a, func(x int) int { return ^x }, "位取反(^)")
 }
 
+// ========== 移位运算 ==========
+
+// validShiftAmount 校验并返回移位量
+// 负数或超出平台位宽的移位量视为非法, 避免触发 runtime panic
+func validShiftAmount(y int) (uint, bool) {
+	if y < 0 || y >= strconv.IntSize {
+		return 0, false
+	}
+	return uint(y), true
+}
+
+// shiftError 构建移位量非法错误
+func (vm *VM) shiftError(a, b Value, opName string) error {
+	return vm.runtimeErrorWithCode(ErrInvalidShift,
+		"移位量非法：%s 的移位量 %d 超出范围。\n"+
+			"→ 问题：移位量必须是非负数且小于平台整数位宽（%d 位）。\n"+
+			"→ 表达式操作数：%s %s %s\n"+
+			"→ 建议：检查移位量来源，必要时先取模或钳制到有效范围",
+		opName, b.Int(), strconv.IntSize, formatOperand(a), opName, formatOperand(b))
+}
+
+// formatOperand 将操作数格式化为错误消息片段
+func formatOperand(v Value) string {
+	if v.Type == TypeString {
+		return "\"" + v.String() + "\""
+	}
+	return v.GoString()
+}
+
 // lshift 执行左移运算
-// 支持类型：整数
+// 支持类型：整数；移位量非法时返回错误
 func (vm *VM) lshift(a, b Value) (Value, error) {
-	return vm.bitBinaryOp(a, b, func(x, y int) int { return x << y }, "左移(<<)")
+	if a.Type == TypeInt && b.Type == TypeInt {
+		n, ok := validShiftAmount(b.Int())
+		if !ok {
+			return Value{}, vm.shiftError(a, b, "左移(<<)")
+		}
+		return NewValue(a.Int() << n), nil
+	}
+	return vm.bitBinaryOp(a, b, func(x, y int) int { return x << uint(y) }, "左移(<<)")
 }
 
 // rshift 执行右移运算
-// 支持类型：整数
+// 支持类型：整数；移位量非法时返回错误
 func (vm *VM) rshift(a, b Value) (Value, error) {
-	return vm.bitBinaryOp(a, b, func(x, y int) int { return x >> y }, "右移(>>)")
+	if a.Type == TypeInt && b.Type == TypeInt {
+		n, ok := validShiftAmount(b.Int())
+		if !ok {
+			return Value{}, vm.shiftError(a, b, "右移(>>)")
+		}
+		return NewValue(a.Int() >> n), nil
+	}
+	return vm.bitBinaryOp(a, b, func(x, y int) int { return x >> uint(y) }, "右移(>>)")
 }
 
 // ========== 比较运算 ==========

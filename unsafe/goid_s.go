@@ -3,13 +3,14 @@
 package unsafe
 
 import (
-    "unsafe"
+	"unsafe"
 )
 
 //go:nocheckptr 读取 runtime 内部 g 结构体字段, 非堆对象, checkptr 无法合规
 func GoID() int64 {
-    p := (*int64)(unsafe.Pointer(getG() + goroutineIDOffset))
-    return *p
+	//必须使用 unsafe: getG 由汇编返回 runtime 内部 g 结构体地址, 无公开安全 API 可获取
+	p := (*int64)(unsafe.Pointer(getG() + goroutineIDOffset))
+	return *p
 }
 
 func getG() uintptr

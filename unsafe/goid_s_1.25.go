@@ -1,4 +1,4 @@
-//go:build (arm64 || arm || amd64 || amd64p32 || 386) && go1.25
+//go:build (amd64 || arm64) && go1.25
 
 package unsafe
 

@@ -5,5 +5,5 @@ package unsafe
 import "math/rand"
 
 func newHashSeed() uintptr {
-    return uintptr(rand.Int())
+	return uintptr(rand.Int())
 }

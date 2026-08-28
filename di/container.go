@@ -22,6 +22,10 @@ func (k cacheKey) String() string {
 
 // container 实现 Container 接口
 type container struct {
+	// stats 容器统计信息(使用 atomic 操作)
+	// 必须位于结构体首部:32 位平台依赖分配器对首字的 8 字节对齐保证,
+	// 否则 386 下 int64 原子操作触发 unaligned 64-bit atomic panic
+	stats containerStats
 	// beforeCreate 容器级别的创建前钩子
 	beforeCreate []func(Container, EntryInfo) (any, error)
 	// afterCreate 容器级别的创建后钩子
@@ -38,16 +42,16 @@ type container struct {
 	mu sync.RWMutex
 	// parent 父容器引用，用于作用域继承
 	parent *container
-	// shutdown 关闭钩子列表
+	// shutdown 关闭钩子列表,与销毁钩子共用,执行时按注册逆序(依赖序销毁)
 	shutdown []ShutdownHook
-	// loading 正在创建的实例标记，用于检测循环依赖
-	loading map[cacheKey]bool
+	// preShutdown 关闭前置钩子列表,先于 shutdown 执行,按插入序执行
+	preShutdown []ShutdownHook
+	// loading 正在创建的实例状态,用于区分循环依赖与并发重复请求
+	loading map[cacheKey]*loadingState
 	// configSource 配置源
 	configSource ConfigSource
 	// configMu 配置源读写锁
 	configMu sync.RWMutex
-	// stats 容器统计信息（使用 atomic 操作）
-	stats containerStats
 	// done 关闭通知通道
 	done chan struct{}
 	// onStartup 启动前钩子列表
@@ -56,6 +60,23 @@ type container struct {
 	afterStartup []func(Container) error
 	// started 是否已启动
 	started bool
+	// shutdownStarted 关闭流程是否已开始,原子操作保证并发 Shutdown 唯一执行者
+	// 置位后为终态,Shutdown 后容器不可复活
+	shutdownStarted int32
+}
+
+// shutdownStateStart/shutdownStateIdle 关闭流程状态值
+const (
+	shutdownStateStart int32 = 1
+	shutdownStateIdle  int32 = 0
+)
+
+// loadingState 正在创建的实例状态
+type loadingState struct {
+	// goid 创建者 goroutine 标识,用于区分同 goroutine 递归(循环依赖)与跨 goroutine 并发请求
+	goid int64
+	// done 创建结束通知通道,关闭后等待方重新检查缓存或重试创建
+	done chan struct{}
 }
 
 // containerStats 容器运行统计信息
@@ -90,20 +111,20 @@ type providerEntry struct {
 // opts: 可选的容器配置选项
 // 返回配置好的容器实例
 func New(opts ...ContainerOption) Container {
-    c := &container{
-        providers:    make(map[cacheKey]providerEntry),
-        instances:    make(map[cacheKey]any),
-        loading:      make(map[cacheKey]bool),
-        configSource: NewMapConfigSource(),
-        done:         make(chan struct{}),
-        onStartup:    make([]func(Container) error, 0),
-        afterStartup: make([]func(Container) error, 0),
-    }
+	c := &container{
+		providers:    make(map[cacheKey]providerEntry),
+		instances:    make(map[cacheKey]any),
+		loading:      make(map[cacheKey]*loadingState),
+		configSource: NewMapConfigSource(),
+		done:         make(chan struct{}),
+		onStartup:    make([]func(Container) error, 0),
+		afterStartup: make([]func(Container) error, 0),
+	}
 
-    // 应用所有配置选项
-    for _, opt := range opts {
-        opt(c)
-    }
+	// 应用所有配置选项
+	for _, opt := range opts {
+		opt(c)
+	}
 
-    return c
+	return c
 }

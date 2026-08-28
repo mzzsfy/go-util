@@ -1,6 +1,7 @@
 package script
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -87,17 +88,17 @@ func (c *Context) BindValue(name string, value any) {
 }
 
 // BindFunc 绑定函数
-// 参数name为函数名称，fn为Go函数对象
-// 注意：如果fn不是函数类型会触发panic，这是编程错误而非运行时错误
-func (c *Context) BindFunc(name string, fn interface{}) {
-	// 验证函数类型（编程错误应该尽早暴露）
-	if reflect.TypeOf(fn).Kind() != reflect.Func {
-		panic(fmt.Sprintf("BindFunc参数错误：'%s'绑定的第二个参数必须是函数类型，但传入了%v类型。\n"+
+// name为函数名称, fn必须为Go函数类型, 非函数类型(含nil)返回错误而非panic
+func (c *Context) BindFunc(name string, fn interface{}) error {
+	fnType := reflect.TypeOf(fn)
+	if fnType == nil || fnType.Kind() != reflect.Func {
+		return fmt.Errorf("BindFunc 参数错误：'%s' 绑定的第二个参数必须是函数类型，但传入了 %v。\n"+
 			"正确用法示例：ctx.BindFunc(\"myFunc\", myGoFunc)\n"+
 			"错误用法示例：ctx.BindFunc(\"myFunc\", \"not a function\")",
-			name, reflect.TypeOf(fn).Kind()))
+			name, fnType)
 	}
 	c.withLock(func() { c.bindFuncs[name] = fn })
+	return nil
 }
 
 // GetBindValue 获取绑定值
@@ -190,25 +191,25 @@ func NewScript(compiled *CompiledScript) *Script {
 	return &Script{compiled: compiled}
 }
 
-// Clone 克隆脚本，创建独立的脚本副本
-// 注意：当前实现为浅拷贝，深拷贝功能待实现
+// Clone 克隆脚本
+// 浅拷贝: 副本与原脚本共享同一编译产物, 编译产物不可变因此共享安全
 func (s *Script) Clone() *Script {
-	// TODO: 实现深拷贝
 	return &Script{compiled: s.compiled}
 }
 
+// errNotSupported 未实现操作的统一错误
+var errNotSupported = errors.New("script: 该操作未实现")
+
 // Encode 序列化脚本为字节数组
-// 用于脚本持久化存储和传输
+// 当前未实现, 始终返回错误而非静默成功
 func (s *Script) Encode() ([]byte, error) {
-	// TODO: 实现序列化
-	return nil, nil
+	return nil, errNotSupported
 }
 
 // Decode 从字节数组反序列化脚本
-// 与Encode配对使用
+// 当前未实现, 始终返回错误而非静默成功
 func (s *Script) Decode(data []byte) (*Script, error) {
-	// TODO: 实现反序列化
-	return nil, nil
+	return nil, errNotSupported
 }
 
 // GetCompiled 获取底层编译产物
@@ -261,10 +262,11 @@ func WithTimeout(d time.Duration) EngineOption {
 
 // NewEngine 创建执行引擎实例
 // opts: 可选配置项列表，用于自定义引擎行为
-// 默认最大调用深度为DefaultMaxCallDepth
+// 默认最大调用深度为DefaultMaxCallDepth, 默认指令数上限为DefaultMaxSteps
 func NewEngine(opts ...EngineOption) *Engine {
 	engine := &Engine{
 		maxDepth: DefaultMaxCallDepth,
+		maxSteps: DefaultMaxSteps,
 	}
 
 	for _, opt := range opts {

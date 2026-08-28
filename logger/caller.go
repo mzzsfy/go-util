@@ -6,13 +6,13 @@ import (
 	"sync/atomic"
 )
 
-// caller 配置位布局: bit0=enabled, bit1=showFunc, bit8-15=skip
+// caller 配置位布局: bit0=enabled, bit1=showFunc, bit8-15=userSkip
 const (
 	callerEnabledBit  int32 = 1 << 0
 	callerFuncBit     int32 = 1 << 1
 	callerSkipShift         = 8
 	callerSkipMask    int32 = 0xFF << callerSkipShift
-	defaultCallerSkip       = 4
+	defaultCallerSkip       = 0
 )
 
 var callerConfig int32
@@ -52,7 +52,7 @@ func SetCallerFunc(enabled bool) {
 // SetCallerInfo 旧版兼容, 等价于 SetCaller
 func SetCallerInfo(enabled bool) { SetCaller(enabled) }
 
-// SetCallerSkip 设置调用者跳过层数 (0-255)
+// SetCallerSkip 设置用户侧额外跳过层数 (0-255), 0 为直接调用日志的用户帧
 func SetCallerSkip(skip int) {
 	if skip < 0 {
 		skip = 0
@@ -69,25 +69,72 @@ func SetCallerSkip(skip int) {
 	}
 }
 
-// captureCaller 获取调用者 PC, skip 从 runtime.Callers 自身算起
+// isCallerImplFrame 判定 logger 实现帧, 名单须与内部调用链保持一致
+// 不能按包名前缀过滤, 否则误杀包内测试与示例代码的用户帧
+func isCallerImplFrame(name string) bool {
+	switch name {
+	case "github.com/mzzsfy/go-util/logger.newEvent",
+		"github.com/mzzsfy/go-util/logger.emitFormat",
+		"github.com/mzzsfy/go-util/logger.(*Log).event",
+		"github.com/mzzsfy/go-util/logger.(*Log).Trace",
+		"github.com/mzzsfy/go-util/logger.(*Log).Debug",
+		"github.com/mzzsfy/go-util/logger.(*Log).Info",
+		"github.com/mzzsfy/go-util/logger.(*Log).Warn",
+		"github.com/mzzsfy/go-util/logger.(*Log).Error",
+		"github.com/mzzsfy/go-util/logger.(*Log).Fatal",
+		"github.com/mzzsfy/go-util/logger.(*Log).D",
+		"github.com/mzzsfy/go-util/logger.(*Log).I",
+		"github.com/mzzsfy/go-util/logger.(*Log).W",
+		"github.com/mzzsfy/go-util/logger.(*Log).E",
+		"github.com/mzzsfy/go-util/logger.(*Log).L",
+		"github.com/mzzsfy/go-util/logger.(*Log).DF",
+		"github.com/mzzsfy/go-util/logger.(*Log).IF",
+		"github.com/mzzsfy/go-util/logger.(*Log).WF",
+		"github.com/mzzsfy/go-util/logger.(*Log).EF",
+		"github.com/mzzsfy/go-util/logger.(*Log).LF":
+		return true
+	}
+	return false
+}
+
+// captureCaller 捕获用户侧调用者 PC
+// 固定 skip 层数对编译器内联决策敏感, 内联状态随 GOARCH/版本变化, 故按名单过滤实现帧
+// Callers 返回的 pc 为物理 pc, 必须经 CallersFrames 展开才是逻辑帧
 func captureCaller(skip int) uintptr {
-	var pcs [1]uintptr
-	runtime.Callers(skip, pcs[:])
-	return pcs[0]
+	var pcs [16]uintptr
+	n := runtime.Callers(0, pcs[:])
+	frames := runtime.CallersFrames(pcs[:n])
+	user := 0
+	for i := 0; ; i++ {
+		f, more := frames.Next()
+		// 0=runtime.Callers, 1=captureCaller
+		if i >= 2 && !isCallerImplFrame(f.Function) {
+			if user == skip {
+				return f.PC
+			}
+			user++
+		}
+		if !more {
+			return 0
+		}
+	}
 }
 
 // callerCache 缓存 pc -> 格式化字节, 避免重复 runtime.FuncForPC
 var callerCache sync.Map
+
+// callerKey 为可比较结构体, 避免位压缩在 32 位平台溢出
+type callerKey struct {
+	pc       uintptr
+	showFunc bool
+}
 
 // appendCaller 格式化调用者信息并追加到 buf
 func appendCaller(buf []byte, pc uintptr, showFunc bool) []byte {
 	if pc == 0 {
 		return buf
 	}
-	key := pc
-	if showFunc {
-		key |= 1 << 63
-	}
+	key := callerKey{pc: pc, showFunc: showFunc}
 	if v, ok := callerCache.Load(key); ok {
 		return append(buf, v.([]byte)...)
 	}

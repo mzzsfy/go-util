@@ -82,9 +82,9 @@ func (c *container) doRegisterProvider(key cacheKey, returnType reflect.Type, pr
 	}
 
 	c.providers[key] = providerEntry{
-		reflectType:    returnType,
-		provider:       toProviderFunc(provider),
-		config:         p,
+		reflectType: returnType,
+		provider:    toProviderFunc(provider),
+		config:      p,
 	}
 
 	atomic.AddInt64(&c.stats.provideCalls, 1)

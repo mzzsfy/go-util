@@ -59,17 +59,10 @@ func (c *Compiler) compileIdentExpr(expr *IdentExpr) error {
 
 	// 检查是否是已定义的函数名(用于递归和函数间调用)
 	if mainIdx, ok := c.functionConstIndices[expr.Name]; ok {
-		// 如果在函数体内(有mainConstants),需要将外部函数常量复制到函数常量池
-		if c.mainConstants != nil && mainIdx < len(*c.mainConstants) {
-			// 从主常量池复制到函数常量池
-			localIdx := c.addConstant((*c.mainConstants)[mainIdx])
-			// 记录待修复的函数引用，因为此时主常量池中的函数可能还未完成编译
-			c.pendingFunctionRefs[localIdx] = mainIdx
-			c.emit1(OpConst, localIdx)
-			return nil
-		}
-		// 不在函数体内,直接使用主常量池索引
-		c.emit1(OpConst, mainIdx)
+		// 本池创建占位常量, 编译收尾时统一修复为主池实际函数值
+		localIdx := c.addConstant(NewValue(nil))
+		c.pendingFunctionRefs[localIdx] = mainIdx
+		c.emit1(OpConst, localIdx)
 		return nil
 	}
 

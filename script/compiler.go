@@ -1,6 +1,7 @@
 package script
 
 import (
+	"fmt"
 	"math"
 )
 
@@ -11,8 +12,6 @@ import (
 type Compiler struct {
 	// constants 常量池，存储字面量和编译时常量
 	constants []Value
-	// mainConstants 主常量池引用,用于函数编译时访问外部常量
-	mainConstants *[]Value
 	// instructions 指令序列，存储生成的字节码
 	instructions []Instruction
 	// functions 用户定义的函数列表
@@ -28,8 +27,10 @@ type Compiler struct {
 	// functionConstIndices 函数常量索引缓存，用于递归调用
 	functionConstIndices map[string]int
 	// pendingFunctionRefs 待修复的函数引用：函数体常量池索引 -> 主常量池索引
-	// 用于处理函数体内引用其他函数的情况，这些引用需要在函数编译完成后更新
+	// 用于处理函数体内引用其他函数的情况，这些引用需要在编译收尾时统一更新
 	pendingFunctionRefs map[int]int
+	// funcRefFixes 待修复的函数引用清单, 编译收尾时主池占位全部填充后统一回填
+	funcRefFixes []funcRefFix
 	// sliceStartIdx 切片起始索引常量，预定义避免重复创建
 	sliceStartIdx int
 	// sliceEndIdx 切片结束索引常量，预定义避免重复创建
@@ -42,28 +43,59 @@ type Compiler struct {
 	loopStarts []int
 	// inTypedDeclaration 标记当前是否在类型安全声明（:=>）中
 	inTypedDeclaration bool
+	// typedAnnotName 当前 :=> 声明的注解类型名, 空串表示非注解声明
+	typedAnnotName string
+}
+
+// typedAnnotTypes :=> 注解名到运行时类型名的映射
+// 空串表示 any 不校验; arr/array 为数组注解, 其余为缩写别名
+var typedAnnotTypes = map[string]string{
+	"int":    "int",
+	"i":      "int",
+	"float":  "float",
+	"f":      "float",
+	"string": "string",
+	"s":      "string",
+	"str":    "string",
+	"bool":   "bool",
+	"b":      "bool",
+	"any":    "",
+	"arr":    "array",
+	"array":  "array",
+	"map":    "map",
 }
 
 // cacheKey 常量缓存键，用于常量池去重
-// 通过类型和值的哈希来唯一标识常量
+// 通过类型和值来唯一标识常量
 type cacheKey struct {
 	// typ 值类型
 	typ ValueType
-	// data 存储值的哈希或直接值
+	// data 存储值的直接表示，字符串类型改用 str 字段
 	data uint64
+	// str 字符串原串，字符串类型以原串精确匹配，避免哈希碰撞误共享
+	str string
+}
+
+// funcRefFix 单个函数的待修复引用清单
+type funcRefFix struct {
+	// fn 引用所在的函数
+	fn *CompiledFunction
+	// refs 函数池索引 -> 主池索引
+	refs map[int]int
 }
 
 // NewCompiler 创建编译器实例
 // 初始化所有内部数据结构并预定义常用常量
 func NewCompiler() *Compiler {
 	c := &Compiler{
-		localVars:     make(map[string]int),
-		externalCache: make(map[string]int),
-		constantCache: make(map[cacheKey]int),
-		constants:     make([]Value, 0, 32),
-		instructions:  make([]Instruction, 0, 64),
-		functions:     make([]*CompiledFunction, 0, 4),
-		externals:     make([]ExternalFunc, 0, 4),
+		localVars:           make(map[string]int),
+		externalCache:       make(map[string]int),
+		constantCache:       make(map[cacheKey]int),
+		constants:           make([]Value, 0, 32),
+		instructions:        make([]Instruction, 0, 64),
+		functions:           make([]*CompiledFunction, 0, 4),
+		externals:           make([]ExternalFunc, 0, 4),
+		pendingFunctionRefs: make(map[int]int),
 	}
 	// 预定义切片常用常量
 	c.sliceStartIdx = c.addConstant(NewValue(0))
@@ -88,7 +120,25 @@ func (c *Compiler) Compile(program *Program) (*CompiledScript, error) {
 	}
 
 	// 创建主函数
-	return c.createCompiledScript(), nil
+	compiled := c.createCompiledScript()
+	c.fixFunctionRefs(compiled)
+	return compiled, nil
+}
+
+// fixFunctionRefs 编译收尾时统一修复函数体中对其他函数的引用
+// 此时所有函数占位符均已替换为实际函数值, 按主池索引回填不会错位
+func (c *Compiler) fixFunctionRefs(compiled *CompiledScript) {
+	fixes := append(c.funcRefFixes, funcRefFix{fn: compiled.Main, refs: c.pendingFunctionRefs})
+	for _, fix := range fixes {
+		for localIdx, mainIdx := range fix.refs {
+			if mainIdx >= len(c.constants) {
+				continue
+			}
+			if v := c.constants[mainIdx]; v.Type == TypeFunction {
+				fix.fn.Constants[localIdx] = v
+			}
+		}
+	}
 }
 
 // compileLastStatement 编译最后一个语句
@@ -233,11 +283,7 @@ func makeCacheKey(v Value) cacheKey {
 	case TypeInt:
 		return cacheKey{typ: TypeInt, data: uint64(v.Int())}
 	case TypeString:
-		h := uint64(0)
-		for _, ch := range v.String() {
-			h = h*31 + uint64(ch)
-		}
-		return cacheKey{typ: TypeString, data: h}
+		return cacheKey{typ: TypeString, str: v.String()}
 	case TypeBool:
 		if v.Bool() {
 			return cacheKey{typ: TypeBool, data: 1}
@@ -338,6 +384,37 @@ func (c *Compiler) compileShortCircuit(expr *BinaryExpr) error {
 	// 修补跳转目标地址
 	c.patchJump(jumpPos)
 	return nil
+}
+
+// ========== 循环变量管理 ==========
+
+// loopVarShadow 记录被循环遮蔽的同名变量原槽位
+type loopVarShadow struct {
+	name    string
+	oldIdx  int
+	existed bool
+}
+
+// shadowLoopVar 为循环变量分配独立槽位并遮蔽外层同名变量
+// 嵌套同名循环各自持有独立槽位, 避免共用计数器导致死循环或槽越界
+// 返回新槽位与遮蔽记录, 循环编译结束后须调用 unshadowLoopVar 恢复外层绑定
+func (c *Compiler) shadowLoopVar(name string) (int, loopVarShadow) {
+	shadow := loopVarShadow{name: name}
+	shadow.oldIdx, shadow.existed = c.localVars[name]
+	idx := len(c.localVars)
+	if shadow.existed {
+		// 新槽位需要持有键, 保证槽号与映射长度同步增长
+		c.localVars[fmt.Sprintf("__shadow_%d", idx)] = idx
+	}
+	c.localVars[name] = idx
+	return idx, shadow
+}
+
+// unshadowLoopVar 循环编译结束后恢复外层同名变量绑定
+func (c *Compiler) unshadowLoopVar(shadow loopVarShadow) {
+	if shadow.existed {
+		c.localVars[shadow.name] = shadow.oldIdx
+	}
 }
 
 // ========== 循环管理方法 ==========

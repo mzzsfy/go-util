@@ -169,18 +169,38 @@ func (p *Parser) curPrecedence() int {
 // ========== 字面量解析 ==========
 
 // parseIntLiteral 解析整数字面量
+// 前导零的十进制形式按编译错误处理, 避免八进制解析歧义
 func (p *Parser) parseIntLiteral() *LiteralExpr {
-	value, err := strconv.ParseInt(p.curToken.Value, 0, 64)
+	v := p.curToken.Value
+	if hasLeadingZero(v) {
+		p.addError(fmt.Sprintf(
+			"整数格式错误：'%s' 使用了前导零（第%d行第%d列）。\n"+
+				"→ 问题：前导零整数在不同语言中会被解析为八进制或十进制，产生歧义。\n"+
+				"→ 支持的格式：十进制（如 123, 1_000_000）、十六进制（如 0xFF, 0xAB）。\n"+
+				"→ 建议：去掉前导零",
+			v, p.curToken.Line, p.curToken.Column))
+		return nil
+	}
+	value, err := strconv.ParseInt(v, 0, 64)
 	if err != nil {
 		p.addError(fmt.Sprintf(
 			"整数格式错误：'%s' 不是有效的整数字面量（第%d行第%d列）。\n"+
 				"→ 问题：该值无法解析为整数。\n"+
 				"→ 支持的格式：十进制（如 123, -456）、十六进制（如 0xFF, 0xAB）。\n"+
-				"→ 建议：检查数字格式是否正确，避免使用前导零（如 0123），使用下划线分隔提高可读性（如 1_000_000）",
-			p.curToken.Value, p.curToken.Line, p.curToken.Column))
+				"→ 建议：检查数字格式是否正确，使用下划线分隔提高可读性（如 1_000_000）",
+			v, p.curToken.Line, p.curToken.Column))
 		return nil
 	}
 	return p.newLiteralExpr(LiteralInt, int(value))
+}
+
+// hasLeadingZero 检测整数字面量是否为前导零的十进制形式
+// 十六进制前缀 0x/0X 不视为前导零
+func hasLeadingZero(v string) bool {
+	if len(v) < 2 || v[0] != '0' {
+		return false
+	}
+	return v[1] != 'x' && v[1] != 'X'
 }
 
 // parseFloatLiteral 解析浮点数字面量

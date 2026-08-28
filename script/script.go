@@ -101,4 +101,3 @@ func MustEvalWithBindings(source string, bindings map[string]interface{}) Value 
 	}
 	return result
 }
-

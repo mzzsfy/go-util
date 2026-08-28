@@ -94,6 +94,8 @@ const (
 	ErrUnsupportedOp ErrCode = "unsupported_op"
 	// ErrDivisionByZero 除零
 	ErrDivisionByZero ErrCode = "division_by_zero"
+	// ErrInvalidShift 移位量非法(负数或超出位宽)
+	ErrInvalidShift ErrCode = "invalid_shift"
 )
 
 // RuntimeError 运行时错误

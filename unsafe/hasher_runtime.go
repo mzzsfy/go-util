@@ -1,15 +1,15 @@
 package unsafe
 
 import (
-    "unsafe"
+	"unsafe"
 )
 
 type hashFn func(unsafe.Pointer, uintptr) uintptr
 
 func getRuntimeHasher[K comparable]() (h hashFn) {
-    a := any(make(map[K]struct{}))
-    h = (**(**maptype)(unsafe.Pointer(&a))).hasher
-    return
+	a := any(make(map[K]struct{}))
+	h = (**(**maptype)(unsafe.Pointer(&a))).hasher
+	return
 }
 
 var hashSeed = newHashSeed()
@@ -23,6 +23,7 @@ var hashSeed = newHashSeed()
 //go:nosplit
 //go:nocheckptr
 func noescape(p unsafe.Pointer) unsafe.Pointer {
-    x := uintptr(p)
-    return unsafe.Pointer(x ^ 0)
+	//必须使用 unsafe: uintptr 往返是刻意的逃逸分析规避, 与 runtime 内部实现一致
+	x := uintptr(p)
+	return unsafe.Pointer(x ^ 0)
 }

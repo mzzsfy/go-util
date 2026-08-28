@@ -187,6 +187,8 @@ func WithContainerAfterDestroy(f func(Container, EntryInfo)) ContainerOption {
 // 在 Start 方法调用时执行
 func WithContainerOnStart(f func(Container) error) ContainerOption {
 	return func(c *container) {
+		c.mu.Lock()
+		defer c.mu.Unlock()
 		checkNotStarted(c)
 		c.onStartup = append(c.onStartup, f)
 	}
@@ -196,26 +198,29 @@ func WithContainerOnStart(f func(Container) error) ContainerOption {
 // 在 Start 方法调用后执行
 func WithContainerAfterStart(f func(Container) error) ContainerOption {
 	return func(c *container) {
+		c.mu.Lock()
+		defer c.mu.Unlock()
 		checkNotStarted(c)
 		c.afterStartup = append(c.afterStartup, f)
 	}
 }
 
 // WithContainerBeforeShutdown 设置关闭前钩子
-// 在其他关闭钩子之前执行
+// 在其他关闭钩子之前执行,多个前置钩子按插入序执行
 func WithContainerBeforeShutdown(f ShutdownHook) ContainerOption {
 	return func(c *container) {
-		hooks := make([]ShutdownHook, 0, len(c.shutdown)+1)
-		hooks = append(hooks, f)
-		hooks = append(hooks, c.shutdown...)
-		c.shutdown = hooks
+		c.mu.Lock()
+		defer c.mu.Unlock()
+		c.preShutdown = append(c.preShutdown, f)
 	}
 }
 
 // WithContainerShutdown 设置关闭钩子
-// 在容器关闭时执行
+// 在容器关闭时按注册逆序执行
 func WithContainerShutdown(f ShutdownHook) ContainerOption {
 	return func(c *container) {
+		c.mu.Lock()
+		defer c.mu.Unlock()
 		c.shutdown = append(c.shutdown, f)
 	}
 }

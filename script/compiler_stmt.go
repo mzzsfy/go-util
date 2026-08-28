@@ -7,23 +7,37 @@ import "fmt"
 
 // compileVarDecl 编译变量声明语句
 // 将初始值压栈并存储到局部变量表
+// :=> 声明在编译期校验注解类型名, 并对非 any 注解生成运行时类型校验
 func (c *Compiler) compileVarDecl(stmt *VarDeclStmt) error {
-	// 如果有类型注解，设置标志
+	annotName := ""
 	if stmt.TypeAnnot != nil {
+		name := typeAnnotName(stmt.TypeAnnot)
+		runtimeType, ok := typedAnnotTypes[name]
+		if !ok {
+			return NewCompileErrorFromPos(stmt,
+				"类型错误：未知的类型注解 '%s'。\n"+
+					"→ 问题：:=> 声明只支持以下类型注解。\n"+
+					"→ 支持的类型：int(i)、float(f)、string(s/str)、bool(b)、any、arr(array)、map\n"+
+					"→ 建议：使用支持的类型注解，或使用 any 跳过类型校验",
+				name)
+		}
 		c.inTypedDeclaration = true
+		c.typedAnnotName = name
+		annotName = runtimeType
 	}
 
 	// 编译初始值
-	if err := c.compileExpr(stmt.Value); err != nil {
-		if stmt.TypeAnnot != nil {
-			c.inTypedDeclaration = false
-		}
+	err := c.compileExpr(stmt.Value)
+	// 无论成功失败都重置声明标记, 防止泄漏到后续语句
+	c.inTypedDeclaration = false
+	c.typedAnnotName = ""
+	if err != nil {
 		return err
 	}
 
-	// 重置标志
-	if stmt.TypeAnnot != nil {
-		c.inTypedDeclaration = false
+	// 非 any 注解生成运行时类型校验序列
+	if annotName != "" {
+		c.emitTypeCheck(annotName)
 	}
 
 	// 存储变量
@@ -35,6 +49,32 @@ func (c *Compiler) compileVarDecl(stmt *VarDeclStmt) error {
 	c.emit1(OpStoreLocal, c.localVars[stmt.Name])
 
 	return nil
+}
+
+// typeAnnotName 提取类型注解的基础类型名
+// 复合类型注解(数组/map等)返回其字符串形式, 不在支持集合内由调用方报错
+func typeAnnotName(t TypeExpr) string {
+	if base, ok := t.(*BaseTypeExpr); ok {
+		return base.Name
+	}
+	return t.String()
+}
+
+// emitTypeCheck 生成运行时类型校验指令序列
+// 栈顶为待校验值, 匹配时保持该值在栈顶, 不匹配时抛出运行时错误
+func (c *Compiler) emitTypeCheck(annotName string) {
+	c.emit(OpDup)
+	c.emit(OpTypeOf)
+	c.emit1(OpConst, c.addConstant(NewValue(annotName)))
+	c.emit(OpEqual)
+	jumpPos := c.emit1(OpJumpIfTrue, 0)
+	c.emit(OpPop)
+	c.emit1(OpConst, c.addConstant(NewValue(
+		"类型错误：getBindValue 返回值类型与注解不匹配。\n"+
+			"→ 要求：:=>"+annotName+" 声明的值必须是 "+annotName+" 类型\n"+
+			"→ 建议：检查绑定值类型，或使用 :=>any 跳过校验")))
+	c.emit(OpThrow)
+	c.patchJump(jumpPos)
 }
 
 // compileExprStmt 编译表达式语句
@@ -243,8 +283,9 @@ func (c *Compiler) compileCountFor(stmt *ForStmt) error {
 
 	// 创建计数器变量i=1（从1开始）
 	// 用户变量名指向计数器，这样在循环体中 i 就是计数器的值
-	iVarIdx := len(c.localVars)
-	c.localVars[stmt.Init.(*VarDeclStmt).Name] = iVarIdx
+	// 同名变量每层循环独立槽位, 避免嵌套时槽越界或计数器互踩
+	counterName := stmt.Init.(*VarDeclStmt).Name
+	iVarIdx, counterShadow := c.shadowLoopVar(counterName)
 	c.emit1(OpConst, c.addConstant(NewValue(1)))
 	c.emit1(OpStoreLocal, iVarIdx)
 
@@ -289,6 +330,8 @@ func (c *Compiler) compileCountFor(stmt *ForStmt) error {
 	c.patchContinues(postStart)
 	// 退出循环作用域
 	c.popLoop()
+	// 恢复被遮蔽的外层同名变量绑定
+	c.unshadowLoopVar(counterShadow)
 
 	return nil
 }
@@ -340,7 +383,7 @@ func (c *Compiler) compileDynamicFor(stmt *ForStmt) error {
 	c.emit1(OpStoreLocal, countVarIdx)
 
 	// 创建计数器变量i=1（从1开始）
-	iVarIdx := c.getOrAllocLocalVar(varName)
+	iVarIdx, counterShadow := c.shadowLoopVar(varName)
 	c.emit1(OpConst, c.addConstant(NewValue(1)))
 	c.emit1(OpStoreLocal, iVarIdx)
 
@@ -380,6 +423,7 @@ func (c *Compiler) compileDynamicFor(stmt *ForStmt) error {
 	c.patchBreaks(countLoopEnd)
 	c.patchContinues(countPostStart)
 	c.popLoop()
+	c.unshadowLoopVar(counterShadow)
 
 	// 跳过 range 循环
 	skipRangeJumpIdx := len(c.instructions)
@@ -425,7 +469,7 @@ func (c *Compiler) compileDynamicFor(stmt *ForStmt) error {
 	c.emit1(OpStoreLocal, lenVarIdx)
 
 	// 创建键变量（用户定义的变量名）
-	keyVarIdx := c.getOrAllocLocalVar(varName)
+	keyVarIdx, dynamicKeyShadow := c.shadowLoopVar(varName)
 
 	// 记录循环条件检查位置（跳回目标）
 	rangeCondStart := len(c.instructions)
@@ -484,6 +528,7 @@ func (c *Compiler) compileDynamicFor(stmt *ForStmt) error {
 	c.patchBreaks(rangeLoopEnd)
 	c.patchContinues(rangePostStart)
 	c.popLoop()
+	c.unshadowLoopVar(dynamicKeyShadow)
 
 	// 回填：跳过 range 循环的跳转
 	c.instructions[skipRangeJumpIdx].Args[0] = rangeLoopEnd
@@ -651,12 +696,13 @@ func (c *Compiler) compileRangeFor(stmt *ForStmt) error {
 
 	// 创建键变量k（用户定义的变量名）
 	keyVarName := stmt.Init.(*VarDeclStmt).Name
-	keyVarIdx := c.getOrAllocLocalVar(keyVarName)
+	keyVarIdx, keyShadow := c.shadowLoopVar(keyVarName)
 
 	// 双变量模式下预分配value变量
 	valueVarIdx := -1
+	var valueShadow loopVarShadow
 	if stmt.RangeValueVar != "" {
-		valueVarIdx = c.getOrAllocLocalVar(stmt.RangeValueVar)
+		valueVarIdx, valueShadow = c.shadowLoopVar(stmt.RangeValueVar)
 	}
 
 	// 记录循环开始位置
@@ -757,6 +803,11 @@ func (c *Compiler) compileRangeFor(stmt *ForStmt) error {
 	c.patchContinues(postStart)
 	// 退出循环作用域
 	c.popLoop()
+	// 恢复被遮蔽的外层同名变量绑定
+	c.unshadowLoopVar(keyShadow)
+	if valueVarIdx >= 0 {
+		c.unshadowLoopVar(valueShadow)
+	}
 
 	return nil
 }
@@ -793,19 +844,26 @@ func (c *Compiler) compileContinueStmt(stmt *ContinueStmt) error {
 
 // compilerState 保存编译器状态
 type compilerState struct {
-	instructions   []Instruction
-	constants      []Value
-	localVars      map[string]int
-	constantCache  map[cacheKey]int
+	instructions        []Instruction
+	constants           []Value
+	localVars           map[string]int
+	constantCache       map[cacheKey]int
+	pendingFunctionRefs map[int]int
+	sliceStartIdx       int
+	sliceEndIdx         int
 }
 
 // saveState 保存当前编译器状态
+// 覆盖 resetForFunction 重置的全部字段, 保证嵌套函数编译后状态完整恢复
 func (c *Compiler) saveState() compilerState {
 	return compilerState{
-		instructions:   c.instructions,
-		constants:      c.constants,
-		localVars:      c.localVars,
-		constantCache:  c.constantCache,
+		instructions:        c.instructions,
+		constants:           c.constants,
+		localVars:           c.localVars,
+		constantCache:       c.constantCache,
+		pendingFunctionRefs: c.pendingFunctionRefs,
+		sliceStartIdx:       c.sliceStartIdx,
+		sliceEndIdx:         c.sliceEndIdx,
 	}
 }
 
@@ -815,16 +873,13 @@ func (c *Compiler) restoreState(state compilerState) {
 	c.constants = state.constants
 	c.localVars = state.localVars
 	c.constantCache = state.constantCache
+	c.pendingFunctionRefs = state.pendingFunctionRefs
+	c.sliceStartIdx = state.sliceStartIdx
+	c.sliceEndIdx = state.sliceEndIdx
 }
 
 // resetForFunction 重置编译器为函数编译环境
-// 保存主常量池引用,用于函数体内访问外部函数常量
 func (c *Compiler) resetForFunction() {
-	// 保存主常量池引用
-	mainConsts := make([]Value, len(c.constants))
-	copy(mainConsts, c.constants)
-	c.mainConstants = &mainConsts
-
 	c.instructions = nil
 	c.constants = nil
 	c.localVars = make(map[string]int)
@@ -875,6 +930,9 @@ func (c *Compiler) compileFuncDecl(stmt *FuncDeclStmt) error {
 	}
 	c.functions = append(c.functions, fn)
 
+	// 捕获本函数的待修复引用, 避免恢复外层状态后归属错位
+	pendingRefs := c.pendingFunctionRefs
+
 	// 恢复编译状态
 	c.restoreState(oldState)
 
@@ -884,17 +942,8 @@ func (c *Compiler) compileFuncDecl(stmt *FuncDeclStmt) error {
 	})
 	c.constants[placeholderIdx] = fnValue
 
-	// 修复函数体常量池中的函数引用
-	// 在编译函数体时，引用的外部函数可能还是占位符，现在需要更新为实际的函数值
-	// 注意：这里使用 c.constants 而不是 *c.mainConstants，因为后者是编译开始时的副本
-	for localIdx, mainIdx := range c.pendingFunctionRefs {
-		if mainIdx < len(c.constants) {
-			externalFnVal := c.constants[mainIdx]
-			if externalFnVal.Type == TypeFunction {
-				fn.Constants[localIdx] = externalFnVal
-			}
-		}
-	}
+	// 引用修复延后到编译收尾统一执行, 此时主池占位才全部填充完毕
+	c.funcRefFixes = append(c.funcRefFixes, funcRefFix{fn: fn, refs: pendingRefs})
 
 	// 注册函数名到局部变量表
 	if _, exists := c.localVars[stmt.Name]; !exists {

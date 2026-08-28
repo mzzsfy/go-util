@@ -12,6 +12,7 @@ import (
 // 参数:
 //   - fieldValue: 字段反射值，用于设置注入的服务
 //   - fieldType: 字段类型信息，包含 di 标签
+//
 // 返回:
 //   - 注入失败时返回错误
 func (c *container) injectService(fieldValue reflect.Value, fieldType reflect.StructField) error {
@@ -49,6 +50,7 @@ func (c *container) resolveTraditionalConfig(configTag string) any {
 // 参数:
 //   - fieldValue: 字段反射值，用于设置配置值
 //   - fieldType: 字段类型信息，包含 di.config 标签
+//
 // 返回:
 //   - 注入失败时返回错误
 func (c *container) injectConfig(fieldValue reflect.Value, fieldType reflect.StructField) error {
@@ -125,6 +127,7 @@ func (c *container) injectAllFields(target reflect.Value) error {
 // 递归处理指针和结构体类型
 // 参数:
 //   - t: 要分析的类型
+//
 // 返回:
 //   - 依赖键列表
 //   - 如果类型不是结构体或指针返回错误
@@ -157,7 +160,7 @@ func (c *container) findStructDependencies(t reflect.Type) ([]cacheKey, error) {
 }
 
 // getFieldDependency 获取单个字段的依赖键
-// 根据标签解析依赖
+// 根据标签解析依赖,provider 沿父链查找
 func (c *container) getFieldDependency(field reflect.StructField) (cacheKey, error) {
 	tag, hasTag := field.Tag.Lookup("di")
 	if !hasTag {
@@ -168,7 +171,7 @@ func (c *container) getFieldDependency(field reflect.StructField) (cacheKey, err
 	serviceType := field.Type
 	depKey := cacheKey{serviceType, name}
 
-	if _, ok := c.providers[depKey]; ok {
+	if _, _, ok := c.findProviderOwner(depKey); ok {
 		return depKey, nil
 	}
 	return cacheKey{}, fmt.Errorf("no provider found for type %s with name '%s'", serviceType, name)

@@ -19,6 +19,7 @@ func GlobalContainer() Container {
 // 类型参数 T: 目标服务类型
 // 参数:
 //   - c: 容器实例
+//
 // 返回:
 //   - 类型安全的实例映射
 //   - 可能的错误
@@ -42,6 +43,7 @@ func GetNamedAll[T any](c Container) (map[string]T, error) {
 //   - c: 容器实例
 //   - provider: 服务构造函数
 //   - opts: 可选的提供者配置
+//
 // 返回:
 //   - 可能的错误
 func Provide[T any](c Container, provider func(Container) (T, error), opts ...ProviderOption) error {
@@ -55,6 +57,7 @@ func Provide[T any](c Container, provider func(Container) (T, error), opts ...Pr
 //   - name: 服务名称
 //   - provider: 服务构造函数
 //   - opts: 可选的提供者配置
+//
 // 返回:
 //   - 可能的错误
 func ProvideNamed[T any](c Container, name string, provider func(Container) (T, error), opts ...ProviderOption) error {
@@ -76,6 +79,7 @@ func ProvideNamed[T any](c Container, name string, provider func(Container) (T, 
 //   - c: 容器实例
 //   - instance: 服务实例
 //   - opts: 可选的提供者配置
+//
 // 返回:
 //   - 可能的错误
 func ProvideValue[T any](c Container, instance T, opts ...ProviderOption) error {
@@ -90,6 +94,7 @@ func ProvideValue[T any](c Container, instance T, opts ...ProviderOption) error 
 //   - name: 服务名称
 //   - instance: 服务实例
 //   - opts: 可选的提供者配置
+//
 // 返回:
 //   - 可能的错误
 func ProvideValueNamed[T any](c Container, name string, instance T, opts ...ProviderOption) error {
@@ -100,6 +105,7 @@ func ProvideValueNamed[T any](c Container, name string, instance T, opts ...Prov
 // 类型参数 T: 服务类型
 // 参数:
 //   - c: 容器实例
+//
 // 返回:
 //   - 服务实例
 func MustGet[T any](c Container) T {
@@ -111,6 +117,7 @@ func MustGet[T any](c Container) T {
 // 参数:
 //   - c: 容器实例
 //   - name: 服务名称
+//
 // 返回:
 //   - 服务实例
 func MustGetNamed[T any](c Container, name string) T {
@@ -125,6 +132,7 @@ func MustGetNamed[T any](c Container, name string) T {
 // 类型参数 T: 服务类型
 // 参数:
 //   - c: 容器实例
+//
 // 返回:
 //   - 服务实例
 //   - 可能的错误
@@ -137,6 +145,7 @@ func Get[T any](c Container) (T, error) {
 // 参数:
 //   - c: 容器实例
 //   - name: 服务名称
+//
 // 返回:
 //   - 服务实例
 //   - 可能的错误
@@ -162,6 +171,7 @@ func GetNamed[T any](c Container, name string) (T, error) {
 // 类型参数 T: 服务类型
 // 参数:
 //   - c: 容器实例
+//
 // 返回:
 //   - 如果服务已注册返回 true
 func Has[T any](c Container) bool {
@@ -173,6 +183,7 @@ func Has[T any](c Container) bool {
 // 参数:
 //   - c: 容器实例
 //   - name: 服务名称
+//
 // 返回:
 //   - 如果服务已注册返回 true
 func HasNamed[T any](c Container, name string) bool {

@@ -73,7 +73,9 @@ func convertValueToPointer(field reflect.Value, valueReflect reflect.Value, valu
 // tryConvertibleOrSmartConversion 尝试类型转换或智能转换
 // 先尝试标准类型转换，再尝试智能转换
 func tryConvertibleOrSmartConversion(field reflect.Value, valueReflect reflect.Value, fieldType reflect.Type, valueType reflect.Type) bool {
-	if valueReflect.Type().ConvertibleTo(fieldType) {
+	// 整数到 string 的 ConvertibleTo 转换是 rune 语义,静默产生错值,排除后走字面量转换
+	allowDirectConvert := !(fieldType.Kind() == reflect.String && isIntegerKind(valueType.Kind()))
+	if allowDirectConvert && valueReflect.Type().ConvertibleTo(fieldType) {
 		field.Set(valueReflect.Convert(fieldType))
 		return true
 	}
@@ -193,32 +195,56 @@ var stringConverters = map[reflect.Kind]conversionFunc{
 }
 
 // smartTypeConversion 智能类型转换
-// 支持从字符串自动转换为各种基本类型
+// 支持整数到字符串的字面量转换,以及从字符串自动转换为各种基本类型
 func smartTypeConversion(field reflect.Value, valueReflect reflect.Value, fieldType reflect.Type, valueType reflect.Type) error {
-	if valueType.Kind() != reflect.String {
-		return fmt.Errorf("smart conversion only supports string source type, got %s", valueType.Kind())
+	srcKind := valueType.Kind()
+	dstKind := fieldType.Kind()
+
+	// 整数到 string 按十进制字面量转换,避免 rune 语义
+	if isIntegerKind(srcKind) && dstKind == reflect.String {
+		return convertIntToString(field, valueReflect, srcKind)
+	}
+
+	if srcKind != reflect.String {
+		return fmt.Errorf("smart conversion only supports string source type, got %s", srcKind)
 	}
 
 	strValue := valueReflect.String()
-	kind := fieldType.Kind()
 
 	// 检查是否有专用转换器
-	if converter, exists := stringConverters[kind]; exists {
+	if converter, exists := stringConverters[dstKind]; exists {
 		if err := converter(field, strValue); err != nil {
-			return fmt.Errorf("smart conversion failed for field type %s: %w", kind, err)
+			return fmt.Errorf("smart conversion failed for field type %s: %w", dstKind, err)
 		}
 		return nil
 	}
 
 	// 处理数值类型
-	if !isNumericKind(kind) {
-		return fmt.Errorf("unsupported smart conversion: cannot convert string to %s", kind)
+	if !isNumericKind(dstKind) {
+		return fmt.Errorf("unsupported smart conversion: cannot convert string to %s", dstKind)
 	}
 
-	if err := convertStringToNumber(field, strValue, kind); err != nil {
-		return fmt.Errorf("smart conversion failed for field type %s: %w", kind, err)
+	if err := convertStringToNumber(field, strValue, dstKind); err != nil {
+		return fmt.Errorf("smart conversion failed for field type %s: %w", dstKind, err)
 	}
 	return nil
+}
+
+// convertIntToString 整数到字符串的十进制字面量转换
+func convertIntToString(field reflect.Value, valueReflect reflect.Value, kind reflect.Kind) error {
+	if kind >= reflect.Int && kind <= reflect.Int64 {
+		field.SetString(strconv.FormatInt(valueReflect.Int(), 10))
+		return nil
+	}
+	field.SetString(strconv.FormatUint(valueReflect.Uint(), 10))
+	return nil
+}
+
+// isIntegerKind 检查是否为整数类型
+func isIntegerKind(kind reflect.Kind) bool {
+	return (kind >= reflect.Int && kind <= reflect.Int64) ||
+		(kind >= reflect.Uint && kind <= reflect.Uint64) ||
+		kind == reflect.Uintptr
 }
 
 // isNumericKind 检查是否为数值类型

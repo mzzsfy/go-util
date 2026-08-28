@@ -4,6 +4,7 @@ package di
 import (
 	"fmt"
 	"reflect"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -60,6 +61,66 @@ func destroyCallbackError(t reflect.Type, name string, err error) error {
 // shutdownError 关闭错误
 func shutdownError(t reflect.Type, name string, err error) error {
 	return fmt.Errorf("shutdown failed for %s with name '%s': %w", t, name, err)
+}
+
+// providerNilResultError provider 返回 nil 实例错误
+func providerNilResultError(t reflect.Type, name string) error {
+	return fmt.Errorf("provider returned nil instance for type %s with name '%s'", t, name)
+}
+
+// ========== 多错误聚合 ==========
+
+// multiError 聚合多个错误
+// Unwrap 返回全部错误,支持 errors.Is/As 逐个匹配
+// 已知局限: Unwrap() []error 需 go1.20+ 的 errors 包才会被遍历, go1.18 下 errors.Is/As 无法逐个匹配
+type multiError struct {
+	errs []error
+}
+
+// Error 拼接全部错误信息
+func (m *multiError) Error() string {
+	var sb strings.Builder
+	sb.WriteString("multiple errors: ")
+	for i, err := range m.errs {
+		if i > 0 {
+			sb.WriteString("; ")
+		}
+		sb.WriteString(err.Error())
+	}
+	return sb.String()
+}
+
+// Unwrap 返回全部错误供 errors.Is/As 遍历
+func (m *multiError) Unwrap() []error {
+	return m.errs
+}
+
+// joinErrors 聚合错误
+// 全为 nil 返回 nil;单个非 nil 原样返回;多个时聚合为 multiError
+func joinErrors(errs []error) error {
+	count := 0
+	for _, err := range errs {
+		if err != nil {
+			count++
+		}
+	}
+	if count == 0 {
+		return nil
+	}
+	if count == 1 {
+		for _, err := range errs {
+			if err != nil {
+				return err
+			}
+		}
+	}
+	merged := make([]error, 0, count)
+	for _, err := range errs {
+		if err != nil {
+			merged = append(merged, err)
+		}
+	}
+	return &multiError{errs: merged}
 }
 
 // ========== 统计更新函数 ==========

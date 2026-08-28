@@ -17,8 +17,8 @@ import (
 // 防止意外覆盖常用基础类型
 var blackTypes = map[reflect.Type]bool{
 	reflect.TypeOf((*context.Context)(nil)).Elem(): true,
-	reflect.TypeOf(""):                             true,
-	reflect.TypeOf(0):                              true,
+	reflect.TypeOf(""): true,
+	reflect.TypeOf(0):  true,
 }
 
 // isBlacklistType 检查类型是否在黑名单中

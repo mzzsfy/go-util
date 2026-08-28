@@ -8,16 +8,22 @@ import (
 )
 
 // collectMatchingInstances 收集匹配类型的实例
-// 遍历所有提供者，找出类型兼容的实例
+// 先快照匹配的 provider,锁外创建实例,避免遍历期间并发注册修改 map
 func (c *container) collectMatchingInstances(t reflect.Type) (map[string]any, error) {
-	results := make(map[string]any)
-
+	c.mu.RLock()
+	matches := make([]cacheKey, 0)
+	entries := make([]providerEntry, 0)
 	for key, entry := range c.providers {
-		if !entry.reflectType.AssignableTo(t) {
-			continue
+		if entry.reflectType.AssignableTo(t) {
+			matches = append(matches, key)
+			entries = append(entries, entry)
 		}
+	}
+	c.mu.RUnlock()
 
-		if err := c.collectSingleInstance(results, key, entry); err != nil {
+	results := make(map[string]any, len(matches))
+	for i, key := range matches {
+		if err := c.collectSingleInstance(results, key, entries[i]); err != nil {
 			return nil, err
 		}
 	}

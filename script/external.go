@@ -7,102 +7,37 @@ package script
 import (
 	"fmt"
 	"reflect"
-	"sync"
 )
 
-// ========== 外部函数调用缓存 ==========
+// ========== 外部函数调用 ==========
 
-// externalFuncInfo 缓存的外部函数信息
-// 避免重复的反射调用，提升性能
-type externalFuncInfo struct {
-	// fnValue 函数值（已缓存）
-	fnValue reflect.Value
-	// fnType 函数类型（已缓存）
-	fnType reflect.Type
-	// paramTypes 参数类型列表（已缓存）
-	paramTypes []reflect.Type
-	// numIn 参数数量
-	numIn int
-}
-
-// externalFuncCache 外部函数信息缓存
-// 使用sync.Map实现线程安全的缓存
-var externalFuncCache sync.Map
-
-// getExternalFuncInfo 获取或创建外部函数信息
-// 如果缓存中存在则直接返回，否则创建并缓存
-func getExternalFuncInfo(fn interface{}) (*externalFuncInfo, error) {
-	// 使用函数指针地址作为key（函数本身不可哈希）
+// callExternalFunc 调用外部Go函数
+// 参数fn为Go函数（必须是function类型），args为脚本值参数列表
+// 返回转换后的脚本值和可能的错误
+// 支持的Go函数签名：无返回值、单返回值、(value, error)双返回值
+// 不缓存函数信息：闭包与方法值共享代码指针，按指针缓存会静默调用错误目标
+func callExternalFunc(fn interface{}, args []Value) (Value, error) {
 	fnValue := reflect.ValueOf(fn)
-	key := fnValue.Pointer()
-
-	// 尝试从缓存中获取
-	if cached, ok := externalFuncCache.Load(key); ok {
-		return cached.(*externalFuncInfo), nil
-	}
-
-	// 创建新的函数信息
 	fnType := fnValue.Type()
 
 	// 验证函数类型
 	if fnType.Kind() != reflect.Func {
-		return nil, fmt.Errorf("参数必须是函数类型，但传入了%v类型", fnType.Kind())
-	}
-
-	// 预计算参数类型
-	numIn := fnType.NumIn()
-	paramTypes := make([]reflect.Type, numIn)
-	for i := 0; i < numIn; i++ {
-		paramTypes[i] = fnType.In(i)
-	}
-
-	// 创建并缓存函数信息
-	info := &externalFuncInfo{
-		fnValue:    fnValue,
-		fnType:     fnType,
-		paramTypes: paramTypes,
-		numIn:      numIn,
-	}
-
-	// 存入缓存（使用函数指针地址作为key）
-	externalFuncCache.Store(key, info)
-
-	return info, nil
-}
-
-// clearExternalFuncCache 清空外部函数缓存
-// 主要用于测试场景
-func clearExternalFuncCache() {
-	externalFuncCache = sync.Map{}
-}
-
-// ========== 外部函数调用 ==========
-
-// callExternalFunc 调用外部Go函数（优化版）
-// 参数fn为Go函数（必须是function类型），args为脚本值参数列表
-// 返回转换后的脚本值和可能的错误
-// 支持的Go函数签名：无返回值、单返回值、(value, error)双返回值
-// 优化：使用缓存避免重复反射调用
-func callExternalFunc(fn interface{}, args []Value) (Value, error) {
-	// 从缓存获取函数信息
-	info, err := getExternalFuncInfo(fn)
-	if err != nil {
-		return Value{}, err
+		return Value{}, fmt.Errorf("参数必须是函数类型，但传入了%v类型", fnType.Kind())
 	}
 
 	// 验证参数数量
-	if info.numIn != len(args) {
-		return Value{}, fmt.Errorf("参数数量不匹配: 期望 %d, 实际 %d", info.numIn, len(args))
+	if fnType.NumIn() != len(args) {
+		return Value{}, fmt.Errorf("参数数量不匹配: 期望 %d, 实际 %d", fnType.NumIn(), len(args))
 	}
 
-	// 转换参数（使用缓存的参数类型）
-	in, err := convertArgsWithCache(info.paramTypes, args)
+	// 转换参数
+	in, err := convertArgs(fnType, args)
 	if err != nil {
 		return Value{}, err
 	}
 
-	// 调用函数（使用缓存的函数值）
-	out := info.fnValue.Call(in)
+	// 调用函数
+	out := fnValue.Call(in)
 	return handleReturnValues(out)
 }
 
@@ -126,20 +61,6 @@ func convertArgs(fnType reflect.Type, args []Value) ([]reflect.Value, error) {
 		converted, err := convertValueToGo(arg, paramType)
 		if err != nil {
 			return nil, wrapConvertError(i, paramType, arg, err)
-		}
-		in[i] = converted
-	}
-	return in, nil
-}
-
-// convertArgsWithCache 将脚本值参数列表转换为Go函数参数（优化版）
-// 使用缓存的参数类型列表，避免重复的反射调用
-func convertArgsWithCache(paramTypes []reflect.Type, args []Value) ([]reflect.Value, error) {
-	in := make([]reflect.Value, len(args))
-	for i, arg := range args {
-		converted, err := convertValueToGo(arg, paramTypes[i])
-		if err != nil {
-			return nil, wrapConvertError(i, paramTypes[i], arg, err)
 		}
 		in[i] = converted
 	}

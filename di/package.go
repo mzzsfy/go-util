@@ -7,6 +7,7 @@ package di
 // 便于批量注册相关服务
 // 参数:
 //   - providers: 服务提供者函数列表
+//
 // 返回:
 //   - 组合后的包函数，执行时会依次注册所有服务
 func Package(providers ...func(Container) error) func(Container) error {
@@ -25,6 +26,7 @@ func Package(providers ...func(Container) error) func(Container) error {
 // 参数:
 //   - container: 目标容器
 //   - packages: 服务包函数列表
+//
 // 返回:
 //   - 加载完成后的容器
 //   - 如果任何包加载失败，返回错误
