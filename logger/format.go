@@ -158,6 +158,107 @@ func appendBool(buf []byte, b bool) []byte {
 	return append(buf, "false"...)
 }
 
+// appendDuration 追加与 time.Duration.String() 完全一致的格式, 零分配
+// 例: 0s, 1.5ms, 999.9µs, 1h30m10.5s, -2s; 最大长度 25 字节
+func appendDuration(buf []byte, d time.Duration) []byte {
+	u := uint64(d)
+	neg := d < 0
+	if neg {
+		u = -u
+		buf = append(buf, '-')
+	}
+	frac := u
+	if u < uint64(time.Second) {
+		// 小于秒: 按量级选择 ns/µs/ms 单位, 去除尾零
+		var prec int
+		var unit [3]byte
+		un := 0
+		switch {
+		case u == 0:
+			return append(buf, '0', 's')
+		case u < uint64(time.Microsecond):
+			prec = 0
+			unit[0], unit[1] = 'n', 's'
+			un = 2
+		case u < uint64(time.Millisecond):
+			// µ 为双字节 UTF-8
+			prec = 3
+			unit[0], unit[1], unit[2] = 0xC2, 0xB5, 's'
+			un = 3
+		default:
+			prec = 6
+			unit[0], unit[1] = 'm', 's'
+			un = 2
+		}
+		// 整数部分: v 除以 10^prec, 小数在后
+		switch prec {
+		case 0:
+		case 3:
+			u /= 1000
+		default:
+			u /= 1000000
+		}
+		buf = appendDurInt(buf, u)
+		buf = appendDurFrac(buf, frac, prec)
+		return append(buf, unit[:un]...)
+	}
+	// 秒及以上: h/m/s 复合单位, 纳秒小数去尾零; 天长度不定, 到小时为止
+	u /= uint64(time.Second)
+	sec := u % 60
+	u /= 60
+	min := u % 60
+	u /= 60
+	if u > 0 {
+		buf = appendDurInt(buf, u)
+		buf = append(buf, 'h')
+	}
+	if u > 0 || min > 0 {
+		buf = appendDurInt(buf, min)
+		buf = append(buf, 'm')
+	}
+	buf = appendDurInt(buf, sec)
+	buf = appendDurFrac(buf, frac, 9)
+	return append(buf, 's')
+}
+
+// appendDurFrac 追加 v 的 prec 位小数, 去除尾零与小数点(全零时不输出)
+func appendDurFrac(buf []byte, v uint64, prec int) []byte {
+	var tmp [10]byte // 最大 9 位
+	w := len(tmp)
+	print := false
+	for i := 0; i < prec; i++ {
+		digit := v % 10
+		print = print || digit != 0
+		if print {
+			w--
+			tmp[w] = byte(digit) + '0'
+		}
+		v /= 10
+	}
+	if print {
+		buf = append(buf, '.')
+		return append(buf, tmp[w:]...)
+	}
+	return buf
+}
+
+// appendDurInt 追加十进制整数(不含符号)
+func appendDurInt(buf []byte, v uint64) []byte {
+	if v < 10 {
+		return append(buf, byte('0'+v))
+	}
+	var tmp [20]byte
+	pos := len(tmp)
+	for v >= 10 {
+		pos--
+		tmp[pos] = byte(v%10) + '0'
+		v /= 10
+	}
+	pos--
+	tmp[pos] = byte(v) + '0'
+	return append(buf, tmp[pos:]...)
+}
+
 func appendFloat64(buf []byte, f float64) []byte {
 	return strconv.AppendFloat(buf, f, 'f', -1, 64)
 }

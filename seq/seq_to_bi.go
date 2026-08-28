@@ -11,7 +11,7 @@ func MergeBiInt[T any](t Seq[T], iterator Iterator[int]) BiSeq[int, T] {
 		t(func(t T) {
 			x, exist := iterator()
 			if !exist {
-				panic(&Stop)
+				panic(&stop)
 			}
 			f1(x, t)
 		})
@@ -25,7 +25,7 @@ func MergeBiIntRight[T any](t Seq[T], iterator Iterator[int]) BiSeq[T, int] {
 		t(func(t T) {
 			x, exist := iterator()
 			if !exist {
-				panic(&Stop)
+				panic(&stop)
 			}
 			f1(t, x)
 		})
@@ -39,7 +39,7 @@ func MergeBiString[T any](t Seq[T], iterator Iterator[string]) BiSeq[string, T] 
 		t(func(t T) {
 			x, exist := iterator()
 			if !exist {
-				panic(&Stop)
+				panic(&stop)
 			}
 			f1(x, t)
 		})
@@ -53,7 +53,7 @@ func MergeBiStringRight[T any](t Seq[T], iterator Iterator[string]) BiSeq[T, str
 		t(func(t T) {
 			x, exist := iterator()
 			if !exist {
-				panic(&Stop)
+				panic(&stop)
 			}
 			f1(t, x)
 		})
@@ -67,23 +67,23 @@ func MergeBiAny[T any](t Seq[T], iterator Iterator[any]) BiSeq[any, T] {
 		t(func(t T) {
 			x, exist := iterator()
 			if !exist {
-				panic(&Stop)
+				panic(&stop)
 			}
 			f1(x, t)
 		})
 	})
 }
 
-// MergeBiAnyRight 与一个Iterator合并,参数为一个迭代器,返回 BiSeq
-func MergeBiAnyRight[T any](t Seq[T], iterator Iterator[any]) BiSeq[any, T] {
-	return BiFrom(func(f1 func(any, T)) {
+// MergeBiAnyRight 与一个Iterator合并,参数为一个迭代器,返回 BiSeq,流元素在前
+func MergeBiAnyRight[T any](t Seq[T], iterator Iterator[any]) BiSeq[T, any] {
+	return BiFrom(func(f1 func(T, any)) {
 		defer stopRecover()
 		t(func(t T) {
 			x, exist := iterator()
 			if !exist {
-				panic(&Stop)
+				panic(&stop)
 			}
-			f1(x, t)
+			f1(t, x)
 		})
 	})
 }
@@ -101,20 +101,20 @@ func MapBiSerialNumber[T any](t Seq[T], Range ...int) BiSeq[int, T] {
 
 // MapBiInt 每个元素获取一个int,并转换为 BiSeq
 func MapBiInt[T any](t Seq[T], f func(T) int) BiSeq[int, T] {
-    return BiFrom(func(f1 func(int, T)) { t(func(t T) { f1(f(t), t) }) })
+	return BiFrom(func(f1 func(int, T)) { t(func(t T) { f1(f(t), t) }) })
 }
 
 // MapBiString 每个元素获取一个String,并转换为 BiSeq
 func MapBiString[T any](t Seq[T], f func(T) string) BiSeq[string, T] {
-    return BiFrom(func(f1 func(string, T)) { t(func(t T) { f1(f(t), t) }) })
+	return BiFrom(func(f1 func(string, T)) { t(func(t T) { f1(f(t), t) }) })
 }
 
 // MapBiAny 每个元素获取一个值,并转换为 BiSeq
 func MapBiAny[T any](t Seq[T], f func(T) any) BiSeq[any, T] {
-    return BiFrom(func(f1 func(any, T)) { t(func(t T) { f1(f(t), t) }) })
+	return BiFrom(func(f1 func(any, T)) { t(func(t T) { f1(f(t), t) }) })
 }
 
 // MapBiAnyRight 每个元素获取一个值,并转换为 BiSeq
 func MapBiAnyRight[T any](t Seq[T], f func(T) any) BiSeq[T, any] {
-    return BiFrom(func(f1 func(T, any)) { t(func(t T) { f1(t, f(t)) }) })
+	return BiFrom(func(f1 func(T, any)) { t(func(t T) { f1(t, f(t)) }) })
 }

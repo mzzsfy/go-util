@@ -1,8 +1,8 @@
 package seq
 
 import (
-    "math"
-    "math/rand"
+	"math"
+	"math/rand"
 )
 
 //参考来源: https://mp.weixin.qq.com/s/v-HMKBWxtz1iakxFL09PDw
@@ -10,108 +10,105 @@ import (
 // Seq 一种特殊的集合,可以用于链式操作
 type Seq[T any] func(t func(T))
 
-// DefaultParallelFunc 自定义携程任务运行模式,可以改用携程池方案,注意携程池方案可能导致部分需要保证顺序的任务出现死锁
-var DefaultParallelFunc = func(fn func()) { go fn() }
-
 //======生成,产生新的seq========
 
 // From 从函数生成Seq,是一个便捷方法
 func From[T any](f Seq[T]) Seq[T] {
-    return func(t func(T)) {
-        defer stopRecover()
-        f(t)
-    }
+	return func(t func(T)) {
+		defer stopRecover()
+		f(t)
+	}
 }
 
 // FromSeq 从函数生成Seq,是一个便捷方法
 func FromSeq[T any](f func(func(T) bool)) Seq[T] {
-    return func(t func(T)) {
-        defer stopRecover()
-        f(func(v T) bool {
-            t(v)
-            return true
-        })
-    }
+	return func(t func(T)) {
+		defer stopRecover()
+		f(func(v T) bool {
+			t(v)
+			return true
+		})
+	}
 }
 
 // FromSlice 从数组生成Seq
 func FromSlice[T any](arr []T) Seq[T] {
-    return func(t func(T)) {
-        defer stopRecover()
-        for _, v := range arr {
-            t(v)
-        }
-    }
+	return func(t func(T)) {
+		defer stopRecover()
+		for _, v := range arr {
+			t(v)
+		}
+	}
 }
 
 func FromBi[T, K, V any](biSeq BiSeq[K, V], cast func(K, V) T) Seq[T] {
-    return func(t func(T)) { biSeq(func(k K, v V) { t(cast(k, v)) }) }
+	return func(t func(T)) { biSeq(func(k K, v V) { t(cast(k, v)) }) }
 }
 
 func FromBiK[K, V any](biSeq BiSeq[K, V]) Seq[K] {
-    return func(t func(K)) { biSeq(func(k K, _ V) { t(k) }) }
+	return func(t func(K)) { biSeq(func(k K, _ V) { t(k) }) }
 }
 
 func FromBiV[V, K any](biSeq BiSeq[K, V]) Seq[V] {
-    return func(t func(V)) { biSeq(func(_ K, v V) { t(v) }) }
+	return func(t func(V)) { biSeq(func(_ K, v V) { t(v) }) }
 }
 
 // FromSliceRepeat 从数组生成Seq,可以指定重复次数
 func FromSliceRepeat[T any](arr []T, limit ...int) Seq[T] {
-    return func(t func(T)) {
-        defer stopRecover()
-        if len(limit) > 0 && limit[0] > 0 {
-            l := limit[0]
-            for i := 0; i < l; i++ {
-                for _, e := range arr {
-                    t(e)
-                }
-            }
-        } else {
-            for {
-                for _, e := range arr {
-                    t(e)
-                }
-            }
-        }
+	return func(t func(T)) {
+		defer stopRecover()
+		if len(limit) > 0 && limit[0] > 0 {
+			l := limit[0]
+			for i := 0; i < l; i++ {
+				for _, e := range arr {
+					t(e)
+				}
+			}
+		} else {
+			for {
+				for _, e := range arr {
+					t(e)
+				}
+			}
+		}
 
-    }
+	}
 }
 
 // FromChan 从Chan生成Seq
 func FromChan[T any](c <-chan T) Seq[T] {
-    return func(t func(T)) {
-        defer stopRecover()
-        for v := range c {
-            t(v)
-        }
-    }
+	return func(t func(T)) {
+		defer stopRecover()
+		for v := range c {
+			t(v)
+		}
+	}
 }
 
 // FromIterator 从Iterator生成Seq
 func FromIterator[T any](it Iterator[T]) Seq[T] {
-    return func(t func(T)) {
-        defer stopRecover()
-        for {
-            item, ok := it()
-            if !ok {
-                break
-            }
-            t(item)
-        }
-    }
+	return func(t func(T)) {
+		defer stopRecover()
+		for {
+			item, ok := it()
+			if !ok {
+				break
+			}
+			t(item)
+		}
+	}
 }
 
 // FromT 从元素生成Seq
 func FromT[T any](ts ...T) Seq[T] {
-    return FromSlice(ts)
+	return FromSlice(ts)
 }
 
 func FromTRepeat[T any](ts ...T) Seq[T] {
-    return FromSliceRepeat(ts)
+	return FromSliceRepeat(ts)
 }
 func FromTRepeatN[T any](limit int, ts ...T) Seq[T] {
-    return FromSliceRepeat(ts, limit)
+	return FromSliceRepeat(ts, limit)
 }
 
 // FromRandIntSeq 生成随机整数序列,可以自定义随机数范围
@@ -119,26 +116,26 @@ func FromTRepeatN[T any](limit int, ts ...T) Seq[T] {
 // 参数1: 生成数量
 // 参数2: 随机数范围:[0,n)
 func FromRandIntSeq(i ...int) Seq[int] {
-    l := math.MaxInt
-    r := 0
-    if len(i) > 0 {
-        l = i[0]
-    }
-    if len(i) > 1 {
-        r = i[1]
-    }
-    return func(t func(int)) {
-        defer stopRecover()
-        if r > 0 {
-            for st := 0; st <= l; st++ {
-                t(rand.Intn(r))
-            }
-        } else {
-            for st := 0; st <= l; st++ {
-                t(rand.Int())
-            }
-        }
-    }
+	l := math.MaxInt
+	r := 0
+	if len(i) > 0 {
+		l = i[0]
+	}
+	if len(i) > 1 {
+		r = i[1]
+	}
+	return func(t func(int)) {
+		defer stopRecover()
+		if r > 0 {
+			for st := 0; st <= l; st++ {
+				t(rand.Intn(r))
+			}
+		} else {
+			for st := 0; st <= l; st++ {
+				t(rand.Int())
+			}
+		}
+	}
 }
 
 // FromIntSeq 生成整数序列,可以自定义起始值,结束值,步长
@@ -147,49 +144,49 @@ func FromRandIntSeq(i ...int) Seq[int] {
 // 参数3,步长,默认为1
 // 注意: 不传结束值时会生成无限序列,必须配合Take等限制操作使用,否则会无限循环或整数溢出
 func FromIntSeq(Range ...int) Seq[int] {
-    return func(f func(int)) {
-        defer stopRecover()
-        r := makeRange(Range...)
-        for {
-            f(r())
-        }
-    }
+	return func(f func(int)) {
+		defer stopRecover()
+		r := makeRange(Range...)
+		for {
+			f(r())
+		}
+	}
 }
 
 func FromTreeT[T any](t T, getChild func(T) Seq[T]) Seq[T] {
-    return func(f func(T)) {
-        defer stopRecover()
-        f(t)
-        getChild(t).ForEach(func(t T) { FromTreeT(t, getChild).ForEach(f) })
-    }
+	return func(f func(T)) {
+		defer stopRecover()
+		f(t)
+		getChild(t).ForEach(func(t T) { FromTreeT(t, getChild).ForEach(f) })
+	}
 }
 func FromTreeTV[T, V any](p T, getChild func(T) Seq[T], getValue func(T) V) Seq[V] {
-    return func(f func(V)) {
-        defer stopRecover()
-        f(getValue(p))
-        getChild(p).ForEach(func(t T) { FromTreeTV(t, getChild, getValue).ForEach(f) })
-    }
+	return func(f func(V)) {
+		defer stopRecover()
+		f(getValue(p))
+		getChild(p).ForEach(func(t T) { FromTreeTV(t, getChild, getValue).ForEach(f) })
+	}
 }
 
 func FromTreeAny(o any, getChild func(any) Seq[any]) Seq[any] {
-    return func(f func(any)) {
-        defer stopRecover()
-        f(o)
-        getChild(o).ForEach(func(t any) { FromTreeAny(t, getChild).ForEach(f) })
-    }
+	return func(f func(any)) {
+		defer stopRecover()
+		f(o)
+		getChild(o).ForEach(func(t any) { FromTreeAny(t, getChild).ForEach(f) })
+	}
 }
 
 func FromTreeAnyTV[V any](o any, getChild func(any) Seq[any], getValue func(any) V) Seq[V] {
-    return func(f func(V)) {
-        defer stopRecover()
-        f(getValue(o))
-        getChild(o).ForEach(func(t any) { FromTreeAnyTV(t, getChild, getValue).ForEach(f) })
-    }
+	return func(f func(V)) {
+		defer stopRecover()
+		f(getValue(o))
+		getChild(o).ForEach(func(t any) { FromTreeAnyTV(t, getChild, getValue).ForEach(f) })
+	}
 }
 
 // stopRecover 捕获Stop panic,用于所有调用消费者回调的生产者函数
 func stopRecover() {
-    if a := recover(); a != nil && a != &Stop {
-        panic(a)
-    }
+	if a := recover(); a != nil && a != &stop {
+		panic(a)
+	}
 }

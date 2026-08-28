@@ -42,6 +42,9 @@ func (p *BufferPool) SetMaxCap(maxCap int) {
 func (p *BufferPool) Get() *bytes.Buffer {
 	return p.pool.Get().(*bytes.Buffer)
 }
+
+// Put 归还 buffer, Reset 后入池; 容量超过 maxCap 时丢弃不入池
+// 归还后不得再使用该 buffer 及其 Bytes() 结果, 底层数组会被后续使用者覆盖
 func (p *BufferPool) Put(b *bytes.Buffer) {
 	if b.Cap() > int(atomic.LoadInt32(&p.maxCap)) {
 		return
@@ -50,6 +53,9 @@ func (p *BufferPool) Put(b *bytes.Buffer) {
 	p.pool.Put(b)
 }
 
+// Bytes 可池化的字节缓冲
+// 池化契约: Put 时会清空内容, Get 返回的对象长度为 0, 取出后无需再调用 Reset;
+// Bytes()/String() 返回的结果不得在 Put 之后继续使用, 底层数组会被池的后续使用者覆盖
 type Bytes struct {
 	buf []byte
 }
@@ -126,10 +132,12 @@ func (p *BytePool) SetInitCap(initCap int) {
 	atomic.StoreInt32(&p.initCap, int32(initCap))
 }
 
+// Get 从池中取出一个长度为 0 的缓冲(池化契约由 Put 保证), 无需再 Reset
 func (p *BytePool) Get() *Bytes {
 	return p.pool.Get().(*Bytes)
 }
 
+// Put 归还缓冲, 清空内容后入池; 容量超过 maxCap 时丢弃不入池
 func (p *BytePool) Put(b *Bytes) {
 	if cap(b.buf) > int(atomic.LoadInt32(&p.maxCap)) {
 		return

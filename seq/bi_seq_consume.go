@@ -15,13 +15,13 @@ func (t BiSeq[K, V]) ForEach(f func(K, V)) { t(f) }
 
 // First 获取第一个元素,无则返回nil
 func (t BiSeq[K, V]) First() (*K, *V) {
-    var rk *K
-    var rv *V
-    t.Take(1)(func(k K, v V) {
-        rk = &k
-        rv = &v
-    })
-    return rk, rv
+	var rk *K
+	var rv *V
+	t.Take(1)(func(k K, v V) {
+		rk = &k
+		rv = &v
+	})
+	return rk, rv
 }
 
 //// FirstOr 获取第一个元素,无则返回默认值
@@ -42,29 +42,29 @@ func (t BiSeq[K, V]) First() (*K, *V) {
 
 // FirstOrF 获取第一个元素,无则返回f的值
 func (t BiSeq[K, V]) FirstOrF(f func() (K, V)) (K, V) {
-    var rk *K
-    var rv *V
-    exist := false
-    t.Take(1)(func(k K, v V) {
-        rk = &k
-        rv = &v
-        exist = true
-    })
-    if exist {
-        return *rk, *rv
-    }
-    return f()
+	var rk *K
+	var rv *V
+	exist := false
+	t.Take(1)(func(k K, v V) {
+		rk = &k
+		rv = &v
+		exist = true
+	})
+	if exist {
+		return *rk, *rv
+	}
+	return f()
 }
 
 // Last 获取最后一个元素,无则返回nil
 func (t BiSeq[K, V]) Last() (*K, *V) {
-    var rk *K
-    var rv *V
-    t(func(k K, v V) {
-        rk = &k
-        rv = &v
-    })
-    return rk, rv
+	var rk *K
+	var rv *V
+	t(func(k K, v V) {
+		rk = &k
+		rv = &v
+	})
+	return rk, rv
 }
 
 //// LastOr 获取最后一个元素,无则返回默认值
@@ -85,18 +85,18 @@ func (t BiSeq[K, V]) Last() (*K, *V) {
 
 // LastOrF 获取最后一个元素,无则返回f的值
 func (t BiSeq[K, V]) LastOrF(f func() (K, V)) (K, V) {
-    var rk *K
-    var rv *V
-    exist := false
-    t(func(k K, v V) {
-        rk = &k
-        rv = &v
-        exist = true
-    })
-    if exist {
-        return *rk, *rv
-    }
-    return f()
+	var rk *K
+	var rv *V
+	exist := false
+	t(func(k K, v V) {
+		rk = &k
+		rv = &v
+		exist = true
+	})
+	if exist {
+		return *rk, *rv
+	}
+	return f()
 }
 
 // AnyMatch 任意匹配
@@ -105,7 +105,7 @@ func (t BiSeq[K, V]) AnyMatch(f func(K, V) bool) bool {
 	t(func(k K, v V) {
 		if f(k, v) {
 			r = true
-			panic(&Stop)
+			panic(&stop)
 		}
 	})
 	return r
@@ -117,7 +117,7 @@ func (t BiSeq[K, V]) AllMatch(f func(K, V) bool) bool {
 	t(func(k K, v V) {
 		if !f(k, v) {
 			r = false
-			panic(&Stop)
+			panic(&stop)
 		}
 	})
 	return r
@@ -139,9 +139,9 @@ func (t BiSeq[K, V]) AllMatch(f func(K, V) bool) bool {
 
 // Count 计数
 func (t BiSeq[K, V]) Count() int {
-    var r int
-    t(func(k K, v V) { r++ })
-    return r
+	var r int
+	t(func(k K, v V) { r++ })
+	return r
 }
 
 //// Count64 计数
@@ -153,9 +153,9 @@ func (t BiSeq[K, V]) Count() int {
 
 // SumBy 求和
 func (t BiSeq[K, V]) SumBy(f func(K, V) int) int {
-    var r int
-    t(func(k K, v V) { r += f(k, v) })
-    return r
+	var r int
+	t(func(k K, v V) { r += f(k, v) })
+	return r
 }
 
 //// SumBy64 求和
@@ -174,24 +174,24 @@ func (t BiSeq[K, V]) SumBy(f func(K, V) int) int {
 
 // SumByFloat64 求和
 func (t BiSeq[K, V]) SumByFloat64(f func(K, V) float64) float64 {
-    var r float64
-    t(func(k K, v V) { r += f(k, v) })
-    return r
+	var r float64
+	t(func(k K, v V) { r += f(k, v) })
+	return r
 }
 
 // JoinStringBy 拼接为字符串
 func (t BiSeq[K, V]) JoinStringBy(f func(K, V) string, delimiter ...string) string {
-    sb := strings.Builder{}
-    d := ""
-    if len(delimiter) > 0 {
-        d = delimiter[0]
-    }
-    t(func(k K, v V) {
-        s := f(k, v)
-        if d != "" && sb.Len() > 0 {
-            sb.WriteString(d)
-        }
-        sb.WriteString(s)
-    })
-    return sb.String()
+	sb := strings.Builder{}
+	d := ""
+	if len(delimiter) > 0 {
+		d = delimiter[0]
+	}
+	t(func(k K, v V) {
+		s := f(k, v)
+		if d != "" && sb.Len() > 0 {
+			sb.WriteString(d)
+		}
+		sb.WriteString(s)
+	})
+	return sb.String()
 }

@@ -1,9 +1,9 @@
 package seq
 
 import (
-    "runtime"
-    "sort"
-    "sync"
+	"runtime"
+	"sort"
+	"sync"
 )
 
 //======增强========
@@ -13,7 +13,7 @@ func (t BiSeq[K, V]) RecoverErr(f func(any)) BiSeq[K, V] {
 	return func(c func(K, V)) {
 		defer func() {
 			if a := recover(); a != nil {
-				if a == &Stop {
+				if a == &stop {
 					panic(a)
 				}
 				f(a)
@@ -35,7 +35,7 @@ func (t BiSeq[K, V]) RecoverErrWithValue(f func(K, V, any)) BiSeq[K, V] {
 		var lastV V
 		defer func() {
 			if a := recover(); a != nil {
-				if a == &Stop {
+				if a == &stop {
 					panic(a)
 				}
 				f(lastK, lastV, a)
@@ -56,20 +56,20 @@ func (t BiSeq[K, V]) RecoverErrWithValue(f func(K, V, any)) BiSeq[K, V] {
 
 // Finally defer 的简单封装
 func (t BiSeq[K, V]) Finally(f func()) BiSeq[K, V] {
-    return func(c func(K, V)) {
-        defer f()
-        t(func(k K, v V) { c(k, v) })
-    }
+	return func(c func(K, V)) {
+		defer f()
+		t(func(k K, v V) { c(k, v) })
+	}
 }
 
 // OnEach 每个元素额外在前面执行一次
 func (t BiSeq[K, V]) OnEach(f func(K, V)) BiSeq[K, V] {
-    return func(c func(K, V)) {
-        t(func(k K, v V) {
-            f(k, v)
-            c(k, v)
-        })
-    }
+	return func(c func(K, V)) {
+		t(func(k K, v V) {
+			f(k, v)
+			c(k, v)
+		})
+	}
 }
 
 //// OnEachAfter 每个元素额外在后面执行一次
@@ -104,86 +104,87 @@ func (t BiSeq[K, V]) OnEach(f func(K, V)) BiSeq[K, V] {
 
 // OnEachNX 每n个元素额外执行一次,当结束时,如果剩余元素不足n个,额外执行一次
 func (t BiSeq[K, V]) OnEachNX(step int, f func(idx int, k K, v V), skip ...int) BiSeq[K, V] {
-    if step <= 0 {
-        panic("step must > 0")
-    }
-    return func(c func(k K, v V)) {
-        x := 0
-        if len(skip) > 0 {
-            x = -skip[0]
-        }
-        var lastK *K
-        var lastV *V
-        t(func(k K, v V) {
-            x++
-            lastK = &k
-            lastV = &v
-            if x > 0 && x%step == 0 {
-                f(x, k, v)
-            }
-            c(k, v)
-        })
-        if x%step != 0 {
-            f(x, *lastK, *lastV)
-        }
-    }
+	if step <= 0 {
+		panic("step must > 0")
+	}
+	return func(c func(k K, v V)) {
+		x := 0
+		if len(skip) > 0 {
+			x = -skip[0]
+		}
+		var lastK *K
+		var lastV *V
+		t(func(k K, v V) {
+			x++
+			lastK = &k
+			lastV = &v
+			if x > 0 && x%step == 0 {
+				f(x, k, v)
+			}
+			c(k, v)
+		})
+		//空流不产生元素,不触发收尾,避免skip导致x%step!=0时的nil解引用
+		if lastK != nil && x%step != 0 {
+			f(x, *lastK, *lastV)
+		}
+	}
 }
 
 // OnBefore 指定位置前(包含),每个元素额外执行
 func (t BiSeq[K, V]) OnBefore(i int, f func(K, V)) BiSeq[K, V] {
-    return func(c func(K, V)) {
-        x := 0
-        t(func(k K, v V) {
-            if x < i {
-                x++
-                f(k, v)
-            }
-            c(k, v)
-        })
-    }
+	return func(c func(K, V)) {
+		x := 0
+		t(func(k K, v V) {
+			if x < i {
+				x++
+				f(k, v)
+			}
+			c(k, v)
+		})
+	}
 }
 
 // OnAfter 指定位置后(包含),每个元素额外执行
 func (t BiSeq[K, V]) OnAfter(i int, f func(K, V)) BiSeq[K, V] {
-    return func(c func(K, V)) {
-        x := 0
-        t(func(k K, v V) {
-            if x >= i {
-                f(k, v)
-            } else {
-                x++
-            }
-            c(k, v)
-        })
-    }
+	return func(c func(K, V)) {
+		x := 0
+		t(func(k K, v V) {
+			if x >= i {
+				f(k, v)
+			} else {
+				x++
+			}
+			c(k, v)
+		})
+	}
 }
 
 // OnFirst 执行前额外执行
 func (t BiSeq[K, V]) OnFirst(f func(K, V)) BiSeq[K, V] {
-    return func(c func(K, V)) {
-        x := 0
-        t(func(k K, v V) {
-            if x == 0 {
-                x++
-                f(k, v)
-            }
-            c(k, v)
-        })
-    }
+	return func(c func(K, V)) {
+		x := 0
+		t(func(k K, v V) {
+			if x == 0 {
+				x++
+				f(k, v)
+			}
+			c(k, v)
+		})
+	}
 }
 
 // OnLast 执行完成后额外执行
 func (t BiSeq[K, V]) OnLast(f func(*K, *V)) BiSeq[K, V] {
-    return func(x func(K, V)) {
-        var lastK *K
-        var lastV *V
-        t(func(k K, v V) {
-            lastK = &k
-            lastV = &v
-            x(k, v)
-        })
-        f(lastK, lastV)
-    }
+	return func(x func(K, V)) {
+		var lastK *K
+		var lastV *V
+		t(func(k K, v V) {
+			lastK = &k
+			lastV = &v
+			x(k, v)
+		})
+		f(lastK, lastV)
+	}
 }
 
 // Cache 缓存Seq,使该Seq可以多次消费,init为true时,会立刻触发消费行为
@@ -208,28 +209,28 @@ func (t BiSeq[K, V]) Cache(init ...bool) BiSeq[K, V] {
 
 // Sync Parallel后串行执行
 func (t BiSeq[K, V]) Sync() BiSeq[K, V] {
-    return func(c func(K, V)) {
-        lock := sync.Mutex{}
-        t(func(k K, v V) {
-            lock.Lock()
-            defer lock.Unlock()
-            c(k, v)
-        })
-    }
+	return func(c func(K, V)) {
+		lock := sync.Mutex{}
+		t(func(k K, v V) {
+			lock.Lock()
+			defer lock.Unlock()
+			c(k, v)
+		})
+	}
 }
 
 // Parallel 对后续操作启用并行执行,使用 Sync() 保证消费不竞争
 // concurrent 为空时默认并发数为 2*GOMAXPROCS,防止 goroutine 洪泛
 func (t BiSeq[K, V]) Parallel(concurrent ...int) BiSeq[K, V] {
-    sl := runtime.GOMAXPROCS(0) * 2
-    if len(concurrent) > 0 && concurrent[0] > 0 {
-        sl = concurrent[0]
-    }
-    return func(c func(k K, v V)) {
-        p := NewParallel(sl)
-        t(func(k K, v V) { p.Add(func() { c(k, v) }) })
-        p.Wait()
-    }
+	sl := runtime.GOMAXPROCS(0) * 2
+	if len(concurrent) > 0 && concurrent[0] > 0 {
+		sl = concurrent[0]
+	}
+	return func(c func(k K, v V)) {
+		p := newParallel(sl)
+		t(func(k K, v V) { p.Add(func() { c(k, v) }) })
+		p.Wait()
+	}
 }
 
 // Sort 排序
@@ -265,18 +266,39 @@ func (t BiSeq[K, V]) Reverse() BiSeq[K, V] {
 	})
 }
 
-// Repeat 重复该Seq n次
+// Repeat 重复该Seq n次,如果不传递n,则无限重复
+// 标准构造源会吸收消费者的Stop哨兵后正常返回,Repeat须识别哨兵并停止重启源,否则无限重复+提前终止会死循环
+// 禁止置于 Parallel 之后使用,Repeat 内部状态与重复推进仅支持串行消费(与 OnLast 同类约束)
 func (t BiSeq[K, V]) Repeat(n ...int) BiSeq[K, V] {
 	return func(f func(K, V)) {
+		stopped := false
+		wf := func(k K, v V) {
+			defer func() {
+				if a := recover(); a != nil {
+					if a == &stop {
+						stopped = true
+					}
+					//哨兵与错误继续向上传播,由源的stopRecover或本函数兜底吸收
+					panic(a)
+				}
+			}()
+			f(k, v)
+		}
 		defer stopRecover()
 		if len(n) == 0 {
 			for {
-				t(f)
+				t(wf)
+				if stopped {
+					return
+				}
 			}
 		} else {
 			l := n[0]
 			for i := 0; i < l; i++ {
-				t(f)
+				t(wf)
+				if stopped {
+					return
+				}
 			}
 		}
 	}

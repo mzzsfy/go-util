@@ -7,18 +7,15 @@ import (
 
 // MPMC有界队列,预分配ring buffer,零alloc
 // 算法参考Dmitry Vyukov
-type ringSlot[T any] struct {
-	seq   uint64
-	value T
-}
-
 type ringQueue[T any] struct {
-	slots []ringSlot[T]
-	mask  uint64
-	_     [cpuCacheKillerPaddingLength]byte
-	head  uint64
-	_     [cpuCacheKillerPaddingLength]byte
-	tail  uint64
+	// 32位平台仅首字段保证8字节对齐, head/tail/seqs需64位原子访问
+	head uint64
+	_    [cpuCacheKillerPaddingLength]byte
+	tail uint64
+	_    [cpuCacheKillerPaddingLength]byte
+	mask uint64
+	seqs []uint64
+	vals []T
 }
 
 // WithTypeRing 使用固定容量环形队列,零分配,MPMC安全
@@ -37,13 +34,14 @@ func newRingQueue[T any](cap int) Queue[T] {
 		cap = 1
 	}
 	cap = nextPow2(cap)
-	slots := make([]ringSlot[T], cap)
-	for i := range slots {
-		slots[i].seq = uint64(i)
+	seqs := make([]uint64, cap)
+	for i := range seqs {
+		seqs[i] = uint64(i)
 	}
 	return &ringQueue[T]{
-		slots: slots,
-		mask:  uint64(cap - 1),
+		seqs: seqs,
+		vals: make([]T, cap),
+		mask: uint64(cap - 1),
 	}
 }
 
@@ -64,14 +62,14 @@ func (q *ringQueue[T]) Size() int {
 func (q *ringQueue[T]) Enqueue(v T) {
 	for {
 		t := atomic.LoadUint64(&q.tail)
-		s := &q.slots[t&q.mask]
-		seq := atomic.LoadUint64(&s.seq)
+		idx := t & q.mask
+		seq := atomic.LoadUint64(&q.seqs[idx])
 		diff := int64(seq) - int64(t)
 		if diff == 0 {
 			// slot可用,尝试占位
 			if atomic.CompareAndSwapUint64(&q.tail, t, t+1) {
-				s.value = v
-				atomic.StoreUint64(&s.seq, t+1)
+				q.vals[idx] = v
+				atomic.StoreUint64(&q.seqs[idx], t+1)
 				return
 			}
 		} else if diff < 0 {
@@ -82,20 +80,21 @@ func (q *ringQueue[T]) Enqueue(v T) {
 }
 
 func (q *ringQueue[T]) Dequeue() (T, bool) {
-	for spin := 0; spin < 64; spin++ {
+	// 无自旋上限: 竞争/生产者未发布时等待而非假空, 空队列由h>=tail判定
+	for spin := 0; ; spin++ {
 		h := atomic.LoadUint64(&q.head)
-		s := &q.slots[h&q.mask]
-		seq := atomic.LoadUint64(&s.seq)
+		idx := h & q.mask
+		seq := atomic.LoadUint64(&q.seqs[idx])
 		diff := int64(seq) - int64(h+1)
 		if diff == 0 {
 			if atomic.CompareAndSwapUint64(&q.head, h, h+1) {
-				v := s.value
+				v := q.vals[idx]
 				var zero T
-				s.value = zero
-				atomic.StoreUint64(&s.seq, h+q.mask+1)
+				q.vals[idx] = zero
+				atomic.StoreUint64(&q.seqs[idx], h+q.mask+1)
 				return v, true
 			}
-		} else if diff < 0 {
+		} else if diff < 0 && h >= atomic.LoadUint64(&q.tail) {
 			var zero T
 			return zero, false
 		}
@@ -103,15 +102,13 @@ func (q *ringQueue[T]) Dequeue() (T, bool) {
 			runtime.Gosched()
 		}
 	}
-	var zero T
-	return zero, false
 }
 
 // TryDequeue 单次CAS尝试,失败立即返回
 func (q *ringQueue[T]) TryDequeue() (T, bool) {
 	h := atomic.LoadUint64(&q.head)
-	s := &q.slots[h&q.mask]
-	seq := atomic.LoadUint64(&s.seq)
+	idx := h & q.mask
+	seq := atomic.LoadUint64(&q.seqs[idx])
 	if int64(seq)-int64(h+1) != 0 {
 		var zero T
 		return zero, false
@@ -120,9 +117,9 @@ func (q *ringQueue[T]) TryDequeue() (T, bool) {
 		var zero T
 		return zero, false
 	}
-	v := s.value
+	v := q.vals[idx]
 	var zero T
-	s.value = zero
-	atomic.StoreUint64(&s.seq, h+q.mask+1)
+	q.vals[idx] = zero
+	atomic.StoreUint64(&q.seqs[idx], h+q.mask+1)
 	return v, true
 }

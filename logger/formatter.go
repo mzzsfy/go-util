@@ -150,7 +150,7 @@ func (f ConsoleFormatter) Dur(buf *[]byte, key string, val time.Duration) {
 	*buf = append(*buf, ' ')
 	*buf = append(*buf, key...)
 	*buf = append(*buf, '=')
-	*buf = append(*buf, val.String()...)
+	*buf = appendDuration(*buf, val)
 }
 
 func (f ConsoleFormatter) Err(buf *[]byte, err error) {

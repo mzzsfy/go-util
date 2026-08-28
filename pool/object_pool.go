@@ -11,10 +11,10 @@ type ObjectPool[T any] struct {
 }
 
 // defaultValue 对象创建函数类型
-type defaultValue[T any]func() *T
+type defaultValue[T any] func() *T
 
 // reset 对象重置函数类型
-type reset[T any]func(*T)
+type reset[T any] func(*T)
 
 // NewObjectPool 创建对象池
 // new: 对象创建函数,用于池为空时创建新对象

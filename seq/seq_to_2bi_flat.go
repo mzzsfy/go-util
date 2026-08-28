@@ -20,13 +20,13 @@ package seq
 //}
 
 func MapFlatBi[K, V, T any](t Seq[T], f func(T) BiSeq[K, V]) BiSeq[K, V] {
-    return BiFrom(func(f1 func(K, V)) { t(func(t T) { f(t)(func(k K, v V) { f1(k, v) }) }) })
+	return BiFrom(func(f1 func(K, V)) { t(func(t T) { f(t)(func(k K, v V) { f1(k, v) }) }) })
 }
 
 func MapFlatBiK[K, T any](t Seq[T], f func(T) BiSeq[K, T]) BiSeq[K, T] {
-    return BiFrom(func(f1 func(K, T)) { t(func(t T) { f(t)(func(k K, v T) { f1(k, v) }) }) })
+	return BiFrom(func(f1 func(K, T)) { t(func(t T) { f(t)(func(k K, v T) { f1(k, v) }) }) })
 }
 
 func MapFlatBiV[V, T any](t Seq[T], f func(T) BiSeq[T, V]) BiSeq[T, V] {
-    return BiFrom(func(f1 func(T, V)) { t(func(t T) { f(t)(func(k T, v V) { f1(k, v) }) }) })
+	return BiFrom(func(f1 func(T, V)) { t(func(t T) { f(t)(func(k T, v V) { f1(k, v) }) }) })
 }
