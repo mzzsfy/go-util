@@ -8,7 +8,7 @@
 ```go
 // print 0,1,2,3,4,5,6,7,8,9
 FromIntSeq().Take(10).ForEach(func(i int) {
-  fmt.t.Log(i)
+  fmt.Println(i)
 })
 
 // 自定义生产者,生成无限长度随机序列,循环打印,过滤出偶数,丢弃前10个,然后取前5个,生成切片
@@ -25,7 +25,7 @@ From(func(f func(i int)) {
 //结果 "10,9,8 ... 3,2,1"
 FromSlice([]int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}).Sort(func(i, j int) bool {
   return i > j
-}).JoinString(strconv.Itoa,",")
+}).JoinStringBy(strconv.Itoa,",")
 
 
 // 远端下载多个文件,限制并发,限制顺序 (go1.27 泛型方法版本)
@@ -58,11 +58,11 @@ ForEach(func(i int, bytes []byte) {
 ```go
 // a 1 b 2 c 3
 // "a,b,c"
-BiFromMap(map[string]int{"a": 1, "b": 2, "c": 3}).OnEach(func(k string, v int) {
+b := BiFromMap(map[string]int{"a": 1, "b": 2, "c": 3}).OnEach(func(k string, v int) {
 println(k, v)
-}).
-	//转换为单元素的Seq
-	FromBiK().JoinString(func(s string){retrun s}, ",")
+})
+//转换为单元素的Seq
+FromBiK(b).JoinString(",")
 ```
 
 更多例子见: [seq_test.go](./seq__test.go) [bi_seq_test.go](./bi_seq_test.go)
@@ -96,7 +96,7 @@ interface Seq[T]{
     Drop(n int) Seq[T]
     DropWhile(f func(T) bool) Seq[T]
     Skip(n int) Seq[T]
-    Distinct(equals func(T, T) bool) Seq[T]
+    Distinct() Seq[T]
     DistinctCustomize(contains func(T) bool) Seq[T]
     MapParallel[R any](syncFn func(T) R, order ...int) Seq[R]
     MapParallelCustomize[R any](asyncFn func(T, func(R))) Seq[R]
@@ -158,7 +158,7 @@ interface BiSeq[K,V]{
     Filter(f func(K, V) bool) BiSeq[K, V]
     Take(n int) BiSeq[K, V]
     Drop(n int) BiSeq[K, V]
-    Distinct(equals func(K, V, K, V) bool) BiSeq[K, V]
+    Distinct() BiSeq[K, V]
     MapVParallel[R any](f func(k K, v V) R, order ...int) BiSeq[K, R]
     Map[A, B any](f func(K, V) (A, B)) BiSeq[A, B]
     MapK[R any](f func(K, V) R) BiSeq[R, V]
@@ -210,14 +210,26 @@ interface BiSeq[K,V]{
 // 双轨通用(非方法形态,轨道无关)
 MapSliceN[T any](t Seq[T], n int) Seq[any]
 MapSliceBy[T any](t Seq[T], f func(T, []T) bool) Seq[any]
+DistinctByKey[K comparable, T any](t Seq[T], key func(T) K) Seq[T]
+DistinctComparable[T comparable](t Seq[T]) Seq[T]
+BiDistinctByKey[K, V any, CK comparable](t BiSeq[K, V], key func(K, V) CK) BiSeq[K, V]
 
 // 仅旧轨示例 → go1.27 泛型方法替代
 CastAny(seq)          → seq.Cast[T]()
 BiCastAny(seq)        → seq.Cast[K,V]()
 BiMap(seq, cast)      → seq.Map(f)
 MapString/MapInt      → seq.Map[E](f)
-MergeBiInt/String/Any → seq.MergeBi(iterator)
+MergeBiInt/String      → seq.MergeBi(iterator)
+MergeBiInt/String/AnyRight → seq.MergeBiR(iterator)
 MapBiSerialNumber     → seq.Enumerate(range...)
 GroupBy(any键)        → seq.GroupBy[K comparable](f)
 Reduce(any)           → seq.Reduce[R any](f, init)
 ```
+
+## 破坏性变更
+
+- `DefaultParallelFunc` 导出变量已删除,自定义并行调度改用 `ParallelCustomize`(异步转换场景用 `MapParallelCustomize`)
+- `Distinct` 无参化: `Distinct()` 基于 `==` 语义,equals 参数删除(在 map 化实现中已不参与比较);`BiSeq.Distinct` 同改为无参
+- `Stop` 哨兵变量不再导出,提前终止通过 `Take`/`TakeWhile` 等控制方法触发
+- `NewParallel` 签名改为 `NewParallel(concurrent int) (Parallel, error)`,并发数非法返回 `ErrConcurrent` 而非 panic
+- 补齐 `BiDistinctByKey`:与 Seq 侧 `DistinctByKey` 对齐,`Distinct` 无参化后非 comparable K/V 通过 key 函数去重

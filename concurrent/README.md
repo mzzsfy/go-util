@@ -171,27 +171,16 @@ l.Lock()   // 无操作
 l.Unlock() // 无操作
 ```
 
-## IdGenerator
-
-ID生成器接口,支持雪花算法和原子计数器两种实现。
-
-```go
-type IdGenerator interface {
-    NextId() uint64
-}
-```
-
-内置实现(包内使用):
-- `snowFlake`: 雪花算法,CAS优化,高并发性能好
-- `atomIdGenerator`: 原子递增
-
 ## 滑动窗口限流器
 
 时间滑动窗口实现的限流器。
 
 ```go
 // 创建: 1秒窗口,最多100次请求,分成10个子窗口
-sw := NewSlidingWindow(1000, 100, 10)
+sw, err := NewSlidingWindow(1000, 100, 10)
+if err != nil {
+    panic(err) // 参数非法返回哨兵错误
+}
 
 if sw.CanDo() {
     // 允许执行
@@ -202,6 +191,8 @@ if sw.CanDo() {
 - `time`: 时间窗口长度(毫秒)
 - `allowNumber`: 窗口内允许的最大请求数
 - `windowNumber`: 子窗口数量,必须大于2
+
+参数非法时返回包级哨兵错误: `ErrWindowNumber`/`ErrWindowTime`/`ErrAllowNumber`,可用 errors.Is 匹配。
 
 ## 工具函数
 

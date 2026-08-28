@@ -30,7 +30,7 @@ err := CtxGo(ctx, func() {
 })
 
 // 自定义协程池
-pool := NewGopool(WithName("myPool"), WithMaxWorks(1000), WithIdleTimeout(60 * time.Second))
+pool := NewGoPool(WithName("myPool"), WithMaxWorkers(1000), WithIdleTimeout(60 * time.Second))
 err := pool.Go(func() {
 	// code
 })
@@ -50,7 +50,7 @@ ok := pool.Restart()
 | 选项 | 说明 |
 |---|---|
 | `WithName(name string)` | 设置协程池名称 |
-| `WithMaxWorks(n int)` | 设置最大 worker 数量 |
+| `WithMaxWorkers(n int)` | 设置最大 worker 数量 |
 | `WithIdleTimeout(d time.Duration)` | 设置 worker 空闲超时退出时间 |
 | `WithPanicHandler(handler func(any, context.Context))` | 设置 panic 处理函数 |
 

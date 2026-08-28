@@ -32,13 +32,6 @@ AnyArray(vars ...any) []any
 AnyArrayT[T any](vars ...T) []T
 Must[T any](data T, err error) T   // err 非 nil 时 panic
 MustR[T any](err error, data T) T  // 同上,参数顺序相反
-
-// 值选择器,从多值中取指定位置
-OneOfL[L, R any](data L, _ R) L
-OneOfR[L, R any](_ L, data R) R
-OneOf3L[L, M, R any](data L, _ M, _ R) L
-OneOf3M[L, M, R any](_ L, data M, _ R) M
-OneOf3R[L, M, R any](_ L, _ M, data R) R
 ```
 
 ## 字符串处理
