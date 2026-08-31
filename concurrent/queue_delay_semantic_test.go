@@ -9,16 +9,21 @@ import (
 )
 
 // Given delayQueue 短延迟
-// When 入队后立即出队
-// Then 未到期返回 false, 到期后可取到元素
+// When 到期时刻前循环尝试出队
+// Then 到期前返回 false, 到期后可取到元素
 func Test_DelayQueue_NotReadyThenFired(t *testing.T) {
 	t.Parallel()
 	const delayTime = 50 * time.Millisecond
 	q := NewQueue[int](WithTypeDelay[int](delayTime))
 
+	// 到期前循环探测: 调度延迟跨过到期时刻时跳出循环, 不误报; 到期前取到即违反语义
+	fireAt := time.Now().Add(delayTime)
 	q.Enqueue(1)
-	if _, ok := q.Dequeue(); ok {
-		t.Fatal("未到期时出队不应成功")
+	for time.Now().Before(fireAt) {
+		if _, ok := q.Dequeue(); ok {
+			t.Fatal("到期前出队成功")
+		}
+		time.Sleep(time.Millisecond)
 	}
 
 	deadline := time.Now().Add(waitTimeout)
