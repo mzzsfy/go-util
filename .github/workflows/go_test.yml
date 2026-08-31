@@ -4,7 +4,8 @@ on:
   push:
     branches: [ "main" ]
   schedule:
-    - cron: '0 14 * * *'
+    # UTC 14点 = 北京 22点; */3 从每月1号起每3天, 月末重置(如31号后1号只隔1天)
+    - cron: '0 14 */3 * *'
 jobs:
   # 版本矩阵回归: 每版本 amd64 3 遍 + ARM64/ARM32 真机各 3 遍(刻意设计, 勿改遍数)
   run_test:
