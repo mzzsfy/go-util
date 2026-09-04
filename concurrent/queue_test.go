@@ -14,26 +14,36 @@ func zipAny(vars ...any) []any {
 
 // Given delayQueue
 // When 未到期时出队
-// Then 返回 false; 到期后轮询可取到全部元素(不断言到期序)
+// Then 出队成功时刻距入队至少 delay, 到期后轮询可取到全部元素(不断言到期序)
 func TestDelayQueue_Dequeue(t *testing.T) {
 	t.Parallel()
-	queue := newDelayQueue[int](100 * time.Millisecond)
+	// 判据锚定出队成功时刻: 入队与探测之间被调度抢占跨过到期时刻属正确行为
+	const delayTime = 100 * time.Millisecond
+	enqueueAt := time.Now()
+	queue := newDelayQueue[int](delayTime)
 	for i := 1; i <= 5; i++ {
 		queue.Enqueue(i)
 	}
+	taken := 0
 	if v, ok := queue.Dequeue(); ok {
-		t.Fatal("未到期时出队不应成功, 得到", v)
+		if elapsed := time.Since(enqueueAt); elapsed < delayTime {
+			t.Fatalf("未到期时出队不应成功, 得到 %v, elapsed=%s", v, elapsed)
+		}
+		if v != 1 {
+			t.Fatalf("value=%d want=1", v)
+		}
+		taken = 1
 	}
 
-	deadline := time.Now().Add(5 * time.Second)
+	deadline := time.Now().Add(waitTimeout)
 	got := 0
-	for got < 5 {
+	for got < 5-taken {
 		if _, ok := queue.Dequeue(); ok {
 			got++
 			continue
 		}
 		if time.Now().After(deadline) {
-			t.Fatalf("到期元素未全部出队: got=%d want=5", got)
+			t.Fatalf("到期元素未全部出队: got=%d want=%d", got+taken, 5)
 		}
 		time.Sleep(time.Millisecond)
 	}

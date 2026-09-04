@@ -10,18 +10,26 @@ import (
 
 // Given delayQueue 短延迟
 // When 到期时刻前循环尝试出队
-// Then 到期前返回 false, 到期后可取到元素
+// Then 出队成功时刻距入队至少 delay, 到期后可取到元素
 func Test_DelayQueue_NotReadyThenFired(t *testing.T) {
 	t.Parallel()
 	const delayTime = 50 * time.Millisecond
 	q := NewQueue[int](WithTypeDelay[int](delayTime))
 
-	// 到期前循环探测: 调度延迟跨过到期时刻时跳出循环, 不误报; 到期前取到即违反语义
+	// 判据锚定出队成功时刻: 探测与出队之间被调度抢占跨过到期时刻属正确行为;
+	// 入队时刻在 Enqueue 内部采样, 必晚于 enqueueAt, 故成功时刻距 enqueueAt 不足 delay 即真实提前投递
 	fireAt := time.Now().Add(delayTime)
+	enqueueAt := time.Now()
 	q.Enqueue(1)
 	for time.Now().Before(fireAt) {
-		if _, ok := q.Dequeue(); ok {
-			t.Fatal("到期前出队成功")
+		if v, ok := q.Dequeue(); ok {
+			if elapsed := time.Since(enqueueAt); elapsed < delayTime {
+				t.Fatalf("提前投递: v=%d elapsed=%s", v, elapsed)
+			}
+			if v != 1 {
+				t.Fatalf("value=%d want=1", v)
+			}
+			return
 		}
 		time.Sleep(time.Millisecond)
 	}
