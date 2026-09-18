@@ -11,6 +11,8 @@ jobs:
   run_test:
     runs-on: ubuntu-latest
     strategy:
+      # 一方失败不取消其余矩阵 job
+      fail-fast: false
       matrix:
         go-version: [ '1.18', '1.19', '1.20', '1.21', '1.22', '1.23', '1.24', '1.25', '1.26', '1.27' ]
     steps:
@@ -29,6 +31,8 @@ jobs:
           done
 
       - name: Test_ARM64
+        # amd64 失败仍执行, job 结果仍为失败
+        if: ${{ !cancelled() }}
         uses: uraimo/run-on-arch-action@v3
         with:
           arch: aarch64
@@ -41,6 +45,7 @@ jobs:
             done
 
       - name: Test_ARM32
+        if: ${{ !cancelled() }}
         uses: uraimo/run-on-arch-action@v3
         with:
           arch: armv7
@@ -70,6 +75,7 @@ jobs:
             echo "Test $i done"
           done
       - name: Coverage baseline
+        if: ${{ !cancelled() }}
         run: go test -cover -count=1 -timeout 300s ./...
 
   # vet 门禁: unsafe 包 3 处 unsafe.Pointer 为已备案 runtime hack(见 unsafe 包内注释), 精确排除该包
@@ -134,6 +140,8 @@ jobs:
   build_tags:
     runs-on: ubuntu-latest
     strategy:
+      # 一方失败不取消其余矩阵 job
+      fail-fast: false
       matrix:
         go-version: [ '1.27', '1.18' ]
     steps:
