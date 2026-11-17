@@ -146,7 +146,7 @@ m := {"a": 1}        // map
 ```
 
 ### 显式类型声明 (`:=>`)
-类型固定，编译时检查。支持类型别名。
+初始化时按注解校验一次类型, 支持类型别名; 注解不锁定变量后续类型。
 
 ```go
 // 基本类型
@@ -155,17 +155,17 @@ y :=>float 3.14          // 明确指定 float 类型
 name :=>str "Alice"      // 使用别名 str
 flag :=>bool true        // 布尔类型
 
-// 数组类型
-arr :=>arr [1, 2, "3"]       // 数组，不指定内部类型
-arr :=>arr[int] [1, 2, 3]    // 指定元素类型为 int
+// 数组类型(注解只校验整体是数组, 不支持元素类型写法)
+arr :=>arr [1, 2, "3"]
 
-// 映射类型
-m :=>map {"a": 1, "b": "ok"}     // map，value 可混写类型
-m :=>map[int] {"a": 1}           // 指定 value 类型为 int
+// 映射类型(注解只校验整体是 map, 不支持 key/value 类型写法)
+m :=>map {"a": 1, "b": "ok"}
 
 // 任意类型
 val :=>any getBindValue("x")     // 可接受任何类型
 ```
+
+`:=>类型` 的校验发生在运行期初始化那一刻: 注解不锁定变量后续类型(`x :=>int 1` 之后仍可赋值为其他类型), 也没有 int→float 自动提升。
 
 ### 变量赋值
 使用 `=` 对已声明的变量重新赋值。
@@ -358,11 +358,6 @@ for (i < 5) {
 
 #### 3. 计数器循环
 ```go
-// for n: 循环 n 次（无变量）
-for 5 {
-    print("A")    // 输出: A, A, A, A, A
-}
-
 // for i := n: 循环 n 次，i 从 1 到 n
 for i := 5 {
     print(i)    // 输出: 1, 2, 3, 4, 5
@@ -375,8 +370,8 @@ for (i := 5) {
 ```
 
 **注意**：
-- `for n` 和 `for i := n` 都循环 n 次
-- 如果 n 是数组或映射，自动变成范围循环
+- 只有 `for i := n` 形式; 没有 `for n { }`
+- 初始化值是数组或映射标识符时按范围循环处理; 遍历函数调用结果须写 `for v := range f()`
 - 如需从 0 开始的计数器，使用标准 for 循环：`for i := 0; i < 5; i = i + 1 { }`
 
 #### 4. 标准 For 循环
@@ -486,7 +481,7 @@ for i := 10 {
 
 // return: 函数返回
 fn findFirst(arr, target) {
-    for i := len(arr) {
+    for i := 0; i < len(arr); i = i + 1 {
         if arr[i] == target {
             return i    // 找到后立即返回
         }
@@ -637,8 +632,8 @@ greeting := greet("Bob")  // "Hello, Bob"
 ```
 
 **签名格式**：`#fn 函数名(参数类型)=>返回类型`
-- 参数类型和返回类型支持别名（如 `s` = `string`, `i` = `int`）
-- 多参数：`#fn add(int, int)=>int`
+- 括号内的参数与返回类型文本不参与校验, 只登记函数名; 真正的类型转换在调用时按 Go 函数签名执行
+- 调用绑定的外部函数前必须先写 `#fn` 登记函数名, 否则编译报"未定义的变量"
 
 ---
 
@@ -652,16 +647,17 @@ Script 为常见用例提供便捷函数。
 // Eval - 快速脚本执行
 result, err := script.Eval("10 + 20")
 
-// EvalWithBindings - 使用变量绑定执行
+// EvalWithBindings - 使用变量绑定执行(绑定值必须出现在 :=>类型 声明中)
 bindings := map[string]interface{}{"x": 10, "y": 20}
 result, err := script.EvalWithBindings(`
-    vx := getBindValue("x")
-    vy := getBindValue("y")
+    vx :=>int getBindValue("x")
+    vy :=>int getBindValue("y")
     vx + vy
 `, bindings)
 
 // MustEval - 执行脚本，出错时 panic（用于初始化）
-config := script.MustEval(`m := {"timeout": 30}; m`)
+config := script.MustEval(`m := {"timeout": 30}
+m["timeout"]`)
 ```
 
 ### 使用场景
@@ -723,7 +719,7 @@ ctx.BindFunc("double", func(x int) int {
 
 // 一次编译，多次执行
 // ⚠️ 重要：外部变量需要预定义或使用 any 类型
-script, _ := parser.Compile(`
+compiled, _ := parser.Compile(`
     #fn double(int)=>int    // 预定义外部函数签名
     vx :=>int getBindValue("x")  // 显式类型声明
     vy :=>int getBindValue("y")  // 显式类型声明
@@ -731,7 +727,7 @@ script, _ := parser.Compile(`
 `)
 
 for i := 0; i < 10; i++ {
-    result, _ := engine.Run(ctx, script)
+    result, _ := engine.Run(ctx, compiled)
     fmt.Println(result.Int())
 }
 ```
@@ -764,12 +760,15 @@ func main() {
         },
     }
 
-    result, _ := script.EvalWithBindings(`
-        cfg := getBindValue("config")
+    result, err := script.EvalWithBindings(`
+        cfg :=>map getBindValue("config")
         db := cfg["database"]
         connStr := db["host"] + ":" + string(db["port"]) + "/" + db["name"]
         connStr
     `, map[string]interface{}{"config": config})
+    if err != nil {
+        panic(err)
+    }
 
     fmt.Printf("连接字符串: %s\n", result.String())
     // 输出: 连接字符串: localhost:5432/mydb
@@ -780,6 +779,8 @@ func main() {
 
 <details>
 <summary>示例 2: 数据处理管道</summary>
+
+脚本函数不能作为回调参数传给 Go 函数, 因此把叶子操作绑定为 Go 函数, 管道留在脚本内:
 
 ```go
 package main
@@ -792,24 +793,9 @@ import (
 func main() {
     ctx := script.NewContext()
 
-    // 绑定外部函数
-    ctx.BindFunc("filter", func(arr []int, predicate func(int) bool) []int {
-        result := []int{}
-        for _, v := range arr {
-            if predicate(v) {
-                result = append(result, v)
-            }
-        }
-        return result
-    })
-
-    ctx.BindFunc("map", func(arr []int, mapper func(int) int) []int {
-        result := []int{}
-        for _, v := range arr {
-            result = append(result, mapper(v))
-        }
-        return result
-    })
+    // 绑定外部函数: 参数与返回值都只能是可转换的值类型
+    ctx.BindFunc("isEven", func(n int) bool { return n%2 == 0 })
+    ctx.BindFunc("square", func(n int) int { return n * n })
 
     data := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
     ctx.BindValue("data", data)
@@ -817,23 +803,28 @@ func main() {
     parser := script.NewParser()
     engine := script.NewEngine()
 
-    script, _ := parser.Compile(`
-        arr := getBindValue("data")
+    compiled, err := parser.Compile(`
+        #fn isEven(int)=>bool
+        #fn square(int)=>int
 
-        fn isEven(n) { return n % 2 == 0 }
-        fn square(n) { return n * n }
-
-        filtered := filter(arr, isEven)
-        mapped := map(filtered, square)
+        arr :=>arr getBindValue("data")
 
         sum := 0
-        for v := mapped {
-            sum = sum + v
+        for v := arr {
+            if isEven(v) {
+                sum = sum + square(v)
+            }
         }
         sum
     `)
+    if err != nil {
+        panic(err)
+    }
 
-    result, _ := engine.Run(ctx, script)
+    result, err := engine.Run(ctx, compiled)
+    if err != nil {
+        panic(err)
+    }
     fmt.Printf("偶数平方和: %d\n", result.Int())
     // 计算: 2^2 + 4^2 + 6^2 + 8^2 + 10^2 = 220
 }
@@ -1038,7 +1029,7 @@ y := "Alice"
 // ✅ 正确
 bindings := map[string]interface{}{"arr": []int{1, 2, 3}}
 result, _ := script.EvalWithBindings(`
-    localArr := getBindValue("arr")
+    localArr :=>arr getBindValue("arr")
     localArr[0] = 100
     localArr
 `, bindings)
@@ -1058,12 +1049,12 @@ result, _ := script.EvalWithBindings(`
 
 ```go
 // 推荐: 始终检查错误
-script, err := parser.Compile(source)
+compiled, err := parser.Compile(source)
 if err != nil {
     return fmt.Errorf("编译失败: %w", err)
 }
 
-result, err := engine.Run(ctx, script)
+result, err := engine.Run(ctx, compiled)
 if err != nil {
     return fmt.Errorf("执行失败: %w", err)
 }
@@ -1076,18 +1067,19 @@ if err != nil {
 
 ```go
 // 推荐: 编译一次，多次执行
-script, _ := parser.Compile(complexScript)
+compiled, _ := parser.Compile(complexScript)
 
 for i := 0; i < 1000; i++ {
     ctx := script.NewContext()
     ctx.BindValue("input", data[i])
-    result, _ := engine.Run(ctx, script)
+    result, _ := engine.Run(ctx, compiled)
+    _ = result
 }
 
 // 不推荐: 每次重新编译
 for i := 0; i < 1000; i++ {
-    script, _ := parser.Compile(complexScript)  // 浪费性能
-    engine.Run(ctx, script)
+    recompiled, _ := parser.Compile(complexScript) // 浪费性能
+    engine.Run(script.NewContext(), recompiled)
 }
 ```
 
@@ -1104,7 +1096,7 @@ baseCtx.BindValue("config", config)
 for _, user := range users {
     ctx := baseCtx.Clone()
     ctx.BindValue("user", user)
-    engine.Run(ctx, script)
+    engine.Run(ctx, compiled)
 }
 ```
 
@@ -1116,7 +1108,12 @@ for _, user := range users {
 ```go
 // 推荐: 单一职责
 fn validateEmail(email) {
-    return contains(email, "@")
+    for i := 0; i < len(email); i = i + 1 {
+        if string(email[i]) == "@" {
+            return true
+        }
+    }
+    return false
 }
 
 fn validateAge(age) {
@@ -1137,28 +1134,30 @@ fn validate(email, age) {
 ```go
 // 一次性执行 → 使用便捷函数
 result, _ := script.Eval("10 + 20")
+_ = result
 
 // 带数据 → 使用绑定函数
 bindings := map[string]interface{}{"x": 10}
-result, _ := script.EvalWithBindings(`
-    vx := getBindValue("x")
+doubled, _ := script.EvalWithBindings(`
+    vx :=>int getBindValue("x")
     vx * 2
 `, bindings)
+_ = doubled
 
 // 需要复用 → 使用标准方式
 parser := script.NewParser()
 engine := script.NewEngine()
-script, _ := parser.Compile("复杂计算...")
+compiled, _ := parser.Compile("复杂计算...")
 for i := 0; i < 1000; i++ {
     ctx := script.NewContext()
     ctx.BindValue("input", data[i])
-    engine.Run(ctx, script)
+    engine.Run(ctx, compiled)
 }
 
 // 需要外部函数 → 使用标准方式
 ctx := script.NewContext()
 ctx.BindFunc("customFunc", myGoFunc)
-engine.Run(ctx, script)
+engine.Run(ctx, compiled)
 ```
 
 </details>
@@ -1169,63 +1168,65 @@ engine.Run(ctx, script)
 **从 Go 绑定的变量必须显式声明类型**：
 
 ```go
-// ❌ 错误 - 未指定类型
-result, _ := script.EvalWithBindings(`
-    x := getBindValue("x")  // 编译错误！
+bindings := map[string]interface{}{"x": 10}
+
+// ❌ 错误 - 未指定类型, 编译失败
+_, err := script.EvalWithBindings(`
+    x := getBindValue("x")
     x + 1
 `, bindings)
+fmt.Println(err) // getBindValue 必须在类型安全声明中使用
 
 // ✅ 正确 - 指定类型
-result, _ := script.EvalWithBindings(`
-    x :=>int getBindValue("x")  // 正确
+okInt, err := script.EvalWithBindings(`
+    x :=>int getBindValue("x")
     x + 1
 `, bindings)
+fmt.Println(okInt.Int(), err)
 
 // ✅ 正确 - 使用 any 类型
-result, _ := script.EvalWithBindings(`
-    x :=>any getBindValue("x")  // 接受任何类型
+okAny, err := script.EvalWithBindings(`
+    x :=>any getBindValue("x")
     x
 `, bindings)
+fmt.Println(okAny, err)
 ```
 
-**原因**：编译器需要知道变量的类型信息才能进行类型检查。
+**原因**：编译器要求 getBindValue 的返回值有显式类型注解, 才能在编译期生成类型校验。
 
 </details>
 
 <details>
 <summary>9. 外部函数预定义（重要）</summary>
 
-**绑定的外部函数必须在脚本中预定义签名**：
+**绑定的外部函数必须在脚本中用 `#fn` 登记函数名**：
 
 ```go
 // Go 端绑定函数
 ctx.BindFunc("double", func(x int) int {
     return x * 2
 })
-
-ctx.BindFunc("greet", func(name string) string {
-    return "Hello, " + name
-})
 ```
 
 ```go
-// ❌ 错误 - 未预定义函数签名
-result, _ := parser.Compile(`
-    double(5)  // 编译错误：函数未定义！
+// ❌ 错误 - 未登记函数名, 编译报"未定义的变量"
+_, err := parser.Compile(`
+    double(5)
 `)
+fmt.Println(err)
 
-// ✅ 正确 - 预定义函数签名
-result, _ := parser.Compile(`
-    #fn double(int)=>int      // 预定义签名
-    #fn greet(s)=>s           // 使用类型别名
+// ✅ 正确 - 先登记函数名
+compiled, err := parser.Compile(`
+    #fn double(int)=>int
 
-    double(5)  // 正确
+    double(5)
 `)
+fmt.Println(compiled, err)
 ```
 
 **签名格式**：`#fn 函数名(参数类型)=>返回类型`
-- 参数类型和返回类型支持别名（如 `s` = `string`, `i` = `int`）
-- 多参数：`#fn add(int, int)=>int`
+- 括号内的参数与返回类型文本不参与校验, 只登记函数名; 真正的类型转换在调用时按 Go 函数签名执行
+- 调用绑定的外部函数前必须先写 `#fn` 登记函数名, 否则编译报"未定义的变量"
 
 </details>
 
@@ -1237,8 +1238,9 @@ result, _ := parser.Compile(`
 <summary>类型系统</summary>
 
 - **动态类型**：类型在运行时检查
-- **自动转换**：某些类型会自动转换（如 int -> float）
-- **强类型检查**：无隐式类型转换（如 string + int）
+- **数值运算**：int 与 float 混算按 float 处理(`1 + 1.5` 得 2.5)
+- **字符串拼接**：`+` 允许字符串与值拼接(`"a" + 1` 得 `"a1"`)
+- **比较严格**：`==` 要求两边类型相同, 类型不同需先转换
 
 </details>
 
