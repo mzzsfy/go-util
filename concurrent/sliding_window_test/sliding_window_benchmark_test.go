@@ -10,23 +10,22 @@ import (
 
 // 基准测试参数
 var benchmarkParams = []struct {
-	timeWindow   int64
-	allowNumber  int32
-	windowNumber int32
-	name         string
+	timeWindow  int64
+	allowNumber int32
+	name        string
 }{
-	{100, 100, 5, "默认配置"},
-	{100, 1000, 10, "高吞吐量"},
-	{50, 50, 5, "短时间窗口"},
-	{500, 500, 10, "长时间窗口"},
-	{100, 10, 10, "低速率"},
-	{100, 10000, 10, "高速率"},
+	{100, 100, "默认配置"},
+	{100, 1000, "高吞吐量"},
+	{50, 50, "短时间窗口"},
+	{500, 500, "长时间窗口"},
+	{100, 10, "低速率"},
+	{100, 10000, "高速率"},
 }
 
 func BenchmarkSlidingWindow(b *testing.B) {
 	for _, param := range benchmarkParams {
 		b.Run(param.name, func(b *testing.B) {
-			sw, err := c.NewSlidingWindow(param.timeWindow, param.allowNumber, param.windowNumber)
+			sw, err := c.NewSlidingWindow(param.timeWindow, param.allowNumber)
 			if err != nil {
 				b.Fatal(err)
 			}
@@ -54,7 +53,7 @@ func BenchmarkSlidingWindow_RateLimiter(b *testing.B) {
 func BenchmarkSlidingWindow_Parallel(b *testing.B) {
 	for _, param := range benchmarkParams {
 		b.Run(param.name, func(b *testing.B) {
-			sw, err := c.NewSlidingWindow(param.timeWindow, param.allowNumber, param.windowNumber)
+			sw, err := c.NewSlidingWindow(param.timeWindow, param.allowNumber)
 			if err != nil {
 				b.Fatal(err)
 			}
@@ -86,7 +85,7 @@ func BenchmarkSlidingWindow_RateLimiter_Parallel(b *testing.B) {
 func BenchmarkSlidingWindow_WithinLimit(b *testing.B) {
 	for _, param := range benchmarkParams {
 		b.Run(param.name, func(b *testing.B) {
-			sw, err := c.NewSlidingWindow(param.timeWindow, param.allowNumber, param.windowNumber)
+			sw, err := c.NewSlidingWindow(param.timeWindow, param.allowNumber)
 			if err != nil {
 				b.Fatal(err)
 			}
@@ -130,19 +129,16 @@ func BenchmarkSlidingWindow_WithinLimit_RateLimiter(b *testing.B) {
 func BenchmarkSlidingWindow_BeyondLimit(b *testing.B) {
 	for _, param := range benchmarkParams {
 		b.Run(param.name, func(b *testing.B) {
-			sw, err := c.NewSlidingWindow(param.timeWindow, param.allowNumber, param.windowNumber)
+			sw, err := c.NewSlidingWindow(param.timeWindow, param.allowNumber)
 			if err != nil {
 				b.Fatal(err)
 			}
 
-			// 先填满窗口
-			for i := int32(0); i < param.windowNumber; i++ {
-				for j := int32(0); j < param.allowNumber; j++ {
-					sw.CanDo()
-				}
-				// 等待窗口滑动
-				time.Sleep(time.Duration(10+param.timeWindow/int64(param.windowNumber)) * time.Millisecond)
+			// 先填满窗口, 再等待整个窗口过期
+			for i := int32(0); i < param.allowNumber; i++ {
+				sw.CanDo()
 			}
+			time.Sleep(time.Duration(param.timeWindow+10) * time.Millisecond)
 
 			b.ResetTimer()
 			b.RunParallel(func(pb *testing.PB) {
@@ -179,7 +175,7 @@ func BenchmarkSlidingWindow_HighConcurrency(b *testing.B) {
 	for _, param := range benchmarkParams {
 		b.Run(param.name, func(b *testing.B) {
 			// 使用更高的速率进行高并发测试
-			sw, err := c.NewSlidingWindow(param.timeWindow, param.allowNumber*10, param.windowNumber)
+			sw, err := c.NewSlidingWindow(param.timeWindow, param.allowNumber*10)
 			if err != nil {
 				b.Fatal(err)
 			}
@@ -212,12 +208,12 @@ func BenchmarkSlidingWindow_HighConcurrency_RateLimiter(b *testing.B) {
 
 // 复杂度分析测试
 func BenchmarkComplexityAnalysis(b *testing.B) {
-	// 测试不同窗口数量对性能的影响
-	windowNumbers := []int32{3, 5, 10, 20, 50}
+	// 测试不同配额对性能的影响
+	allowNumbers := []int32{10, 100, 1000, 10000}
 
-	for _, wn := range windowNumbers {
-		b.Run(fmt.Sprintf("窗口数量_%d", wn), func(b *testing.B) {
-			sw, err := c.NewSlidingWindow(1000, 1000, wn)
+	for _, an := range allowNumbers {
+		b.Run(fmt.Sprintf("配额_%d", an), func(b *testing.B) {
+			sw, err := c.NewSlidingWindow(1000, an)
 			if err != nil {
 				b.Fatal(err)
 			}

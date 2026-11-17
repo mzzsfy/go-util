@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -21,100 +23,65 @@ func waitForCondition(t *testing.T, timeout time.Duration, condition func() bool
 	t.Fatal(msg)
 }
 
+// fillAndCheckLimit 连续请求, 放行数不得超过 allowNumber, 且达到上限后应拒绝
+func fillAndCheckLimit(t *testing.T, sw *SlidingWindow) int {
+	t.Helper()
+	allowed := 0
+	for i := 0; i < int(sw.allowNumber)*2; i++ {
+		if sw.CanDo() {
+			allowed++
+		}
+	}
+	if int32(allowed) != sw.allowNumber {
+		t.Fatalf("窗口内放行数=%d, 预期 %d", allowed, sw.allowNumber)
+	}
+	if sw.CanDo() {
+		t.Fatal("达到上限后应拒绝请求")
+	}
+	return allowed
+}
+
 func Test_SlidingWindow_BasicFunctionality(t *testing.T) {
 	t.Parallel()
-	// 测试参数设置
-	timeWindow := int64(1000) // 时间窗口1秒
-	allowNumber := int32(100) // 允许最大请求数100
-	windowNumber := int32(5)  // 窗口数量5
-
-	// 创建滑动窗口实例
-	sw, err := NewSlidingWindow(timeWindow, allowNumber, windowNumber)
+	sw, err := NewSlidingWindow(1000, 100)
 	if err != nil {
 		t.Fatalf("创建滑动窗口失败: %v", err)
 	}
 
-	// 测试在时间窗口内能否正确控制请求
-	successCount := 0
-	for i := 0; i < int(allowNumber)*2; i++ { // 尝试双倍请求次数
-		if sw.CanDo() {
-			successCount++
-		}
+	fillAndCheckLimit(t, sw)
 
-		// 如果已经达到了预期数量，就跳出循环
-		if int32(successCount) >= allowNumber {
-			break
-		}
-	}
-
-	// 验证成功请求数不超过限制
-	if int32(successCount) > allowNumber {
-		t.Errorf("请求数量超过限制: 得到 %d, 预期最多 %d", successCount, allowNumber)
-	}
-
-	// 此时应该已经到达限制，下一个请求应该失败
-	if sw.CanDo() {
-		t.Error("达到限制后应该拒绝请求")
-	}
-
-	// 使用条件等待窗口滑动，确保 CanDo() 返回 true
-	// 每片时长+1s裕量: 并行负载下Windows定时器粒度与调度延迟
-	timeout := time.Duration(sw.everyWindowTime+1000) * time.Millisecond
-	waitForCondition(t, timeout, func() bool { return sw.CanDo() }, "窗口滑动后应该允许请求")
+	// 等待整个窗口过期后恢复放行
+	waitForCondition(t, time.Duration(sw.windowTime+1000)*time.Millisecond, func() bool { return sw.CanDo() }, "窗口过期后应该允许请求")
 }
 
-// 添加不同参数的测试用例
 func Test_SlidingWindow_DifferentParams(t *testing.T) {
 	testCases := []struct {
-		name         string
-		timeWindow   int64
-		allowNumber  int32
-		windowNumber int32
+		name        string
+		timeWindow  int64
+		allowNumber int32
 	}{
-		{"小窗口", 100, 10, 5},
-		{"大窗口", 5000, 500, 10},
-		{"高频率", 1000, 1000, 5},
-		{"低频率", 1000, 10, 10},
-		{"默认参数", 1000, 100, 5},
-		{"微小窗口", 333, 9, 3},
-		{"多窗口", 2220, 110, 10},
-		{"快速率", 660, 300, 10},
+		{"小窗口", 100, 10},
+		{"大窗口", 5000, 500},
+		{"高频率", 1000, 1000},
+		{"低频率", 1000, 10},
+		{"默认参数", 1000, 100},
+		{"微小窗口", 333, 9},
+		{"多窗口", 2220, 110},
+		{"快速率", 660, 300},
 	}
 	t.Parallel()
 	for _, tc := range testCases {
-		//兼容旧版本循环变量语义,避免并发捕获同一变量
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			// 创建滑动窗口实例
-			sw, err := NewSlidingWindow(tc.timeWindow, tc.allowNumber, tc.windowNumber)
+			sw, err := NewSlidingWindow(tc.timeWindow, tc.allowNumber)
 			if err != nil {
 				t.Fatalf("创建滑动窗口失败: %v", err)
 			}
 
-			// 测试在时间窗口内能否正确控制请求数量
-			successCount := 0
-			maxAttempts := int(tc.allowNumber * 2) // 尝试足够多次以测试限制
-			for i := 0; i < maxAttempts; i++ {
-				if sw.CanDo() {
-					successCount++
-				}
+			fillAndCheckLimit(t, sw)
 
-				// 如果已经达到了预期数量，就跳出循环
-				if int32(successCount) >= tc.allowNumber {
-					break
-				}
-			}
-
-			// 验证请求数量是否符合预期
-			if int32(successCount) > tc.allowNumber {
-				t.Errorf("请求数量超过限制: 得到 %d, 预期最多 %d", successCount, tc.allowNumber)
-			}
-
-			// 等待窗口滑动，确保 CanDo() 返回 true
-			// 每片时长+1s裕量: 并行负载下Windows定时器粒度与调度延迟
-			timeout := time.Duration(sw.everyWindowTime+1000) * time.Millisecond
-			waitForCondition(t, timeout, func() bool { return sw.CanDo() }, "窗口滑动后应该允许请求")
+			waitForCondition(t, time.Duration(sw.windowTime+1000)*time.Millisecond, func() bool { return sw.CanDo() }, "窗口过期后应该允许请求")
 		})
 	}
 }
@@ -122,46 +89,20 @@ func Test_SlidingWindow_DifferentParams(t *testing.T) {
 // 随机参数测试
 func TestSlidingWindow_RandomParams(t *testing.T) {
 	t.Parallel()
-	// 减少随机测试用例数量以提高CI稳定性
 	for i := 0; i < 100; i++ {
-		// 生成随机参数，使用较小的窗口时间以加快测试
-		windowNumber := int32(rand.Intn(10) + 3)                 // 窗口数量 3-12
-		allowNumber := int32(rand.Intn(100) + int(windowNumber)) // 允许请求数 >= windowNumber
-		// +1 保证严格大于 windowNumber, 满足 NewSlidingWindow 校验
-		timeWindow := int64(rand.Intn(1000) + int(windowNumber) + 1) // 时间窗口 > windowNumber，减少范围
+		allowNumber := int32(rand.Intn(100) + 1)
+		timeWindow := int64(rand.Intn(1000) + 1)
 
-		t.Run(fmt.Sprintf("随机测试_%d_%d_%d", windowNumber, allowNumber, timeWindow), func(t *testing.T) {
+		t.Run(fmt.Sprintf("随机测试_%d_%d", allowNumber, timeWindow), func(t *testing.T) {
 			t.Parallel()
-
-			// 创建滑动窗口实例
-			sw, err := NewSlidingWindow(timeWindow, allowNumber, windowNumber)
+			sw, err := NewSlidingWindow(timeWindow, allowNumber)
 			if err != nil {
 				t.Fatalf("创建滑动窗口失败: %v", err)
 			}
 
-			// 测试在时间窗口内能否正确控制请求数量
-			successCount := 0
-			maxAttempts := int(allowNumber * 2) // 尝试足够多次以测试限制
-			for j := 0; j < maxAttempts; j++ {
-				if sw.CanDo() {
-					successCount++
-				}
+			fillAndCheckLimit(t, sw)
 
-				// 如果已经达到了预期数量，就跳出循环
-				if int32(successCount) >= allowNumber {
-					break
-				}
-			}
-
-			// 验证请求数量是否符合预期
-			if int32(successCount) > allowNumber {
-				t.Errorf("请求数量超过限制: 得到 %d, 预期最多 %d", successCount, allowNumber)
-			}
-
-			// 等待窗口滑动，确保 CanDo() 返回 true
-			// 每片时长+1s裕量: 并行负载下Windows定时器粒度与调度延迟
-			timeout := time.Duration(sw.everyWindowTime+1000) * time.Millisecond
-			waitForCondition(t, timeout, func() bool { return sw.CanDo() }, "窗口滑动后应该允许请求")
+			waitForCondition(t, time.Duration(sw.windowTime+1000)*time.Millisecond, func() bool { return sw.CanDo() }, "窗口过期后应该允许请求")
 		})
 	}
 }
@@ -172,59 +113,38 @@ func Test_SlidingWindow_LowFrequencyLongWait(t *testing.T) {
 		name            string
 		timeWindow      int64
 		allowNumber     int32
-		windowNumber    int32
-		waitMultiplier  int64         // 等待时间是窗口时间的倍数
-		requestInterval time.Duration // 请求间隔
+		waitMultiplier  int64
+		requestInterval time.Duration
 	}{
-		{"低频短窗口", 500, 3, 3, 2, time.Millisecond * 100},
-		{"低频中等窗口", 1000, 20, 5, 3, time.Millisecond * 200},
-		{"极低频短窗口", 500, 5, 5, 5, time.Second * 1},
+		{"低频短窗口", 500, 3, 2, time.Millisecond * 100},
+		{"低频中等窗口", 1000, 20, 3, time.Millisecond * 200},
+		{"极低频短窗口", 500, 5, 5, time.Second * 1},
 	}
 	t.Parallel()
 	for _, tc := range testCases {
-		//兼容旧版本循环变量语义,避免并发捕获同一变量
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			// 创建滑动窗口实例
-			sw, err := NewSlidingWindow(tc.timeWindow, tc.allowNumber, tc.windowNumber)
+			sw, err := NewSlidingWindow(tc.timeWindow, tc.allowNumber)
 			if err != nil {
 				t.Fatalf("创建滑动窗口失败: %v", err)
 			}
 
-			// 发送少量请求（低频率）
-			successCount := 0
 			for i := 0; i < int(tc.allowNumber/2); i++ {
-				if sw.CanDo() {
-					successCount++
-				}
+				sw.CanDo()
 				time.Sleep(tc.requestInterval)
 			}
 
-			// 等待窗口滑动，确保至少有一个请求可以成功
-			timeout := time.Duration(sw.everyWindowTime*tc.waitMultiplier+200) * time.Millisecond
-			var postWaitSuccess int32
-			waitForCondition(t, timeout, func() bool {
-				if sw.CanDo() {
-					postWaitSuccess++
-					return true
-				}
-				return false
-			}, "长时间等待后应该能够执行请求")
-
-			// 验证等待后能够执行请求
-			if postWaitSuccess == 0 {
-				t.Error("长时间等待后应该能够执行请求")
-			}
+			timeout := time.Duration(sw.windowTime*tc.waitMultiplier+200) * time.Millisecond
+			waitForCondition(t, timeout, func() bool { return sw.CanDo() }, "长时间等待后应该能够执行请求")
 		})
 	}
 }
 
-// Test_SlidingWindow_StartupNoOvershoot 启动期不得因零值分片时间戳触发立即滑动导致超发
+// 启动期不得超发: 首个窗口最多放行 allowNumber 个
 func Test_SlidingWindow_StartupNoOvershoot(t *testing.T) {
 	t.Parallel()
-	// 窗口时间远大于测试耗时, 排除真实时间流逝导致的正常滑动
-	sw, err := NewSlidingWindow(60*1000, 100, 5)
+	sw, err := NewSlidingWindow(60*1000, 100)
 	if err != nil {
 		t.Fatalf("创建失败: %v", err)
 	}
@@ -234,107 +154,98 @@ func Test_SlidingWindow_StartupNoOvershoot(t *testing.T) {
 			allowed++
 		}
 	}
-	// 零值分片时间戳会触发一次立即滑动, 放行数达到首窗口限额的两倍
-	if int32(allowed) != sw.limits[0] {
-		t.Fatalf("启动期应仅放行首窗口限额 %d, 实际 %d", sw.limits[0], allowed)
+	if int32(allowed) != sw.allowNumber {
+		t.Fatalf("启动期应仅放行窗口配额 %d, 实际 %d", sw.allowNumber, allowed)
 	}
 }
 
-// Test_SlidingWindow_InvalidWindowNumber 测试窗口数量<=2时返回ErrWindowNumber
-func Test_SlidingWindow_InvalidWindowNumber(t *testing.T) {
+// 固定假时钟下任意滑动窗口内的放行数不得超过 allowNumber
+func Test_SlidingWindow_FakeClockStrictWindow(t *testing.T) {
 	t.Parallel()
-	testCases := []struct {
-		name         string
-		timeWindow   int64
-		allowNumber  int32
-		windowNumber int32
-	}{
-		{"窗口数为1", 1000, 100, 1},
-		{"窗口数为2", 1000, 100, 2},
-		{"窗口数为0", 1000, 100, 0},
-		{"窗口数为-1", 1000, 100, -1},
+	const (
+		windowTime  = int64(1000)
+		allowNumber = int32(100)
+	)
+	sw, err := NewSlidingWindow(windowTime, allowNumber)
+	if err != nil {
+		t.Fatalf("创建失败: %v", err)
+	}
+	now := int64(1_700_000_000_000)
+	sw.Now = func() int64 { return now }
+
+	// 窗口内放行数不得超过配额
+	burst := 0
+	for i := 0; i < 1000; i++ {
+		if sw.CanDo() {
+			burst++
+		}
+	}
+	if int32(burst) != allowNumber {
+		t.Fatalf("固定时钟下放行数=%d, 预期 %d", burst, allowNumber)
 	}
 
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			_, err := NewSlidingWindow(tc.timeWindow, tc.allowNumber, tc.windowNumber)
-			if !errors.Is(err, ErrWindowNumber) {
-				t.Errorf("窗口数 %d 应返回 ErrWindowNumber, 得到 %v", tc.windowNumber, err)
-			}
-		})
+	// 窗口未过期时不得恢复
+	now += windowTime - 1
+	if sw.CanDo() {
+		t.Fatal("窗口未过期不应恢复放行")
+	}
+
+	// 窗口过期后可再次放行
+	now++
+	for i := 0; i < 1000; i++ {
+		if sw.CanDo() {
+			burst++
+		}
+	}
+	if int32(burst) != allowNumber*2 {
+		t.Fatalf("窗口过期后放行总数=%d, 预期 %d", burst, allowNumber*2)
 	}
 }
 
-// Test_SlidingWindow_InvalidWindowTime 测试时间小于等于窗口数量时返回ErrWindowTime
+// 并发请求下不得超发
+func Test_SlidingWindow_ConcurrentNoOvershoot(t *testing.T) {
+	t.Parallel()
+	sw, err := NewSlidingWindow(60*1000, 100)
+	if err != nil {
+		t.Fatalf("创建失败: %v", err)
+	}
+	sw.Now = func() int64 { return 1_700_000_000_000 }
+
+	var allowed int32
+	var wg sync.WaitGroup
+	for g := 0; g < 20; g++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for i := 0; i < 100; i++ {
+				if sw.CanDo() {
+					atomic.AddInt32(&allowed, 1)
+				}
+			}
+		}()
+	}
+	wg.Wait()
+	if allowed != sw.allowNumber {
+		t.Fatalf("并发放行数=%d, 预期 %d", allowed, sw.allowNumber)
+	}
+}
+
+// Test_SlidingWindow_InvalidWindowTime 测试窗口长度为非正数时返回ErrWindowTime
 func Test_SlidingWindow_InvalidWindowTime(t *testing.T) {
 	t.Parallel()
-	testCases := []struct {
-		name         string
-		timeWindow   int64
-		allowNumber  int32
-		windowNumber int32
-	}{
-		{"时间窗口为0", 0, 10, 5},
-		{"时间窗口小于窗口数", 3, 10, 5},
-		{"时间窗口等于窗口数", 5, 10, 5},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			_, err := NewSlidingWindow(tc.timeWindow, tc.allowNumber, tc.windowNumber)
-			if !errors.Is(err, ErrWindowTime) {
-				t.Errorf("时间窗口 %d 小于或等于窗口数 %d 应返回 ErrWindowTime, 得到 %v", tc.timeWindow, tc.windowNumber, err)
-			}
-		})
-	}
-}
-
-// Test_SlidingWindow_InvalidAllowNumber 测试允许数小于窗口数时返回ErrAllowNumber
-func Test_SlidingWindow_InvalidAllowNumber(t *testing.T) {
-	t.Parallel()
-	testCases := []struct {
-		name         string
-		timeWindow   int64
-		allowNumber  int32
-		windowNumber int32
-	}{
-		{"允许数小于窗口数", 1000, 2, 5},
-		{"允许数为0", 1000, 0, 5},
-		{"允许数为负数", 1000, -1, 5},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			_, err := NewSlidingWindow(tc.timeWindow, tc.allowNumber, tc.windowNumber)
-			if !errors.Is(err, ErrAllowNumber) {
-				t.Errorf("允许数 %d 小于窗口数 %d 应返回 ErrAllowNumber, 得到 %v", tc.allowNumber, tc.windowNumber, err)
-			}
-		})
-	}
-}
-
-// 全零权重: 总权重为0时应返回全0分配, 而非panic
-func Test_AvgByWeight_AllZeroWeights(t *testing.T) {
-	t.Parallel()
-	res := avgByWeight(100, 0, 0, 0)
-	if len(res) != 3 {
-		t.Fatalf("len=%d want=3", len(res))
-	}
-	for i, v := range res {
-		if v != 0 {
-			t.Fatalf("res[%d]=%d want=0", i, v)
+	for _, windowTime := range []int64{0, -1} {
+		if _, err := NewSlidingWindow(windowTime, 10); !errors.Is(err, ErrWindowTime) {
+			t.Errorf("窗口长度 %d 应返回 ErrWindowTime, 得到 %v", windowTime, err)
 		}
 	}
 }
 
-// 混合零权重: 零权重不分值, 非零权重按比例分配
-func Test_AvgByWeight_MixedZeroWeights(t *testing.T) {
+// Test_SlidingWindow_InvalidAllowNumber 测试允许数为非正数时返回ErrAllowNumber
+func Test_SlidingWindow_InvalidAllowNumber(t *testing.T) {
 	t.Parallel()
-	res := avgByWeight(10, 0, 1, 1)
-	if res[0] != 0 || res[1]+res[2] != 10 {
-		t.Fatalf("res=%v want [0 5 5]", res)
-	}
-	if res[1] != 5 || res[2] != 5 {
-		t.Fatalf("res=%v want [0 5 5]", res)
+	for _, allowNumber := range []int32{0, -1} {
+		if _, err := NewSlidingWindow(1000, allowNumber); !errors.Is(err, ErrAllowNumber) {
+			t.Errorf("允许数 %d 应返回 ErrAllowNumber, 得到 %v", allowNumber, err)
+		}
 	}
 }

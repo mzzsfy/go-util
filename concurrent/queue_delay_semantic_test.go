@@ -124,14 +124,14 @@ func Test_DelayQueue_EnqueueAfterConsumerIdle(t *testing.T) {
 
 // --- BDD: sliding_window allowNumber 合法边界 ---
 
-// Given allowNumber 等于 windowNumber
+// Given 最小合法参数
 // When 创建
-// Then 不返回错误, 每窗口限流为分配后的值
-func Test_SlidingWindow_AllowNumberEqualsWindowNumber(t *testing.T) {
+// Then 不返回错误, 可正常限流
+func Test_SlidingWindow_MinParams(t *testing.T) {
 	t.Parallel()
-	sw, err := NewSlidingWindow(3000, 3, 3)
+	sw, err := NewSlidingWindow(1, 1)
 	if err != nil {
-		t.Fatalf("allowNumber==windowNumber 应合法: %v", err)
+		t.Fatalf("最小合法参数应通过: %v", err)
 	}
 	if sw == nil {
 		t.Fatal("sw should not be nil")
@@ -145,28 +145,23 @@ func Test_SlidingWindow_FixedClockLimitAndRecovery(t *testing.T) {
 	t.Parallel()
 	const windowTime = int64(1000)
 	const allowNumber = 10
-	const windowNumber = 5
 
-	// 固定时钟以构造时刻为基准, 与分片时间戳的初始化对齐
 	now := time.Now().UnixMilli()
-	sw, err := NewSlidingWindow(windowTime, allowNumber, windowNumber)
+	sw, err := NewSlidingWindow(windowTime, allowNumber)
 	if err != nil {
 		t.Fatalf("创建失败: %v", err)
 	}
 	sw.Now = func() int64 { return now }
 
-	// 阶段A: 时钟固定, 放行应为有限个
+	// 阶段A: 时钟固定, 只放行一个窗口的配额
 	allowedA := 0
 	for i := 0; i < 200; i++ {
 		if sw.CanDo() {
 			allowedA++
 		}
 	}
-	if allowedA == 0 {
-		t.Fatal("初始应放行至少一个请求")
-	}
-	if allowedA >= allowNumber {
-		t.Fatalf("时钟不动时放行数=%d 应小于总配额%d", allowedA, allowNumber)
+	if allowedA != allowNumber {
+		t.Fatalf("时钟不动时放行数=%d, 预期配额%d", allowedA, allowNumber)
 	}
 
 	// 阶段B: 时钟不动, 配额耗尽后持续拒绝
@@ -311,17 +306,17 @@ func Test_Queue_ConcurrentIntegrity(t *testing.T) {
 }
 
 // Given errors.Is 哨兵
-// When allowNumber 为边界值
-// Then 边界恰好合法, 越界返回对应哨兵错误
-func Test_SlidingWindow_AllowNumberBoundary(t *testing.T) {
+// When 参数取边界值
+// Then 恰好合法的参数通过, 越界返回对应哨兵错误
+func Test_SlidingWindow_ParamBoundary(t *testing.T) {
 	t.Parallel()
-	// 恰好等于窗口数: 合法
-	if _, err := NewSlidingWindow(3000, 3, 3); err != nil {
-		t.Fatalf("边界值应合法: %v", err)
+	if _, err := NewSlidingWindow(1, 1); err != nil {
+		t.Fatalf("最小合法参数应通过: %v", err)
 	}
-	// 小于窗口数: 哨兵错误
-	_, err := NewSlidingWindow(3000, 2, 3)
-	if !errors.Is(err, ErrAllowNumber) {
-		t.Fatalf("allowNumber<windowNumber 应返回 ErrAllowNumber, 得到 %v", err)
+	if _, err := NewSlidingWindow(0, 1); !errors.Is(err, ErrWindowTime) {
+		t.Fatalf("windowTime=0 应返回 ErrWindowTime, 得到 %v", err)
+	}
+	if _, err := NewSlidingWindow(1, 0); !errors.Is(err, ErrAllowNumber) {
+		t.Fatalf("allowNumber=0 应返回 ErrAllowNumber, 得到 %v", err)
 	}
 }

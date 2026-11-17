@@ -181,18 +181,16 @@ l.Unlock() // 无操作
 // SlidingWindow 时间滑动窗口限流器
 type SlidingWindow struct {
     // Now 时钟函数,返回毫秒时间戳;nil 时 CanDo 使用 time.Now().UnixMilli()
-    // 注入假时钟时须以真实毫秒为基准(内部分片时间戳按 time.Now 初始化),并须在首次 CanDo 前设置;
-    // 建议取构造时刻或之后,若 now 与构造时刻之差长期小于 everyWindowTime,首片填满后会持续拒绝,直到差值达到该阈值
+    // 假时钟须单调递增,时钟回拨期间不剔除记录、不恢复配额;须在首次 CanDo 前设置
     Now func() int64
 }
 
 // NewSlidingWindow 创建滑动窗口
-// windowTime: 时间窗口长度(毫秒),须大于 windowNumber
-// allowNumber: 窗口内允许的最大请求数,须不小于 windowNumber
-// windowNumber: 子窗口数量,须大于2
-func NewSlidingWindow(windowTime int64, allowNumber, windowNumber int32) (*SlidingWindow, error)
+// windowTime: 时间窗口长度(毫秒),须大于0,否则返回 ErrWindowTime
+// allowNumber: 窗口内允许的最大请求数,须大于0,否则返回 ErrAllowNumber
+func NewSlidingWindow(windowTime int64, allowNumber int32) (*SlidingWindow, error)
 
-// CanDo 获取能否执行,允许则计数并返回true,超限返回false
+// CanDo 获取能否执行,允许则记录当前时间并返回true,窗口内已达上限返回false
 // 并发安全,可在多goroutine同时调用
 func (sw *SlidingWindow) CanDo() bool
 ```
@@ -200,15 +198,15 @@ func (sw *SlidingWindow) CanDo() bool
 ### 使用示例
 
 ```go
-// 创建: 1秒窗口,最多100次请求,分成10个子窗口
-sw, err := NewSlidingWindow(1000, 100, 10)
+// 创建: 1秒滑动窗口内最多100次请求
+sw, err := NewSlidingWindow(1000, 100)
 if err != nil {
     panic(err) // 参数非法返回哨兵错误
 }
 
-// 测试时注入假时钟(毫秒),须在首次 CanDo 前设置,并以构造时刻为基准
+// 测试时注入假时钟(毫秒),须单调递增,并在首次 CanDo 前设置
 base := time.Now().UnixMilli()
-sw.Now = func() int64 { return base } // 随测试推进调整 base 的偏移
+sw.Now = func() int64 { return base } // 随测试推进调整 base
 
 if sw.CanDo() {
     // 允许执行
@@ -216,13 +214,12 @@ if sw.CanDo() {
 ```
 
 参数说明:
-- `windowTime`: 时间窗口长度(毫秒),须大于 `windowNumber`,否则返回 `ErrWindowTime`
-- `allowNumber`: 窗口内允许的最大请求数,须不小于 `windowNumber`,否则返回 `ErrAllowNumber`
-- `windowNumber`: 子窗口数量,须大于2,否则返回 `ErrWindowNumber`
+- `windowTime`: 时间窗口长度(毫秒),须大于0,否则返回 `ErrWindowTime`
+- `allowNumber`: 窗口内允许的最大请求数,须大于0,否则返回 `ErrAllowNumber`
 
 参数非法时返回包级哨兵错误,可用 errors.Is 匹配。
 
-实现说明: 配额按窗口均分到各子窗口,不能整除时余数分配到前几个分片;当前分片计数满后,须等到 `now` 与上一分片记录时间的差达到 `everyWindowTime`(即 `windowTime/windowNumber`)才清空过期分片并前移指针,未到时间则直接拒绝。差值达到两个分片间隔时一次前进多片(最多整窗);各分片独立记录时间戳,差值达到一个间隔后也可能在同一时刻连续放行整窗配额。滑动过程用互斥锁保护指针与时间戳,计数本身为原子操作。
+实现说明: 记录窗口内已放行请求的时间戳环形队列;每次判定先剔除 `now-windowTime` 之前的记录,队列未满则写入当前时间并放行。因此任意长度为 `windowTime` 的滑动窗口内放行数严格不超过 `allowNumber`,不会因时间取整出现批量超发。队列长度固定为 `allowNumber`,判定与剔除在互斥锁内完成,单次调用摊销 O(1)。
 
 ## 工具函数
 

@@ -15,7 +15,7 @@
 - 删除 `DefaultParallelFunc`
 - 重命名:`NewGopool` → `NewGoPool`;`WithMaxWorks` → `WithMaxWorkers`(字段同步更名为 `maxWorkers`)
 - `NewParallel` 签名变更:返回 `(Parallel, error)`,新增错误哨兵 `ErrConcurrent`
-- `NewSlidingWindow` 签名变更:返回 `(*SlidingWindow, error)`,新增错误哨兵 `ErrWindowNumber`/`ErrWindowTime`/`ErrAllowNumber`,以 `errors.Is` 判定
+- `NewSlidingWindow` 签名变更:去掉 `windowNumber` 参数,改为精确滑动窗口,窗口内放行数不再被放大;返回 `(*SlidingWindow, error)`,哨兵改为 `ErrWindowTime`/`ErrAllowNumber`,以 `errors.Is` 判定
 - `Distinct` 无参化:Seq 删除静默无效的 equals 参数;BiSeq 去重改为 `==` 比较语义,元素类型不可比较时 panic;需自定义 key 的场景改用新增的 `BiDistinctByKey`
 - `ParseConfigs2Map` 合并方向反转:高 Order 配置覆盖低 Order(原方向相反)
 - 测试类型归位:误导出到生产构建的 `di.TestService` 移至 `di/t_test_types_test.go`(仅测试构建可见),无引用的 `TestService2` 删除
@@ -26,7 +26,7 @@
 - script:常量池哈希碰撞;字节码槽越界;状态保存错乱;移位运算异常
 - logger:go1.27 下 caller 定位错误;32 位平台 caller 指针宽度错误
 - 32 位平台(386/arm):fastrand64 链接导致新版本 Go 下包初始化即崩溃(改链 runtime.fastrand);队列 slot 数组未对齐导致 64 位原子操作 panic;GoID 汇编偏移错误
-- concurrent:GoPool Shutdown 丢任务;`Int64Adder.Reset` 不归零;segQueue 扩容;TimerWheel 任务取消竞争
+- concurrent:GoPool Shutdown 丢任务;`Int64Adder.Reset` 不归零;segQueue 扩容;TimerWheel 任务取消竞争;SlidingWindow 按分片时间戳滑动导致放行量放大约 `windowNumber` 倍(改为精确时间戳队列)
 - seq:`OnLast` 与 `Parallel` 组合存在数据竞争(已禁止该组合,以 `Finally` 替代);Parallel 停止语义(goroutine 泄漏、panic 死锁、锁重入死锁)
 - config:非法路径、未知扩展名、空参数等输入不再 panic,统一返回 error 或 nil
 - cron:2 月 29 跨年计数错误
