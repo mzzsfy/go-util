@@ -913,6 +913,10 @@ func TestTimerWheel_Panic(t *testing.T) {
 		}
 		assertTaskCount(t, ctx.W, 1, "panic 后计数错误（应仅剩健康重复任务）")
 		ctx.W.Stop()
+		// Stop 只回收槽位计数，在飞任务于 finish 时回收，计数为最终一致
+		waitForCondition(t, 2*time.Second, func() bool {
+			return atomic.LoadInt32(&ctx.W.taskCount) == 0
+		}, "Stop 后计数未归零: 在飞任务未回收计数")
 		assertTaskCount(t, ctx.W, 0, "Stop 后计数错误")
 	})
 
