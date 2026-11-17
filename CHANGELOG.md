@@ -18,6 +18,7 @@
 - `NewSlidingWindow` 签名变更:返回 `(*SlidingWindow, error)`,新增错误哨兵 `ErrWindowNumber`/`ErrWindowTime`/`ErrAllowNumber`,以 `errors.Is` 判定
 - `Distinct` 无参化:Seq 删除静默无效的 equals 参数;BiSeq 去重改为 `==` 比较语义,元素类型不可比较时 panic;需自定义 key 的场景改用新增的 `BiDistinctByKey`
 - `ParseConfigs2Map` 合并方向反转:高 Order 配置覆盖低 Order(原方向相反)
+- 测试类型归位:误导出到生产构建的 `di.TestService` 移至 `di/t_test_types_test.go`(仅测试构建可见),无引用的 `TestService2` 删除
 
 ### Fixed
 
