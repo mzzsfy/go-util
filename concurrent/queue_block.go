@@ -34,6 +34,10 @@ const (
 	spinGoschedEvery = 64
 )
 
+// maxDequeueSpinBeforeWait 等待前针对"队列非空但取不到"的最大重试次数, 避免 Size 与
+// TryDequeue 短暂不一致时无限忙等
+const maxDequeueSpinBeforeWait = 32
+
 // spinTryDequeue 自旋尝试出队: 前段纯自旋, 后段间歇让出
 func spinTryDequeue[T any](td TryDequeuer[T]) (T, bool) {
 	for i := 0; i < spinTotalMax; i++ {
@@ -104,6 +108,7 @@ func (q *blockQueue[T]) dequeueBlockForever() (T, bool) {
 		// 慢路径: Cond等待
 		q.mu.Lock()
 		atomic.AddInt32(&q.waiter, 1)
+		retries := 0
 		for {
 			v, b := td.TryDequeue()
 			if b {
@@ -112,10 +117,12 @@ func (q *blockQueue[T]) dequeueBlockForever() (T, bool) {
 				return v, true
 			}
 			// TryDequeue 竞争失败时元素可能仍在队列, 直接等待会丢失唤醒
-			if q.Queue.Size() > 0 {
+			if retries < maxDequeueSpinBeforeWait && q.Queue.Size() > 0 {
+				retries++
 				runtime.Gosched()
 				continue
 			}
+			retries = 0
 			q.cond.Wait()
 		}
 	}
@@ -143,6 +150,7 @@ func (q *blockQueue[T]) dequeueWithTimeoutTry(td TryDequeuer[T], timeout time.Du
 	q.mu.Lock()
 	atomic.AddInt32(&q.waiter, 1)
 	timer := q.getTimeoutTimer()
+	retries := 0
 	defer func() {
 		q.putTimeoutTimer(timer)
 		atomic.AddInt32(&q.waiter, -1)
@@ -159,10 +167,12 @@ func (q *blockQueue[T]) dequeueWithTimeoutTry(td TryDequeuer[T], timeout time.Du
 			return r, false
 		}
 		// TryDequeue 竞争失败时元素可能仍在队列, 直接等待会丢失唤醒
-		if q.Queue.Size() > 0 {
+		if retries < maxDequeueSpinBeforeWait && q.Queue.Size() > 0 {
+			retries++
 			runtime.Gosched()
 			continue
 		}
+		retries = 0
 		timer.Reset(deadline.Sub(now))
 		q.cond.Wait()
 	}
