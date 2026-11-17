@@ -26,7 +26,7 @@ jobs:
         run: |
           for ((i=1; i<=3; i++))
           do
-            go test -count=1 -run Test_.+ -timeout 45s ./...
+            go test -count=1 -timeout 45s ./...
             echo "Test $i done"
           done
 
@@ -40,7 +40,7 @@ jobs:
           run: |
             for ((i=1; i<=3; i++))
             do
-              go test -count=1 -run Test_.+ -timeout 30s ./...
+              go test -count=1 -timeout 30s ./...
               echo "Test $i done"
             done
 
@@ -53,7 +53,7 @@ jobs:
           run: |
             for ((i=1; i<=3; i++))
             do
-              go test -count=1 -run Test_.+ -timeout 45s ./...
+              go test -count=1 -timeout 45s ./...
               echo "Test $i done"
             done
 
@@ -71,7 +71,7 @@ jobs:
         run: |
           for ((i=1; i<=10; i++))
           do
-            go test -count=1 -run Test_.+ -timeout 45s ./...
+            go test -count=1 -timeout 45s ./...
             echo "Test $i done"
           done
       - name: Coverage baseline
