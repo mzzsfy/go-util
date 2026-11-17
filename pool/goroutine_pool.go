@@ -173,7 +173,7 @@ func (p *GoPool) dispatch(t *task) bool {
 		return false
 	}
 	p.taskQueue.Enqueue(t)
-	// 有 worker 在 BlockQueue 上阻塞等待时, Enqueue 已通过 Signal 唤醒它, 无需创建新 worker
+	// 有 worker 在 BlockQueue 上阻塞等待时, Enqueue 已通过广播唤醒等待者, 无需创建新 worker
 	// waiter > 0 意味着 worker 在 cond.Wait 中必然消费该任务;
 	// 即将超时退出的 worker 不在 waiter 计数内, 由 goRun 的退出前兜底检查保证不丢任务
 	if p.taskQueue.WaiterCount() > 0 {
