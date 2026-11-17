@@ -12,7 +12,7 @@ Md5(str string) string
 Md5Base64(str string) string
 Base64(str string) string
 DeBase64(str string) string
-DeBase64Byte(str string) []byte  // 解码失败返回 nil
+DeBase64Byte(str string) []byte  // 忽略解码错误,返回可解码的部分字节(失败时可能为空,不是 nil)
 
 // 运行时字符串哈希,基于 runtime.strhash
 Hash(text string) uint64

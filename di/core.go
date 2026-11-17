@@ -104,7 +104,7 @@ type DestroyCallback interface {
 }
 
 // ShutdownHook 服务关闭钩子函数类型
-// 在容器关闭时按注册顺序执行
+// 主关闭钩子按注册逆序执行(后注册先执行);前置关闭钩子按注册顺序执行
 type ShutdownHook func(context.Context) error
 
 // LoadMode 定义服务加载模式

@@ -1,6 +1,6 @@
 # seq
 
-一个高性能的golang的泛型链式调用库,实现了类似java stream逻辑,不依赖chan和goroutine,支持任意类型的链式调用,支持并行化(可限制并行数量),排序等
+一个高性能的golang的泛型链式调用库,实现了类似java stream逻辑,串行链路不依赖chan和goroutine,并行能力基于固定worker池(goroutine+channel)实现,支持任意类型的链式调用,支持并行化(可限制并行数量),排序等
 
 > **版本要求**: Go 1.27+ 使用下述泛型方法 API (`Map[E]`/`GroupBy[K]`/`Cast[N]` 为强类型方法);Go 1.18~1.26 构建
 > `*_pre127.go` 的 any 形态 API。两轨**源码不兼容**:同名 `Map`/`GroupBy` 签名不同,`Cast` 需改用 `CastAny`,
@@ -109,7 +109,7 @@ r := BiFromTupleRepeat(3, BiTuple[string, int]{K: "k", V: 1}) // k 1 k 1 k 1
 r.ForEach(func(k string, v int) { println(k, v) })
 ```
 
-更多例子见: [seq_test.go](./seq__test.go) [bi_seq_test.go](./bi_seq_test.go)(旧轨 go1.18~1.26) [seq_method_go127_test.go](./seq_method_go127_test.go)(go1.27+)
+更多例子见: [seq__test.go](./seq__test.go) [bi_seq_test.go](./bi_seq_test.go)(旧轨 go1.18~1.26) [seq_method_go127_test.go](./seq_method_go127_test.go)(go1.27+)
 
 优势:
 
@@ -248,7 +248,7 @@ interface BiSeq[K,V]{
 }
 ```
 
-> 以下包级函数仅 go1.27 以下轨道可用 (非穷举,详见 `*_pre127.go`);go1.27+ 使用同名语义的泛型方法:
+> 以下包级函数分两组: 第一组双轨通用(非方法形态,轨道无关);第二组仅 go1.27 以下轨道可用(非穷举,详见 `*_pre127.go`),go1.27+ 使用同名语义的泛型方法:
 
 ```go
 // 双轨通用(非方法形态,轨道无关)

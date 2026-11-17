@@ -885,7 +885,7 @@ func testBeforeShutdownPriority(t *testing.T) {
 	}
 }
 
-// testShutdownHookReverseOrder 验证Shutdown钩子的正序执行
+// testShutdownHookReverseOrder 验证Shutdown钩子的逆序执行
 func testShutdownHookReverseOrder(t *testing.T) {
 	container := New()
 	executionOrder := []string{}

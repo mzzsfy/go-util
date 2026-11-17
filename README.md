@@ -18,7 +18,8 @@ go get github.com/mzzsfy/go-util
 ### 简单说明
 
 - [seq](./seq)  
-  一个高性能的golang的泛型链式调用库,实现了类似java stream逻辑,不依赖chan和goroutine,支持任意类型的链式调用,支持并行化(
+  一个高性能的golang的泛型链式调用库,实现了类似java stream逻辑,串行链路不依赖chan和goroutine,
+  并行能力基于固定worker池(goroutine+channel)实现,支持任意类型的链式调用,支持并行化(
   可限制并行数量),排序等
 
     ```go
@@ -28,15 +29,15 @@ go get github.com/mzzsfy/go-util
     }).Drop(5).Sort(LessT[int]).ForEach(func(i int) {
         fmt.Println(i)
     })
-    // a 1 b 2 c 3
-    // "a,b,c"
+    // a1b2c3(内置 print 不插分隔符;map 迭代顺序不固定)
+    // "a,b,c"(顺序不固定)
     BiFromMap(map[string]int{"a": 1, "b": 2, "c": 3}).OnEach(func(k string, v int) {
         print(k, v)
     }).JoinStringBy(func(k string, v int) string {
         return k
     }, ",")
     ```
-  更多例子见: [seq_test.go](./seq/seq__test.go) [biSeq_test.go](./seq/bi_seq_test.go)(旧轨 go1.18~1.26) [seq_method_go127_test.go](./seq/seq_method_go127_test.go)(go1.27+)
+  更多例子见: [seq__test.go](./seq/seq__test.go) [bi_seq_test.go](./seq/bi_seq_test.go)(旧轨 go1.18~1.26) [seq_method_go127_test.go](./seq/seq_method_go127_test.go)(go1.27+)
   **如果使用seq处理大interface{},可能会导致编译速度下降,编译缓存磁盘占用大**
 
   > 泛型方法双轨: go1.27+ 提供强类型泛型方法(如 `Map[E]`/`GroupBy[K]`/`Cast[N]`);go1.18~1.26 的同名方法为
@@ -60,8 +61,9 @@ go get github.com/mzzsfy/go-util
     host := config.GetByPath(cfg, "database.host")           // "localhost"
     port := config.ValueFromPath(cfg, "database.port").Int()  // 3306
     timeout := config.ValueFromPath(cfg, "database.timeout").IntD(5) // 5 (默认值)
+    fmt.Println(host, port, timeout)
     ```
-  更多例子见: [config/README.md](./config/README.md) [config_test.go](./config/item_test.go)
+  更多例子见: [config/README.md](./config/README.md) [config_test.go](./config/config_test.go)
 
 - [unsafe](./unsafe)  
   获取goroutine id,hash等不安全操作
@@ -82,9 +84,10 @@ go get github.com/mzzsfy/go-util
     adder.AddSimple(10) // 原子递增
     adder.AddSimple(20)
     val := adder.Sum() // 30
+    println(val)
 
-    // 滑动窗口限流: 1秒内最多允许100次请求,分为10个窗口
-    sw, err := concurrent.NewSlidingWindow(1000, 100, 10)
+    // 滑动窗口限流: 1秒滑动窗口内最多允许100次请求
+    sw, err := concurrent.NewSlidingWindow(1000, 100)
     if err != nil {
         panic(err) // 参数非法返回哨兵错误
     }
@@ -125,6 +128,7 @@ go get github.com/mzzsfy/go-util
     m := storage.NewMap[string, int]() // 等价于 storage.NewMap(storage.MapTypeSwiss[string, int](16))
     m.Put("hello", 1)
     v, ok := m.Get("hello")  // 1, true
+    println(v, ok)
     m.Iter(func(k string, v int) bool {
         println(k, v)
         return false
@@ -133,6 +137,7 @@ go get github.com/mzzsfy/go-util
 
     // 并发安全Map
     cm := storage.NewMap(storage.MapTypeSwissConcurrent[string, int]())
+    cm.Put("key", 1)
 
     // Goroutine Local Storage:类似Java ThreadLocal
     storage.KnowHowToUseGls() // 使用前必须声明已知用法
@@ -197,6 +202,9 @@ go get github.com/mzzsfy/go-util
     ```go
     // 单行脚本执行
     result, err := script.Eval("10 + 20")
+    if err != nil {
+        panic(err)
+    }
     fmt.Println(result.Int()) // 30
 
     // 带变量绑定执行

@@ -33,7 +33,7 @@ func DeBase64(str string) string {
 }
 
 // DeBase64Byte 将Base64编码的字符串解码为字节切片
-// 解码失败时返回nil
+// 忽略解码错误, 返回可解码的部分字节(可能为空, 不是 nil)
 func DeBase64Byte(str string) []byte {
 	bytes, _ := base64.StdEncoding.DecodeString(str)
 	return bytes
