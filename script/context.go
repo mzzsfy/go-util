@@ -192,7 +192,7 @@ func NewScript(compiled *CompiledScript) *Script {
 }
 
 // Clone 克隆脚本
-// 浅拷贝: 副本与原脚本共享同一编译产物, 编译产物不可变因此共享安全
+// 浅拷贝: 副本与原脚本共享同一编译产物, 该产物约定只读, 可跨 goroutine 共享
 func (s *Script) Clone() *Script {
 	return &Script{compiled: s.compiled}
 }

@@ -50,17 +50,17 @@ TruncateAndAppendSuffix(str string, toLen int, suffix string, leftOrRight ...boo
 // Padding 填充空格到指定 rune 长度
 Padding(str string, toLen int, leftOrRight ...bool) string
 
-// Sub 截取字符串
+// Sub 截取字符串,flag 不存在时返回原串
 // before: 保留 flag 之前还是之后
 // last:   从前查找还是从后查找
 Sub(src, flag string, before, last bool) string
-SubBefore(src, flag string) string  // 等价 Sub(src, flag, true, false)
-SubAfter(src, flag string)   // 等价 Sub(src, flag, false, true)
+SubBefore(src, flag string) string  // 第一次出现之前;等价 Sub(src, flag, true, false)
+SubAfter(src, flag string) string   // 最后一次出现之后;等价 Sub(src, flag, false, true)
 
-// SubByte 通过 byte 截取字符串
+// SubByte 通过 byte 截取字符串,语义同 Sub
 SubByte(src string, flag byte, before, last bool) string
-SubByteBefore(src string, flag byte) string
-SubByteAfter(src string, flag byte) string
+SubByteBefore(src string, flag byte) string // 第一次出现之前
+SubByteAfter(src string, flag byte) string  // 最后一次出现之后
 
 // 判断
 StringAllIsNumber(str string) bool  // 全为数字字符
@@ -194,13 +194,36 @@ NewWaitGroup(init int) *sync.WaitGroup // 带初始计数的 WaitGroup
 type StringError string
 NewError(s string) error
 
-// Symbol 唯一标识符
-NewSymbols(name string) NamedSymbol      // 带名称的全局唯一 Symbol
-NewAnonymousSymbols() Symbol            // 匿名 Symbol
-
 // StringBuilder 链式 strings.Builder
 type StringBuilder struct{ strings.Builder }
 ```
+
+## Symbol
+
+全局唯一标识符,基于自增 id 实现,适合用作 map 的 key 或事件类型标记。
+
+构造函数:`NewSymbols(name string) NamedSymbol`(带名称,`String()` 返回名称)、`NewAnonymousSymbols() Symbol`(匿名)。
+`Symbol` 对外提供 `Equal(Symbol) bool`,`NamedSymbol` 额外提供 `String() string`。
+
+```go
+s1 := NewSymbols("event-a")
+s2 := NewSymbols("event-a")
+fmt.Println(s1 == s2) // false,每次调用都返回新实例
+s1.String()           // "event-a"
+s1.Equal(s2)          // false
+
+// 匿名 Symbol
+a1 := NewAnonymousSymbols()
+a2 := NewAnonymousSymbols()
+a1.Equal(a2) // false
+
+// 用作 map key
+counter := map[Symbol]int{}
+counter[s1]++
+counter[a1]++
+```
+
+`NewSymbols` 返回的具体类型实现了 `MarshalText`,`json.Marshal` 按动态类型调用并序列化为名称;`NamedSymbol` 接口本身不声明该方法,通过接口变量直接调用 `MarshalText` 无法编译。
 
 ## 异步写入
 

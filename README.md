@@ -36,8 +36,12 @@ go get github.com/mzzsfy/go-util
         return k
     }, ",")
     ```
-  更多例子见: [seq_test.go](./seq/seq__test.go) [biSeq_test.go](./seq/bi_seq_test.go)
+  更多例子见: [seq_test.go](./seq/seq__test.go) [biSeq_test.go](./seq/bi_seq_test.go)(旧轨 go1.18~1.26) [seq_method_go127_test.go](./seq/seq_method_go127_test.go)(go1.27+)
   **如果使用seq处理大interface{},可能会导致编译速度下降,编译缓存磁盘占用大**
+
+  > 泛型方法双轨: go1.27+ 提供强类型泛型方法(如 `Map[E]`/`GroupBy[K]`/`Cast[N]`);go1.18~1.26 的同名方法为
+  > any 形态(`Map`/`GroupBy` 签名不同,`Cast` 需改用 `CastAny`,另有 `MapFlat`/`Reduce`/`GroupByFirst` 等差异,非穷举)。
+  > 两轨源码不兼容,跨版本使用须按轨改写,详见 [seq/README.md](./seq/README.md)
 
   > 参考来源: https://mp.weixin.qq.com/s/v-HMKBWxtz1iakxFL09PDw
 
@@ -61,6 +65,13 @@ go get github.com/mzzsfy/go-util
 
 - [unsafe](./unsafe)  
   获取goroutine id,hash等不安全操作
+
+    ```go
+    // 获取当前 goroutine 的 id
+    id := unsafe.GoID()
+    println(id)
+    ```
+  更多例子见: [unsafe/README.md](./unsafe/README.md)
 
 - [concurrent](./concurrent)  
   一些并发相关的工具,包含可重入锁,MPMC队列,滑动窗口限流,原子计数器等
@@ -86,23 +97,25 @@ go get github.com/mzzsfy/go-util
   更多例子见: [README.md](./concurrent/README.md) [int64_adder_test.go](./concurrent/int64_adder_test.go) [sliding_window_test.go](./concurrent/sliding_window_test.go)
 
 - [pool](./pool)  
-  一些池化工具:携程池,对象池
+  一些池化工具:协程池,对象池
 
     ```go
     // 对象池:复用对象减少GC压力
-    pool := pool.NewObjectPool[bytes.Buffer](
+    op := pool.NewObjectPool[bytes.Buffer](
         func() *bytes.Buffer { return &bytes.Buffer{} },
         func(b *bytes.Buffer) { b.Reset() }, // 归还时重置状态
     )
-    buf := pool.Get()   // 获取对象
+    buf := op.Get()     // 获取对象
     buf.WriteString("hello")
-    pool.Put(buf)       // 归还对象
+    op.Put(buf)         // 归还对象
 
     // 字符串池:用数字ID代替长字符串,适合做Map的Key
     sp := pool.NewStringPool()
     id := sp.Use("long-long-key-string")  // 分配ID,引用计数+1
+    println(id)
     sp.UnUse("long-long-key-string")      // 释放引用,归零时自动清理
     ```
+  更多例子见: [pool/README.md](./pool/README.md)
 
 - [storage](./storage)  
   map等存储工具,swissMap,gls等
@@ -131,16 +144,52 @@ go get github.com/mzzsfy/go-util
         traceId.Delete(true)              // 使用完毕必须清理,参数true表示自动清理无其他key的goroutine
     }()
     ```
-  更多例子见: [map_test.go](./storage/map_test.go) [gls_test.go](./storage/gls_test.go)
+  更多例子见: [storage/README.md](./storage/README.md) [map_test.go](./storage/map_test.go) [gls_test.go](./storage/gls_test.go)
 
 - [logger](./logger)
-  日志工具
+  日志工具,支持可配置日志级别与格式,面向性能设计
+
+    ```go
+    log := logger.New("app", logger.WithLevel(logger.DebugLevel)) // 默认级别 Info, 此处放开 Debug
+    log.I("hello {}", "world")                                    // {} 占位
+    log.D("debug {}", 1)                                          // 级别放开后才会输出
+    log.Info().Str("k", "v").Msgf("count=%d", 1)                  // 事件式链式调用, fmt 格式
+    ```
+  更多例子见: [logger/README.md](./logger/README.md)
 
 - [helper](./helper)
   一些工具,如: 字符串处理,时间日期处理,cron任务,延时任务 等
 
+    ```go
+    // 解析 cron 表达式,非法时返回错误
+    scheduler, err := helper.ParseCron("0 * * * *")
+    if err != nil {
+        panic(err)
+    }
+    next := scheduler.NextTime(time.Now()) // 计算下一次触发时间
+    fmt.Println(next)
+    ```
+  更多例子见: [helper/README.md](./helper/README.md)
+
 - [di](./di)
   高性能依赖注入容器,支持完整的生命周期管理、配置注入和钩子系统
+
+    ```go
+    type Service struct{} // 业务类型
+
+    c := di.New()
+    // 提供构造函数,容器按参数类型自动解析依赖并缓存实例
+    if err := di.Provide(c, func(c di.Container) (*Service, error) { return &Service{}, nil }); err != nil {
+        panic(err)
+    }
+    // 获取实例(依赖未提供、循环依赖等返回错误)
+    svc, err := di.Get[*Service](c)
+    if err != nil {
+        panic(err)
+    }
+    fmt.Println(svc)
+    ```
+  更多例子见: [di/README.md](./di/README.md)
 
 - [script](./script)
   嵌入式脚本语言引擎,支持动态脚本执行、变量绑定、外部函数调用和完整控制流

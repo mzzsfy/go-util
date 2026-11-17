@@ -1275,6 +1275,17 @@ result, _ := parser.Compile(`
 | 类和接口                   | 不支持   | -                      |
 | 并发 (goroutine/channel) | 不支持   | -                      |
 | 最大递归深度                 | 默认256 | 使用 WithMaxCallDepth 配置 |
+| `Script.Encode`/`Decode` | 未实现 | 保留脚本源码文本，需要时重新 `Compile` |
+
+</details>
+
+<details>
+<summary>语义说明</summary>
+
+- **`Script` 只持有编译产物**：由 `NewScript(*CompiledScript)` 创建，自身没有执行状态；`Clone` 为浅拷贝，副本与原脚本共享同一编译产物。编译产物约定只读：不要修改 `GetCompiled()` 返回值的导出字段，仅在不改写的前提下跨 goroutine 共享。
+- **执行状态按次隔离**：`Context` 承载外部绑定、输出与统计，绑定与统计访问线程安全；注入的 output/日志函数需自身并发安全。脚本变量在每次 `Engine.Run` 内独立。需要独立的绑定集合时各自 `NewContext()`。
+- **数组/映射为引用共享**：赋值（`b := a`）与函数传参都不会复制，修改元素会影响原数据；切片操作（如 `arr[1:4]`）与原数组共享底层数组。需要独立数据时用 `push` 逐个元素重建，而不是直接赋值。
+- **`Script.Encode`/`Decode` 未实现**：调用始终返回错误（"script: 该操作未实现"），不会静默成功；该错误值未导出，只能按文本识别，不要用 `errors.Is` 匹配自定义哨兵。
 
 </details>
 

@@ -338,7 +338,7 @@ di.ProvideNamed(c, "default", provider, di.WithLoadMode(di.LoadModeDefault))
 // 立即加载 - 注册时立即创建实例
 di.ProvideNamed(c, "eager", provider, di.WithLoadMode(di.LoadModeImmediate))
 
-// 懒加载 - 延迟到第一次获取时创建，并检测循环依赖
+// 懒加载 - 延迟到第一次获取时创建,并预创建其结构依赖(循环依赖检测对所有模式生效)
 di.ProvideNamed(c, "lazy", provider, di.WithLoadMode(di.LoadModeLazy))
 
 // 瞬态模式 - 每次获取都创建新实例，类似工厂
@@ -548,7 +548,7 @@ func(context.Context) error
 const (
     LoadModeDefault   LoadMode = iota // 默认: 第一次 Get 时创建并缓存
     LoadModeImmediate                 // 立即加载: 注册时创建
-    LoadModeLazy                      // 懒加载: 延迟创建并检测循环依赖
+    LoadModeLazy                      // 懒加载: 延迟创建并预创建结构依赖
     LoadModeTransient                 // 瞬态: 每次获取都创建新实例
 )
 ```
@@ -567,6 +567,36 @@ type ConfigSource interface {
     Get(key string) config.Value
 }
 ```
+
+## 错误处理
+
+di 只有一个导出哨兵错误 `ErrorConditionFail`(`WithCondition` 条件不满足)。条件在实例创建时求值:默认加载模式下 `Provide` 仍返回 nil,首次 `Get` 才拿到错误,且被钩子错误以 `%w` 包装,因此只能用 `errors.Is` 判定,不能比较错误文本。
+
+```go
+_, err := di.Get[*Service](c)
+if errors.Is(err, di.ErrorConditionFail) {
+    // 条件注册的服务条件不满足
+}
+```
+
+其余错误没有导出变量,按消息文本识别:多数由 `fmt.Errorf` 动态构造;`Start`/`Shutdown` 的终态早退分支返回 `helper.StringError` 字面量(`container is already started`、`container is shut down and cannot be restarted`、`container is already shutting down`),可用 `errors.Is` 匹配,钩子失败不属此类。
+
+| 场景 | 消息特征 |
+| --- | --- |
+| 提供者未找到 | `no provider found for type %s with name '%s'`(Get/GetNamed 目标或字段注入的依赖未注册;懒加载分析依赖时外层为 `failed to analyze dependency for field %s in struct %v`) |
+| 依赖创建失败(懒加载) | `failed to create dependency[%d] %s: ...`,懒加载模式预创建依赖时 |
+| 重复注册 | `provider already registered: type %s with name '%s' exists` |
+| 循环依赖 | `circular dependency detected for type %s with name '%s'`,创建链在同一 goroutine 内递归即触发,与加载模式无关 |
+| 注入类型不匹配 | `failed to inject field %s: cannot convert value from type %s to field type %s`,由 `di.config` 配置值的类型与字段不符触发;外层还有 `failed to inject dependencies to instance of type %T`(值返回结构体为 `...unaddressable struct of type %v`) |
+| 提供者返回 nil | `provider returned nil instance for type %s with name '%s'`,仅 provider 返回接口或无类型 nil 时触发;返回带类型的 nil 指针会被当作实例缓存 |
+| 创建钩子失败 | `%s hook[%d] failed for type %s with name '%s': %w`,首段 `%s` 为场景串:`未创建`(provider 级 beforeCreate,`WithCondition` 不满足也走这里)、`容器 beforeCreate 失败`、`afterCreate`、`容器 afterCreate` |
+| 启动钩子失败 | `startup hook %d failed: %w` / `after startup hook %d failed: %w` |
+| 关闭钩子失败 | 单个容器级钩子的错误原样返回,多个聚合为 `multiple errors: ...`;单条错误可直接 `errors.Is`,聚合错误仅 go1.20+ 能逐个匹配(go1.18/1.19 需自行遍历 `Unwrap() []error` 或按文本识别) |
+| 实例销毁失败 | `DestroyCallback failed for %s with name '%s': %w` / `shutdown failed for %s with name '%s': %w`,实例的 DestroyCallback/ServiceLifecycle 失败时 |
+| 注册校验 | `cannot register type %s without name` / `provider must be a function` / `provider must have signature func(Container) (T, error)` / `provider must return (T, error)` / `provider must be a struct`(懒加载分析非结构体返回值时) |
+| 多错误聚合 | `multiple errors: `,Shutdown 聚合多个错误,内层才是具体错误 |
+
+消息模板来自 `container_helpers.go`、`container_creation.go`、`container_injection.go`、`container_type_conversion.go`、`container_provide.go`、`container_lifecycle.go`。
 
 ## 使用场景
 

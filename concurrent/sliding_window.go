@@ -46,7 +46,8 @@ type SlidingWindow struct {
 // allowNumber: 允许的最大请求数
 // windowNumber: 窗口数量
 // 参数非法时返回 ErrWindowNumber/ErrWindowTime/ErrAllowNumber
-// Now 注入假时钟时, 时钟值须不早于构造时刻, 否则窗口永不滑动导致首片填满后永久拒绝
+// Now 注入假时钟时须以真实毫秒为基准(内部分片时间戳按 time.Now 初始化), 建议取构造时刻或之后;
+// 若 now 与构造时刻之差长期小于 everyWindowTime, 首片填满后会持续拒绝, 直到差值达到该阈值
 func NewSlidingWindow(windowTime int64, allowNumber, windowNumber int32) (*SlidingWindow, error) {
 	if windowNumber <= 2 {
 		return nil, ErrWindowNumber

@@ -290,6 +290,7 @@ WithCaller         362 ns/op    0 B/op    0 allocs/op
 | Formatter | SetFormatter / DefaultFormatter |
 | Caller | SetCaller / SetCallerFunc / SetCallerSkip |
 | 时间 | SetYearMode |
-| Hook | AddHook / RemoveHook / CleanHooks |
-| 命名管理 | Get / SetLevelByName / SetLevelRecursive / RemoveLogger / AllLogger / RegistryCount |
+| Hook | AddHook / AddPostHook / RemoveHook / CleanHooks |
+| 命名管理 | Get / Logger / SetLevelByName / SetLevelRecursive / RemoveLogger / AllLogger / RegistryCount |
 | 默认 Logger | Default |
+| 旧版兼容 | SetDefaultLogLevel(返回 bool) / DefaultLogLevel / SetDefaultWriterTarget / DefaultWriterTarget / SetCallerInfo / SetPrintYearInfo / SetLevel |

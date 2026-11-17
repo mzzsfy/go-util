@@ -14,7 +14,8 @@
 // 需要独立数据时避免通过切片修改元素, 或重建新数组。
 //
 // Script.Clone: 浅拷贝, 副本与原脚本共享同一编译产物。
-// 编译产物不可变, 共享安全; Context 需各自创建。
+// 编译产物约定只读, 可跨 goroutine 共享; Context 的绑定与统计访问线程安全, 注入的 output/日志函数需自身并发安全。
+// 需要独立绑定集合时新建 Context。
 //
 // Script.Encode/Decode: 未实现, 调用返回错误。
 package script

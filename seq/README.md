@@ -2,8 +2,10 @@
 
 一个高性能的golang的泛型链式调用库,实现了类似java stream逻辑,不依赖chan和goroutine,支持任意类型的链式调用,支持并行化(可限制并行数量),排序等
 
-> **版本要求**: Go 1.27+ 使用下述泛型方法 API (Map/GroupBy/Cast 等为强类型方法);Go 1.18~1.26 构建时自动回退到旧版 any
-> 形态函数 (`*_pre127.go`),功能对应但类型信息丢失,如 `CastAny`/`MapString` 等。
+> **版本要求**: Go 1.27+ 使用下述泛型方法 API (`Map[E]`/`GroupBy[K]`/`Cast[N]` 为强类型方法);Go 1.18~1.26 构建
+> `*_pre127.go` 的 any 形态 API。两轨**源码不兼容**:同名 `Map`/`GroupBy` 签名不同,`Cast` 需改用 `CastAny`,
+> `CastAny`/`MapString`/包级 `Join` 仅旧轨存在,`MapFlat`/`Reduce`/`GroupByFirst` 等另有差异(非穷举,见下文签名表(新轨)与 `*_pre127.go`),
+> 跨版本使用须按轨改写。
 
 ```go
 // print 0,1,2,3,4,5,6,7,8,9
@@ -65,7 +67,49 @@ println(k, v)
 FromBiK(b).JoinString(",")
 ```
 
-更多例子见: [seq_test.go](./seq__test.go) [bi_seq_test.go](./bi_seq_test.go)
+树形结构转Seq: 从根节点出发前序遍历(含根节点),T/Any 变体产出节点,TV/AnyTV 变体产出 getValue 的结果
+
+```go
+type Node struct {
+    Name     string
+    Children []*Node
+}
+root := &Node{Name: "root", Children: []*Node{{Name: "a"}}}
+
+// FromTreeT: 节点类型即元素类型
+tree := FromTreeT(root, func(t *Node) Seq[*Node] { return FromSlice(t.Children) })
+tree.ForEach(func(t *Node) { println(t.Name) }) // root a
+
+// FromTreeTV: 节点类型与元素值类型分离,通过 getValue 提取值
+seq2 := FromTreeTV(root, func(t *Node) Seq[*Node] { return FromSlice(t.Children) },
+    func(t *Node) string { return t.Name })
+seq2.ToSlice() // [root a]
+
+// FromTreeAny / FromTreeAnyTV: 节点为 any 形态,节点表示由 getChild/getValue 约定,示例用 map[string]any
+rootAny := map[string]any{"name": "root", "children": []any{
+    map[string]any{"name": "a", "children": []any{}},
+}}
+getChild := func(t any) Seq[any] { return FromSlice(t.(map[string]any)["children"].([]any)) }
+anySeq := FromTreeAny(rootAny, getChild)
+anySeq.ForEach(func(t any) { println(t.(map[string]any)["name"].(string)) }) // root a
+anySeqV := FromTreeAnyTV(rootAny, getChild,
+    func(t any) string { return t.(map[string]any)["name"].(string) })
+anySeqV.ToSlice() // [root a]
+```
+
+由键值对元组构造BiSeq:
+
+```go
+// BiFromTuple: 用有限个 BiTuple 构造 BiSeq
+s := BiFromTuple(BiTuple[string, int]{K: "a", V: 1}, BiTuple[string, int]{K: "b", V: 2})
+s.ForEach(func(k string, v int) { println(k, v) }) // a 1 b 2
+
+// BiFromTupleRepeat: 重复生成,limit 为整组元组的重复轮数,limit<=0 表示无限重复(须配合 Take 等限制使用)
+r := BiFromTupleRepeat(3, BiTuple[string, int]{K: "k", V: 1}) // k 1 k 1 k 1
+r.ForEach(func(k string, v int) { println(k, v) })
+```
+
+更多例子见: [seq_test.go](./seq__test.go) [bi_seq_test.go](./bi_seq_test.go)(旧轨 go1.18~1.26) [seq_method_go127_test.go](./seq_method_go127_test.go)(go1.27+)
 
 优势:
 
