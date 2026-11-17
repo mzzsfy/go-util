@@ -79,10 +79,8 @@ func (q *blockQueue[T]) Enqueue(v T) {
 		return
 	}
 	q.mu.Lock()
-	if w := atomic.LoadInt32(&q.waiter); w > 1 {
+	if atomic.LoadInt32(&q.waiter) > 0 {
 		q.cond.Broadcast()
-	} else if w > 0 {
-		q.cond.Signal()
 	}
 	q.mu.Unlock()
 }
@@ -112,6 +110,11 @@ func (q *blockQueue[T]) dequeueBlockForever() (T, bool) {
 				atomic.AddInt32(&q.waiter, -1)
 				q.mu.Unlock()
 				return v, true
+			}
+			// TryDequeue 竞争失败时元素可能仍在队列, 直接等待会丢失唤醒
+			if q.Queue.Size() > 0 {
+				runtime.Gosched()
+				continue
 			}
 			q.cond.Wait()
 		}
@@ -154,6 +157,11 @@ func (q *blockQueue[T]) dequeueWithTimeoutTry(td TryDequeuer[T], timeout time.Du
 		if !now.Before(deadline) {
 			var r T
 			return r, false
+		}
+		// TryDequeue 竞争失败时元素可能仍在队列, 直接等待会丢失唤醒
+		if q.Queue.Size() > 0 {
+			runtime.Gosched()
+			continue
 		}
 		timer.Reset(deadline.Sub(now))
 		q.cond.Wait()
