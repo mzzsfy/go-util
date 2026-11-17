@@ -485,8 +485,8 @@ a + s + m`)
 
 // ========== Script Encode/Decode ==========
 
-// Test_ContextScript_Encode_ReturnsNoError Encode 未实现返回明确错误
-func Test_ContextScript_Encode_ReturnsNoError(t *testing.T) {
+// Test_ContextScript_Encode_ReturnsError Encode 未实现返回明确错误
+func Test_ContextScript_Encode_ReturnsError(t *testing.T) {
 	t.Run("Encode简单表达式报错", func(t *testing.T) {
 		cs := compileScript(t, "1 + 2")
 		s := NewScript(cs)
